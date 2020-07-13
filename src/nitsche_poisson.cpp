@@ -70,7 +70,6 @@ public:
 template<int dim>
 class BoundaryValues : public Function<dim> {
 public:
-
     virtual double value(const Point<dim> &p, const unsigned int component = 0) const override;
 };
 
@@ -97,7 +96,7 @@ template<int dim>
 void PoissonNitsche<dim>::make_grid() {
     GridGenerator::cylinder(triangulation, 5, 20);
     GridTools::remove_anisotropy(triangulation, 1.618, 5);
-    triangulation.refine_global(dim == 2);
+    triangulation.refine_global(dim == 2 ? 2 : 0);
 
     // Write svg of grid to file.
     if (dim == 2) {
@@ -126,36 +125,88 @@ void PoissonNitsche<dim>::setup_system() {
 template<int dim>
 void PoissonNitsche<dim>::assemble_system() {
     QGauss<dim> quadrature_formula(fe.degree + 1);
+    QGauss<dim - 1> face_quadrature_formula(fe.degree + 1);
 
     RightHandSide<dim> right_hand_side;
+    BoundaryValues<dim> boundary_values;
+
     FEValues<dim> fe_values(fe,
                             quadrature_formula,
                             update_values | update_gradients |
                             update_quadrature_points | update_JxW_values);
+    FEFaceValues<dim> fe_face_values(fe,
+                                     face_quadrature_formula,
+                                     update_values | update_gradients |
+                                     update_quadrature_points | update_normal_vectors |
+                                     update_JxW_values);
+
 
     const unsigned int dofs_per_cell = fe.dofs_per_cell;
     FullMatrix<double> cell_matrix(dofs_per_cell, dofs_per_cell);
     Vector<double> cell_rhs(dofs_per_cell);
+
+    // Let the constant be proportional to the inverse of the length of each cell TODO funker dette?
+    const float mu = pow(triangulation.n_active_cells(), -1 / dim);
 
     for (const auto &cell : dof_handler.active_cell_iterators()) {
         fe_values.reinit(cell);
         cell_matrix = 0;
         cell_rhs = 0;
 
+        // Integrate the contribution from the interior of each cell
         for (const unsigned int q_index : fe_values.quadrature_point_indices()) {
             for (const unsigned int i : fe_values.dof_indices()) {
                 for (const unsigned int j : fe_values.dof_indices()) {
                     cell_matrix(i, j) +=
-                            (fe_values.shape_value(i, q_index) *  // phi_i(x_q)
-                             fe_values.shape_value(j, q_index) *  // phi_j(x_q)
-                             fe_values.JxW(q_index));             // dx
+                            fe_values.shape_grad(i, q_index) *  // grad phi_i(x_q)
+                            fe_values.shape_grad(j, q_index) *  // grad phi_j(x_q)
+                            fe_values.JxW(q_index);             // dx
                 }
 
-
+                // RHS
                 const auto x_q = fe_values.quadrature_point(q_index);
                 cell_rhs(i) += (fe_values.shape_value(i, q_index) *  // phi_i(x_q)
                                 right_hand_side.value(x_q) *         // f(x_q)
                                 fe_values.JxW(q_index));             // dx
+            }
+        }
+
+        for (const auto &face : cell->face_iterators()) {
+            // TODO hva skal boundary id være?
+            if (face->at_boundary() && face->boundary_id() == 1) {
+                fe_face_values.reinit(cell, face);
+
+                for (unsigned int q_index : fe_values.quadrature_point_indices()) {
+                    for (const unsigned int i : fe_values.dof_indices()) {
+                        const double phi_i_val = fe_values.shape_value(i, q_index);
+
+                        for (const unsigned int j : fe_values.dof_indices()) {
+                            const double phi_j_val = fe_values.shape_value(j, q_index);
+
+                            cell_matrix(i, j) +=
+                                    ((mu * phi_i_val * phi_j_val              // mu * phi_i(x_q) * phi_j(x_q)
+                                      -
+                                      fe_face_values.normal_vector(q_index) * // n
+                                      fe_values.shape_grad(i, q_index) *      // grad phi_i(x_q)
+                                      phi_j_val                               // phi_j(x_q)
+                                      -
+                                      phi_i_val *                              // phi_i(x_q)
+                                      fe_face_values.normal_vector(q_index) *  // n
+                                      fe_values.shape_grad(j, q_index)         // grad phi_j(x_q)
+                                     ) * fe_values.JxW(q_index));
+                        }
+
+                        const auto x_q = fe_values.quadrature_point(q_index);
+                        cell_rhs(i) +=
+                                ((mu * boundary_values.value(x_q) *     // mu * g(x_q)
+                                  phi_i_val                               // phi_i(x_q)
+                                  -
+                                  boundary_values.value(x_q) *            // g(x_q)
+                                  fe_face_values.normal_vector(q_index) * // n
+                                  fe_face_values.shape_grad(i, q_index)   // grad phi_i(x_q)
+                                 ) * fe_face_values.JxW(q_index));       // dx
+                    }
+                }
             }
         }
 
@@ -168,7 +219,7 @@ void PoissonNitsche<dim>::assemble_system() {
                                   local_dof_indices[j],
                                   cell_matrix(i, j));
             }
-            system_rhs(local_dof_indices[i]) + cell_rhs(i);
+            system_rhs(local_dof_indices[i]) += cell_rhs(i);
         }
     }
 }
