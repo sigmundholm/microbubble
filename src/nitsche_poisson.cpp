@@ -95,9 +95,11 @@ PoissonNitsche<dim>::PoissonNitsche(const unsigned int degree)
 
 template<int dim>
 void PoissonNitsche<dim>::make_grid() {
-    GridGenerator::cylinder(triangulation, 5, 20);
+    GridGenerator::cylinder(triangulation, 5, 10);
     GridTools::remove_anisotropy(triangulation, 1.618, 5);
     triangulation.refine_global(dim == 2 ? 2 : 0);
+
+    triangulation.refine_global(dim == 2 ? 3 : 1);
 
     // Write svg of grid to file.
     if (dim == 2) {
@@ -177,7 +179,7 @@ void PoissonNitsche<dim>::assemble_system() {
 
         for (const auto &face : cell->face_iterators()) {
             // TODO hva skal boundary id være?
-            if (face->at_boundary() && face->boundary_id() == 1) {
+            if (face->at_boundary()) {
                 fe_face_values.reinit(cell, face);
 
                 for (unsigned int q_index : fe_face_values.quadrature_point_indices()) {
@@ -234,7 +236,7 @@ void PoissonNitsche<dim>::solve() {
     SolverControl solver_control(1000, 1e-12);
     SolverCG<Vector<double>> solver(solver_control);
     solver.solve(system_matrix, solution, system_rhs, PreconditionIdentity());
-    std::cout << "   " << solver_control.last_step()
+    std::cout << "  " << solver_control.last_step()
               << " CG iterations needed to obtain convergence." << std::endl;
 }
 
