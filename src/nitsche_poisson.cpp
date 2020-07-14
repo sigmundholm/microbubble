@@ -8,6 +8,7 @@
 #include <deal.II/dofs/dof_accessor.h>
 #include <deal.II/dofs/dof_handler.h>
 #include <deal.II/dofs/dof_tools.h>
+#include <deal.II/dofs/dof_renumbering.h>
 
 #include <deal.II/fe/fe_q.h>
 #include <deal.II/fe/fe_values.h>
@@ -114,7 +115,11 @@ template<int dim>
 void PoissonNitsche<dim>::setup_system() {
     dof_handler.distribute_dofs(fe);
     std::cout << "  Number of degrees of freedom: " << dof_handler.n_dofs() << std::endl;
-    DynamicSparsityPattern dsp(dof_handler.n_dofs());
+
+    DoFRenumbering::Cuthill_McKee(dof_handler);
+    DynamicSparsityPattern dsp(dof_handler.n_dofs(), dof_handler.n_dofs());
+    DoFTools::make_sparsity_pattern(dof_handler, dsp);
+
     sparsity_pattern.copy_from(dsp);
     system_matrix.reinit(sparsity_pattern);
 
