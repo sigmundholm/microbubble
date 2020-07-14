@@ -151,9 +151,6 @@ void PoissonNitsche<dim>::assemble_system() {
     FullMatrix<double> cell_matrix(dofs_per_cell, dofs_per_cell);
     Vector<double> cell_rhs(dofs_per_cell);
 
-    // Let the constant be proportional to the inverse of the length of each cell TODO funker dette?
-    const float mu = pow(triangulation.n_active_cells(), -1 / dim);
-
     for (const auto &cell : dof_handler.active_cell_iterators()) {
         fe_values.reinit(cell);
         cell_matrix = 0;
@@ -177,10 +174,16 @@ void PoissonNitsche<dim>::assemble_system() {
             }
         }
 
+        double h;
+        double mu;
+
         for (const auto &face : cell->face_iterators()) {
             // TODO hva skal boundary id være?
             if (face->at_boundary()) {
                 fe_face_values.reinit(cell, face);
+
+                h = std::pow(face->measure(), 1.0 / (dim - 1));
+                mu = 5 / h;  // Penalty parameter
 
                 for (unsigned int q_index : fe_face_values.quadrature_point_indices()) {
                     const auto x_q = fe_face_values.quadrature_point(q_index);
