@@ -140,7 +140,6 @@ void PoissonNitsche<dim>::assemble_system() {
                                      update_quadrature_points | update_normal_vectors |
                                      update_JxW_values);
 
-
     const unsigned int dofs_per_cell = fe.dofs_per_cell;
     FullMatrix<double> cell_matrix(dofs_per_cell, dofs_per_cell);
     Vector<double> cell_rhs(dofs_per_cell);
@@ -176,35 +175,36 @@ void PoissonNitsche<dim>::assemble_system() {
             if (face->at_boundary() && face->boundary_id() == 1) {
                 fe_face_values.reinit(cell, face);
 
-                for (unsigned int q_index : fe_values.quadrature_point_indices()) {
-                    for (const unsigned int i : fe_values.dof_indices()) {
-                        const double phi_i_val = fe_values.shape_value(i, q_index);
+                for (unsigned int q_index : fe_face_values.quadrature_point_indices()) {
+                    const auto x_q = fe_face_values.quadrature_point(q_index);
 
-                        for (const unsigned int j : fe_values.dof_indices()) {
-                            const double phi_j_val = fe_values.shape_value(j, q_index);
+                    for (const unsigned int i : fe_face_values.dof_indices()) {
+                        const double phi_i_val = fe_face_values.shape_value(i, q_index);
+
+                        for (const unsigned int j : fe_face_values.dof_indices()) {
+                            const double phi_j_val = fe_face_values.shape_value(j, q_index);
 
                             cell_matrix(i, j) +=
-                                    ((mu * phi_i_val * phi_j_val              // mu * phi_i(x_q) * phi_j(x_q)
+                                    ((mu * phi_i_val * phi_j_val               // mu * phi_i(x_q) * phi_j(x_q)
                                       -
-                                      fe_face_values.normal_vector(q_index) * // n
-                                      fe_values.shape_grad(i, q_index) *      // grad phi_i(x_q)
-                                      phi_j_val                               // phi_j(x_q)
+                                      fe_face_values.normal_vector(q_index) *  // n
+                                      fe_face_values.shape_grad(i, q_index) *  // grad phi_i(x_q)
+                                      phi_j_val                                // phi_j(x_q)
                                       -
                                       phi_i_val *                              // phi_i(x_q)
                                       fe_face_values.normal_vector(q_index) *  // n
-                                      fe_values.shape_grad(j, q_index)         // grad phi_j(x_q)
-                                     ) * fe_values.JxW(q_index));
+                                      fe_face_values.shape_grad(j, q_index)    // grad phi_j(x_q)
+                                     ) * fe_face_values.JxW(q_index));
                         }
 
-                        const auto x_q = fe_values.quadrature_point(q_index);
                         cell_rhs(i) +=
-                                ((mu * boundary_values.value(x_q) *     // mu * g(x_q)
+                                ((mu * boundary_values.value(x_q) *       // mu * g(x_q)
                                   phi_i_val                               // phi_i(x_q)
                                   -
                                   boundary_values.value(x_q) *            // g(x_q)
                                   fe_face_values.normal_vector(q_index) * // n
                                   fe_face_values.shape_grad(i, q_index)   // grad phi_i(x_q)
-                                 ) * fe_face_values.JxW(q_index));       // dx
+                                 ) * fe_face_values.JxW(q_index));        // dx
                     }
                 }
             }
@@ -213,8 +213,8 @@ void PoissonNitsche<dim>::assemble_system() {
         std::vector<types::global_dof_index> local_dof_indices(dofs_per_cell);
         cell->get_dof_indices(local_dof_indices);
 
-        for (const unsigned int i : fe_values.dof_indices()) {
-            for (const unsigned int j : fe_values.dof_indices()) {
+        for (unsigned int i = 0; i < dofs_per_cell; ++i) {
+            for (unsigned int j = 0; j < dofs_per_cell; ++j) {
                 system_matrix.add(local_dof_indices[i],
                                   local_dof_indices[j],
                                   cell_matrix(i, j));
