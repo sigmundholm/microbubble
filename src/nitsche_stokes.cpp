@@ -1,0 +1,391 @@
+#include <deal.II/grid/grid_generator.h>
+#include <deal.II/grid/grid_out.h>
+#include <deal.II/grid/grid_tools.h>
+#include <deal.II/grid/tria.h>
+#include <deal.II/grid/tria_iterator.h>
+
+#include <deal.II/dofs/dof_handler.h>
+#include <deal.II/dofs/dof_tools.h>
+#include <deal.II/dofs/dof_renumbering.h>
+
+#include <deal.II/fe/fe_dgq.h>
+#include <deal.II/fe/fe_system.h>
+#include <deal.II/fe/fe_values.h>
+
+#include <deal.II/base/function.h>
+#include <deal.II/base/logstream.h>
+#include <deal.II/base/template_constraints.h>
+#include <deal.II/base/quadrature_lib.h>
+
+#include <deal.II/numerics/data_out.h>
+#include <deal.II/numerics/matrix_tools.h>
+#include <deal.II/numerics/vector_tools.h>
+
+#include <deal.II/lac/block_vector.h>
+#include <deal.II/lac/block_sparse_matrix.h>
+#include <deal.II/lac/dynamic_sparsity_pattern.h>
+#include <deal.II/lac/full_matrix.h>
+#include <deal.II/lac/precondition.h>
+#include <deal.II/lac/solver_cg.h>
+#include <deal.II/lac/sparse_matrix.h>
+#include <deal.II/lac/vector.h>
+
+#include <fstream>
+#include <iostream>
+
+namespace Stokes {
+
+
+    using namespace dealii;
+
+    template<int dim>
+    class StokesNitsche {
+    public:
+        StokesNitsche(const unsigned int degree);
+
+        void run();
+
+    private:
+        void make_grid();
+
+        void setup_dofs();
+
+        void assemble_system();
+
+        void solve();
+
+        void output_results() const;
+
+        const unsigned int degree;
+        Triangulation<dim> triangulation;
+        FESystem<dim> fe;
+        DoFHandler<dim> dof_handler;
+
+        BlockSparsityPattern sparsity_pattern;
+        BlockSparseMatrix<double> system_matrix;
+        BlockVector<double> solution;
+        BlockVector<double> system_rhs;
+    };
+
+// Functions for right hand side and boundary values.
+
+    template<int dim>
+    class RightHandSide : public Function<dim> {
+    public:
+        virtual double value(const Point<dim> &p, const unsigned int component = 0) const override;
+
+        virtual void vector_value(const Point<dim> &p, Vector<double> &value) const override;
+    };
+
+    template<int dim>
+    double RightHandSide<dim>::value(const Point<dim> &p, const unsigned int component) const {
+        (void) p;
+        /*
+         */
+        if (component >= dim) {
+            std::cout << "fakakak" << std::endl;
+            throw std::exception();
+        }
+        return 0;
+    }
+
+    template<int dim>
+    void RightHandSide<dim>::vector_value(const Point<dim> &p, Vector<double> &value) const {
+        for (unsigned int i = 0; i < value.size(); ++i)
+            value[i] = this->value(p, i);
+    }
+
+
+    template<int dim>
+    class BoundaryValues : public Function<dim> {
+    public:
+        virtual double value(const Point<dim> &p, const unsigned int component = 0) const override;
+
+        virtual void vector_value(const Point<dim> &p, Vector<double> &value) const override;
+    };
+
+    template<int dim>
+    double BoundaryValues<dim>::value(const Point<dim> &p, const unsigned int) const {
+        (void) p;
+        return 0;
+    }
+
+    template<int dim>
+    void BoundaryValues<dim>::vector_value(const Point<dim> &p, Vector<double> &value) const {
+        for (unsigned int i = 0; i < value.size(); ++i)
+            value[i] = this->value(p, i);
+    }
+
+    template<int dim>
+    StokesNitsche<dim>::StokesNitsche(const unsigned int degree)
+            : degree(degree),
+              fe(FESystem<dim>(FE_DGQ<dim>(1), dim), 1, FE_DGQ<dim>(1),
+                 1), // u (with dim components), p (scalar component)
+              dof_handler(triangulation) {}
+    // TODO noe spesielt for triangulation?
+
+    template<int dim>
+    void StokesNitsche<dim>::make_grid() {
+        GridGenerator::channel_with_cylinder(triangulation);
+        // triangulation.refine_global(dim == 2 ? 2 : 0);
+
+        // Write svg of grid to file.
+        if (dim == 2) {
+            std::ofstream out("nitsche-stokes-grid.svg");
+            GridOut grid_out;
+            grid_out.write_svg(triangulation, out);
+            std::cout << "  Grid written to file as svg." << std::endl;
+        }
+        std::ofstream out_vtk("nitsche-stokes-grid.vtk");
+        GridOut grid_out;
+        grid_out.write_vtk(triangulation, out_vtk);
+        std::cout << "  Grid written to file as vtk." << std::endl;
+
+        std::cout << "  Number of active cells: " << triangulation.n_active_cells() << std::endl;
+
+    }
+
+    template<int dim>
+    void StokesNitsche<dim>::setup_dofs() {
+        dof_handler.distribute_dofs(fe);
+        DoFRenumbering::Cuthill_McKee(dof_handler);
+        DoFRenumbering::component_wise(dof_handler);
+
+        const std::vector<types::global_dof_index> dofs_per_block =
+                DoFTools::count_dofs_per_fe_block(dof_handler);
+        const unsigned int n_u = dofs_per_block[0];
+        const unsigned int n_p = dofs_per_block[1];
+        std::cout << "  Number of active cells: " << triangulation.n_active_cells() << std::endl
+                  << "  Number of degrees of freedom: " << dof_handler.n_dofs()
+                  << " (" << n_u << " + " << n_p << ')' << std::endl;
+
+        {
+            BlockDynamicSparsityPattern dsp(2, 2);
+            dsp.block(0, 0).reinit(n_u, n_u);
+            dsp.block(0, 1).reinit(n_u, n_p);
+            dsp.block(1, 0).reinit(n_p, n_u);
+            dsp.block(1, 1).reinit(n_p, n_p);
+            dsp.collect_sizes();
+
+            // TODO dette følger step-20. step-22: ikke bra for 3D
+            DoFTools::make_sparsity_pattern(dof_handler, dsp);
+            sparsity_pattern.copy_from(dsp);
+            system_matrix.reinit(sparsity_pattern);
+
+            solution.reinit(2);
+            solution.block(0).reinit(n_u);
+            solution.block(1).reinit(n_p);
+            solution.collect_sizes();
+
+            system_rhs.reinit(2);
+            system_rhs.block(0).reinit(n_u);
+            system_rhs.block(1).reinit(n_p);
+            system_rhs.collect_sizes();
+        }
+
+        DynamicSparsityPattern dsp(dof_handler.n_dofs(), dof_handler.n_dofs());
+        DoFTools::make_sparsity_pattern(dof_handler, dsp);
+    }
+
+    template<int dim>
+    void StokesNitsche<dim>::assemble_system() {
+
+        system_matrix = 0;
+        system_rhs = 0;
+
+        QGauss<dim> quadrature_formula(fe.degree + 2);  // TODO degree+1 eller +2?
+        QGauss<dim - 1> face_quadrature_formula(fe.degree + 1);
+
+        RightHandSide<dim> right_hand_side;
+        BoundaryValues<dim> boundary_values;
+
+        FEValues<dim> fe_values(fe,
+                                quadrature_formula,
+                                update_values | update_gradients |
+                                update_quadrature_points | update_JxW_values);
+        FEFaceValues<dim> fe_face_values(fe,
+                                         face_quadrature_formula,
+                                         update_values | update_gradients |
+                                         update_quadrature_points | update_normal_vectors |
+                                         update_JxW_values);
+
+        const unsigned int dofs_per_cell = fe.dofs_per_cell;
+        const unsigned int n_q_points = quadrature_formula.size();
+
+        // Matrix and vector for the contribution of each cell
+        FullMatrix<double> local_matrix(dofs_per_cell, dofs_per_cell);
+        Vector<double> local_rhs(dofs_per_cell);
+
+        // Vector for values of the RightHandSide for all quadrature points on a cell.
+        // TODO dim eller dim + 1? (se step-22)
+        std::vector<Vector<double>>
+                rhs_values(n_q_points, Vector<double>(dim));
+        std::vector<Vector<double>>
+                bdd_values(n_q_points, Vector<double>(dim));
+
+        const FEValuesExtractors::Vector velocities(0);
+        const FEValuesExtractors::Scalar pressure(dim);
+
+        // Calculate often used terms in the beginning of each cell-loop
+        std::vector<Tensor<2, dim>>
+                grad_phi_u(dofs_per_cell);
+        std::vector<double> div_phi_u(dofs_per_cell);
+        std::vector<Tensor<1, dim>>
+                phi_u(dofs_per_cell, Tensor<1, dim>());
+        std::vector<double> phi_p(dofs_per_cell);
+
+        double h;
+        double mu;
+        Tensor<1, dim> normal;
+        Tensor<1, dim> x_q;
+
+        // TODO for c(p, q)
+        // double h_T, h_F;
+
+        for (const auto &cell : dof_handler.active_cell_iterators()) {
+            fe_values.reinit(cell);
+            local_matrix = 0;
+            local_rhs = 0;
+
+            // Get the values for the RightHandSide for all quadrature points in this cell.
+            right_hand_side.vector_value_list(fe_values.get_quadrature_points(), rhs_values);
+            boundary_values.vector_value_list(fe_values.get_quadrature_points(), bdd_values);
+
+            // Integrate the contribution for each cell
+            for (const unsigned int q : fe_values.quadrature_point_indices()) {
+
+                for (const unsigned int k : fe_values.dof_indices()) {
+                    grad_phi_u[k] = fe_values[velocities].gradient(k, q);
+                    div_phi_u[k] = fe_values[velocities].divergence(k, q);
+                    phi_u[k] = fe_values[velocities].value(k, q);
+                    phi_p[k] = fe_values[pressure].value(k, q);
+                }
+
+                for (const unsigned int i : fe_values.dof_indices()) {
+                    for (const unsigned int j : fe_values.dof_indices()) {
+                        local_matrix(i, j) +=
+                                (scalar_product(grad_phi_u[i],
+                                                grad_phi_u[j])  // (grad u, grad v) TODO riktig?
+                                 - (div_phi_u[i] * phi_p[j])    // -(div u, q)
+                                 - div_phi_u[j] * phi_p[i])     // -(div v, p)
+                                * fe_values.JxW(q);             // dx
+                    }
+                    // RHS
+                    // TODO må finnes en oneliner for Vector(dim) * Tensor<1, dim>...
+                    // eller skal jeg gjøre som i step-22, er det en primitive?
+                    // Calculate the inner product "manually" because one is a Vector and the other a Tensor.
+                    double cell_ips = 0;
+                    for (unsigned int k = 0; k < dim; ++k) {
+                        cell_ips += rhs_values[q](k) * phi_u[q][k];  // (f, v)
+                    }
+                    local_rhs(i) +=
+                            cell_ips             // mu (f(x_q), v(x_q))
+                            * fe_values.JxW(q);  // dx
+                }
+            }
+
+
+            for (const auto &face : cell->face_iterators()) {
+
+                // TODO hva skal boundary id være?
+                if (face->at_boundary()) {
+                    fe_face_values.reinit(cell, face);
+
+                    h = std::pow(face->measure(), 1.0 / (dim - 1));
+                    mu = 5 / h;  // Penalty parameter
+
+                    for (unsigned int q : fe_face_values.quadrature_point_indices()) {
+                        x_q = fe_face_values.quadrature_point(q);
+                        normal = fe_face_values.normal_vector(q);
+
+                        for (const unsigned int k : fe_values.dof_indices()) {
+                            grad_phi_u[k] = fe_values[velocities].gradient(k, q);
+                            div_phi_u[k] = fe_values[velocities].divergence(k, q);
+                            phi_u[k] = fe_values[velocities].value(k, q);
+                            phi_p[k] = fe_values[pressure].value(k, q);
+                        }
+
+                        for (const unsigned int i : fe_face_values.dof_indices()) {
+                            for (const unsigned int j : fe_face_values.dof_indices()) {
+
+                                local_matrix(i, j) +=
+                                        (-(grad_phi_u[i] * normal) * phi_u[j]  // -(n * grad u, v)
+                                         - (grad_phi_u[j] * normal) * phi_u[i] // -(n * grad v, u)
+                                         + mu * (phi_u[i] * phi_u[j])          // mu (u, v)
+                                         + (normal * phi_u[i]) * phi_p[j]      // (n * u, q)
+                                         + (normal * phi_u[j]) * phi_p[i]      // (n * v, p)
+                                        ) * fe_face_values.JxW(q);             // dx
+                            }
+
+                            Tensor<1, dim> prod_r = mu * phi_u[i] - normal * grad_phi_u[i] + phi_p[i] * normal;
+                            // TODO må finnes en oneliner for Vector(dim) * Tensor<1, dim>...
+                            // eller skal jeg gjøre som i step-22, er det en primitive?
+                            // Calculate the inner product "manually" because one is a Vector and the other a Tensor.
+                            double face_ips = 0;
+                            for (unsigned int k = 0; k < dim; ++k) {
+                                face_ips += bdd_values[q](k) * prod_r[k];  // (g, mu v - n grad v + q * n)
+                            }
+
+                            local_rhs(i) +=
+                                    mu * face_ips        // mu g(x_q) * v(x_q)
+                                    * fe_values.JxW(q);  // dx
+                        }
+                    }
+                }
+            }
+
+            std::vector<types::global_dof_index> local_dof_indices(dofs_per_cell);
+            cell->get_dof_indices(local_dof_indices);
+
+            for (unsigned int i = 0; i < dofs_per_cell; ++i) {
+                for (unsigned int j = 0; j < dofs_per_cell; ++j) {
+                    system_matrix.add(local_dof_indices[i],
+                                      local_dof_indices[j],
+                                      local_matrix(i, j));
+                }
+                system_rhs(local_dof_indices[i]) += local_rhs(i);
+            }
+        }
+    }
+
+    template<int dim>
+    void StokesNitsche<dim>::solve() {
+        // TODO løs systemet på blokk-form, som det står i Handling VVP.
+        SolverControl solver_control(1000, 1e-12);
+        SolverCG<Vector<double>> solver(solver_control);
+        // solver.solve(system_matrix, solution, system_rhs, PreconditionIdentity());
+        std::cout << "  " << solver_control.last_step()
+                  << " CG iterations needed to obtain convergence." << std::endl;
+    }
+
+    template<int dim>
+    void StokesNitsche<dim>::output_results() const {
+        // TODO se også Handling VVP.
+        DataOut<dim> data_out;
+        data_out.attach_dof_handler(dof_handler);
+        data_out.add_data_vector(solution, "solution");
+        data_out.build_patches();
+        std::ofstream out(dim == 2 ? "solution-2d.vtk" : "solution-3d.vtk");
+        data_out.write_vtk(out);
+    }
+
+    template<int dim>
+    void StokesNitsche<dim>::run() {
+        make_grid();
+        setup_dofs();
+        assemble_system();
+        solve();
+        output_results();
+    }
+
+} // namespace Stokes
+
+int main() {
+    std::cout << "StokesNitsche" << std::endl;
+    {
+        using namespace Stokes;
+
+        StokesNitsche<2> stokesNitsche(1);
+        stokesNitsche.run();
+    }
+}
