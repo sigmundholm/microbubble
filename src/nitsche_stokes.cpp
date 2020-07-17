@@ -18,6 +18,7 @@
 #include <deal.II/base/quadrature_lib.h>
 
 #include <deal.II/numerics/data_out.h>
+#include <deal.II/numerics/data_component_interpretation.h>
 #include <deal.II/numerics/matrix_tools.h>
 #include <deal.II/numerics/vector_tools.h>
 
@@ -61,10 +62,10 @@ namespace Stokes {
         FESystem<dim> fe;
         DoFHandler<dim> dof_handler;
 
-        BlockSparsityPattern sparsity_pattern;
-        BlockSparseMatrix<double> system_matrix;
-        BlockVector<double> solution;
-        BlockVector<double> system_rhs;
+        SparsityPattern sparsity_pattern;
+        SparseMatrix<double> system_matrix;
+        Vector<double> solution;
+        Vector<double> system_rhs;
     };
 
 // Functions for right hand side and boundary values.
@@ -159,32 +160,13 @@ namespace Stokes {
                   << "  Number of degrees of freedom: " << dof_handler.n_dofs()
                   << " (" << n_u << " + " << n_p << ')' << std::endl;
 
-        {
-            BlockDynamicSparsityPattern dsp(2, 2);
-            dsp.block(0, 0).reinit(n_u, n_u);
-            dsp.block(0, 1).reinit(n_u, n_p);
-            dsp.block(1, 0).reinit(n_p, n_u);
-            dsp.block(1, 1).reinit(n_p, n_p);
-            dsp.collect_sizes();
-
-            // TODO dette følger step-20. step-22: ikke bra for 3D
-            DoFTools::make_sparsity_pattern(dof_handler, dsp);
-            sparsity_pattern.copy_from(dsp);
-            system_matrix.reinit(sparsity_pattern);
-
-            solution.reinit(2);
-            solution.block(0).reinit(n_u);
-            solution.block(1).reinit(n_p);
-            solution.collect_sizes();
-
-            system_rhs.reinit(2);
-            system_rhs.block(0).reinit(n_u);
-            system_rhs.block(1).reinit(n_p);
-            system_rhs.collect_sizes();
-        }
-
         DynamicSparsityPattern dsp(dof_handler.n_dofs(), dof_handler.n_dofs());
         DoFTools::make_sparsity_pattern(dof_handler, dsp);
+        sparsity_pattern.copy_from(dsp);
+        system_matrix.reinit(sparsity_pattern);
+
+        solution.reinit(dof_handler.n_dofs());
+        system_rhs.reinit(dof_handler.n_dofs());
     }
 
     template<int dim>
@@ -350,10 +332,11 @@ namespace Stokes {
 
     template<int dim>
     void StokesNitsche<dim>::solve() {
-        // TODO løs systemet på blokk-form, som det står i Handling VVP.
+        // TODO annen løser? Løs på blokk-form?
         SolverControl solver_control(1000, 1e-12);
         SolverCG<Vector<double>> solver(solver_control);
-        // solver.solve(system_matrix, solution, system_rhs, PreconditionIdentity());
+        solver.solve(system_matrix, solution, system_rhs, PreconditionIdentity());
+
         std::cout << "  " << solver_control.last_step()
                   << " CG iterations needed to obtain convergence." << std::endl;
     }
@@ -361,12 +344,23 @@ namespace Stokes {
     template<int dim>
     void StokesNitsche<dim>::output_results() const {
         // TODO se også Handling VVP.
+        // see step-22
+        std::vector<std::string> solution_names(dim, "velocity");
+        std::cout << "len" << solution_names.size() << std::endl;
+        solution_names.emplace_back("pressure");
+        std::cout << "len2" << solution_names.size() << std::endl;
+        std::vector<DataComponentInterpretation::DataComponentInterpretation> dci(
+                dim, DataComponentInterpretation::component_is_part_of_vector);
+        dci.push_back(DataComponentInterpretation::component_is_scalar);
+
         DataOut<dim> data_out;
         data_out.attach_dof_handler(dof_handler);
-        data_out.add_data_vector(solution, "solution");
+        data_out.add_data_vector(solution, solution_names, DataOut<dim>::type_dof_data, dci);
+
         data_out.build_patches();
-        std::ofstream out(dim == 2 ? "solution-2d.vtk" : "solution-3d.vtk");
-        data_out.write_vtk(out);
+        std::ofstream output("nitsche-stokes.vtk");
+        data_out.write_vtk(output);
+        std::cout << "  Output written to .vtk file." << std::endl;
     }
 
     template<int dim>
@@ -384,7 +378,6 @@ int main() {
     std::cout << "StokesNitsche" << std::endl;
     {
         using namespace Stokes;
-
         StokesNitsche<2> stokesNitsche(1);
         stokesNitsche.run();
     }
