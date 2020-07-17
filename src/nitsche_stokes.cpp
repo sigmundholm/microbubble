@@ -128,7 +128,7 @@ namespace Stokes {
     template<int dim>
     void StokesNitsche<dim>::make_grid() {
         GridGenerator::channel_with_cylinder(triangulation);
-        // triangulation.refine_global(dim == 2 ? 2 : 0);
+        triangulation.refine_global(dim == 2 ? 2 : 0);
 
         // Write svg of grid to file.
         if (dim == 2) {
@@ -143,7 +143,6 @@ namespace Stokes {
         std::cout << "  Grid written to file as vtk." << std::endl;
 
         std::cout << "  Number of active cells: " << triangulation.n_active_cells() << std::endl;
-
     }
 
     template<int dim>
@@ -209,20 +208,15 @@ namespace Stokes {
         const FEValuesExtractors::Scalar pressure(dim);
 
         // Calculate often used terms in the beginning of each cell-loop
-        std::vector<Tensor<2, dim>>
-                grad_phi_u(dofs_per_cell);
+        std::vector<Tensor<2, dim>> grad_phi_u(dofs_per_cell);
         std::vector<double> div_phi_u(dofs_per_cell);
-        std::vector<Tensor<1, dim>>
-                phi_u(dofs_per_cell, Tensor<1, dim>());
+        std::vector<Tensor<1, dim>> phi_u(dofs_per_cell, Tensor<1, dim>());
         std::vector<double> phi_p(dofs_per_cell);
 
         double h;
         double mu;
         Tensor<1, dim> normal;
         Tensor<1, dim> x_q;
-
-        // TODO for c(p, q)
-        // double h_T, h_F;
 
         for (const auto &cell : dof_handler.active_cell_iterators()) {
             fe_values.reinit(cell);
@@ -248,9 +242,9 @@ namespace Stokes {
                         local_matrix(i, j) +=
                                 (scalar_product(grad_phi_u[i],
                                                 grad_phi_u[j])  // (grad u, grad v) TODO riktig?
+                                 - (div_phi_u[j] * phi_p[i])    // -(div v, p)
                                  - (div_phi_u[i] * phi_p[j])    // -(div u, q)
-                                 - div_phi_u[j] * phi_p[i])     // -(div v, p)
-                                * fe_values.JxW(q);             // dx
+                                ) * fe_values.JxW(q);           // dx
                     }
                     // RHS
                     // TODO må finnes en oneliner for Vector(dim) * Tensor<1, dim>...
@@ -294,12 +288,12 @@ namespace Stokes {
                                         (-(grad_phi_u[i] * normal) * phi_u[j]  // -(n * grad u, v)
                                          - (grad_phi_u[j] * normal) * phi_u[i] // -(n * grad v, u)
                                          + mu * (phi_u[i] * phi_u[j])          // mu (u, v)
-                                         + (normal * phi_u[i]) * phi_p[j]      // (n * u, q)
                                          + (normal * phi_u[j]) * phi_p[i]      // (n * v, p)
+                                         + (normal * phi_u[i]) * phi_p[j]      // (n * u, q)
                                         ) * fe_face_values.JxW(q);             // dx
                             }
 
-                            Tensor<1, dim> prod_r = mu * phi_u[i] - normal * grad_phi_u[i] + phi_p[i] * normal;
+                            Tensor<1, dim> prod_r = mu * phi_u[i] - grad_phi_u[i] * normal + phi_p[i] * normal;
                             // TODO må finnes en oneliner for Vector(dim) * Tensor<1, dim>...
                             // eller skal jeg gjøre som i step-22, er det en primitive?
                             // Calculate the inner product "manually" because one is a Vector and the other a Tensor.
@@ -333,7 +327,7 @@ namespace Stokes {
     template<int dim>
     void StokesNitsche<dim>::solve() {
         // TODO annen løser? Løs på blokk-form?
-        SolverControl solver_control(1000, 1e-12);
+        SolverControl solver_control(10000, 1e-12);
         SolverCG<Vector<double>> solver(solver_control);
         solver.solve(system_matrix, solution, system_rhs, PreconditionIdentity());
 
@@ -346,9 +340,7 @@ namespace Stokes {
         // TODO se også Handling VVP.
         // see step-22
         std::vector<std::string> solution_names(dim, "velocity");
-        std::cout << "len" << solution_names.size() << std::endl;
         solution_names.emplace_back("pressure");
-        std::cout << "len2" << solution_names.size() << std::endl;
         std::vector<DataComponentInterpretation::DataComponentInterpretation> dci(
                 dim, DataComponentInterpretation::component_is_part_of_vector);
         dci.push_back(DataComponentInterpretation::component_is_scalar);
@@ -370,6 +362,7 @@ namespace Stokes {
         assemble_system();
         solve();
         output_results();
+        // TODO refinement
     }
 
 } // namespace Stokes
