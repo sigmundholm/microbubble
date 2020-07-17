@@ -79,14 +79,8 @@ namespace Stokes {
     };
 
     template<int dim>
-    double RightHandSide<dim>::value(const Point<dim> &p, const unsigned int component) const {
+    double RightHandSide<dim>::value(const Point<dim> &p, const unsigned int) const {
         (void) p;
-        /*
-         */
-        if (component >= dim) {
-            std::cout << "fakakak" << std::endl;
-            throw std::exception();
-        }
         return 0;
     }
 
@@ -106,15 +100,21 @@ namespace Stokes {
     };
 
     template<int dim>
-    double BoundaryValues<dim>::value(const Point<dim> &p, const unsigned int) const {
+    double BoundaryValues<dim>::value(const Point<dim> &p, const unsigned int component) const {
         (void) p;
+        if (component == 0 && p[0] <= 0.05) {
+            if (dim == 2) {
+                return -2.5 * (p[1] - 0.41) * p[1];
+            }
+            throw std::exception(); // TODO fix 3D
+        }
         return 0;
     }
 
     template<int dim>
     void BoundaryValues<dim>::vector_value(const Point<dim> &p, Vector<double> &value) const {
-        for (unsigned int i = 0; i < value.size(); ++i)
-            value[i] = this->value(p, i);
+        for (unsigned int c = 0; c < this->n_components; ++c)
+            value(c) = BoundaryValues<dim>::value(p, c);
     }
 
     template<int dim>
