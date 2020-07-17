@@ -8,7 +8,7 @@
 #include <deal.II/dofs/dof_tools.h>
 #include <deal.II/dofs/dof_renumbering.h>
 
-#include <deal.II/fe/fe_dgq.h>
+#include <deal.II/fe/fe_q.h>
 #include <deal.II/fe/fe_system.h>
 #include <deal.II/fe/fe_values.h>
 
@@ -120,7 +120,7 @@ namespace Stokes {
     template<int dim>
     StokesNitsche<dim>::StokesNitsche(const unsigned int degree)
             : degree(degree),
-              fe(FESystem<dim>(FE_DGQ<dim>(1), dim), 1, FE_DGQ<dim>(1),
+              fe(FESystem<dim>(FE_Q<dim>(degree + 1), dim), 1, FE_Q<dim>(degree),
                  1), // u (with dim components), p (scalar component)
               dof_handler(triangulation) {}
     // TODO noe spesielt for triangulation?
