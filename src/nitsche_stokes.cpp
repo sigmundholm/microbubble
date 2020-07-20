@@ -103,7 +103,7 @@ namespace Stokes {
     template<int dim>
     double BoundaryValues<dim>::value(const Point<dim> &p, const unsigned int component) const {
         (void) p;
-        if (component == 0 && p[0] <= 0.05) {
+        if (component == 0 && p[0] == 0) {
             if (dim == 2) {
                 return -2.5 * (p[1] - 0.41) * p[1];
             }
@@ -193,6 +193,7 @@ namespace Stokes {
 
         const unsigned int dofs_per_cell = fe.dofs_per_cell;
         const unsigned int n_q_points = quadrature_formula.size();
+        const unsigned int n_q_face_points = face_quadrature_formula.size();
 
         // Matrix and vector for the contribution of each cell
         FullMatrix<double> local_matrix(dofs_per_cell, dofs_per_cell);
@@ -203,7 +204,7 @@ namespace Stokes {
         std::vector<Vector<double>>
                 rhs_values(n_q_points, Vector<double>(dim));
         std::vector<Vector<double>>
-                bdd_values(n_q_points, Vector<double>(dim));
+                bdd_values(n_q_face_points, Vector<double>(dim));
 
         const FEValuesExtractors::Vector velocities(0);
         const FEValuesExtractors::Scalar pressure(dim);
@@ -226,7 +227,6 @@ namespace Stokes {
 
             // Get the values for the RightHandSide for all quadrature points in this cell.
             right_hand_side.vector_value_list(fe_values.get_quadrature_points(), rhs_values);
-            boundary_values.vector_value_list(fe_values.get_quadrature_points(), bdd_values);
 
             // Integrate the contribution for each cell
             for (const unsigned int q : fe_values.quadrature_point_indices()) {
@@ -268,6 +268,9 @@ namespace Stokes {
                 if (face->at_boundary()) {
                     fe_face_values.reinit(cell, face);
 
+                    // Evaluate the boundary function for all quadrature points on this face.
+                    boundary_values.vector_value_list(fe_face_values.get_quadrature_points(), bdd_values);
+
                     h = std::pow(face->measure(), 1.0 / (dim - 1));
                     mu = 5 / h;  // Penalty parameter
 
@@ -304,7 +307,7 @@ namespace Stokes {
                             }
 
                             local_rhs(i) +=
-                                    mu * face_ips        // mu g(x_q) * v(x_q)
+                                    face_ips        //
                                     * fe_values.JxW(q);  // dx
                         }
                     }
