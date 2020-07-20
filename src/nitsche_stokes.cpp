@@ -127,8 +127,8 @@ namespace Stokes {
 
     template<int dim>
     void StokesNitsche<dim>::make_grid() {
-        GridGenerator::channel_with_cylinder(triangulation);
-        triangulation.refine_global(dim == 2 ? 2 : 0);
+        GridGenerator::channel_with_cylinder(triangulation, 0.03, 2, 2.0, true);
+        triangulation.refine_global(dim == 2 ? 1 : 0);
 
         // Write svg of grid to file.
         if (dim == 2) {
