@@ -28,6 +28,7 @@
 #include <deal.II/lac/full_matrix.h>
 #include <deal.II/lac/precondition.h>
 #include <deal.II/lac/solver_cg.h>
+#include <deal.II/lac/sparse_direct.h>
 #include <deal.II/lac/sparse_matrix.h>
 #include <deal.II/lac/vector.h>
 
@@ -327,12 +328,9 @@ namespace Stokes {
     template<int dim>
     void StokesNitsche<dim>::solve() {
         // TODO annen løser? Løs på blokk-form?
-        SolverControl solver_control(10000, 1e-12);
-        SolverCG<Vector<double>> solver(solver_control);
-        solver.solve(system_matrix, solution, system_rhs, PreconditionIdentity());
-
-        std::cout << "  " << solver_control.last_step()
-                  << " CG iterations needed to obtain convergence." << std::endl;
+        SparseDirectUMFPACK inverse;
+        inverse.initialize(system_matrix);
+        inverse.vmult(solution, system_rhs);
     }
 
     template<int dim>
