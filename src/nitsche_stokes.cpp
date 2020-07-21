@@ -13,6 +13,7 @@
 #include <deal.II/fe/fe_values.h>
 
 #include <deal.II/base/function.h>
+#include <deal.II/base/tensor_function.h>
 #include <deal.II/base/logstream.h>
 #include <deal.II/base/template_constraints.h>
 #include <deal.II/base/quadrature_lib.h>
@@ -23,11 +24,9 @@
 #include <deal.II/numerics/vector_tools.h>
 
 #include <deal.II/lac/block_vector.h>
-#include <deal.II/lac/block_sparse_matrix.h>
 #include <deal.II/lac/dynamic_sparsity_pattern.h>
 #include <deal.II/lac/full_matrix.h>
 #include <deal.II/lac/precondition.h>
-#include <deal.II/lac/solver_cg.h>
 #include <deal.II/lac/sparse_direct.h>
 #include <deal.II/lac/sparse_matrix.h>
 #include <deal.II/lac/vector.h>
@@ -69,8 +68,7 @@ namespace Stokes {
         Vector<double> system_rhs;
     };
 
-// Functions for right hand side and boundary values.
-
+    // TODO make a TensorFunction
     template<int dim>
     class RightHandSide : public Function<dim> {
     public:
@@ -93,15 +91,18 @@ namespace Stokes {
 
 
     template<int dim>
-    class BoundaryValues : public Function<dim> {
+    class BoundaryValues : public TensorFunction<1, dim> {
     public:
-        virtual double value(const Point<dim> &p, const unsigned int component = 0) const override;
+        virtual double point_value(const Point<dim> &p, const unsigned int component) const;
 
-        virtual void vector_value(const Point<dim> &p, Vector<double> &value) const override;
+        virtual void vector_value(const Point<dim> &p, Tensor<1, dim> &value) const;
+
+        virtual void value_list(const std::vector<Point<dim>> &points,
+                                std::vector<Tensor<1, dim>> &values) const override;
     };
 
     template<int dim>
-    double BoundaryValues<dim>::value(const Point<dim> &p, const unsigned int component) const {
+    double BoundaryValues<dim>::point_value(const Point<dim> &p, const unsigned int component) const {
         (void) p;
         if (component == 0 && p[0] == 0) {
             if (dim == 2) {
@@ -113,9 +114,18 @@ namespace Stokes {
     }
 
     template<int dim>
-    void BoundaryValues<dim>::vector_value(const Point<dim> &p, Vector<double> &value) const {
-        for (unsigned int c = 0; c < this->n_components; ++c)
-            value(c) = BoundaryValues<dim>::value(p, c);
+    void BoundaryValues<dim>::vector_value(const Point<dim> &p, Tensor<1, dim> &value) const {
+        for (unsigned int c = 0; c < dim; ++c)
+            value[c] = BoundaryValues<dim>::point_value(p, c);
+    }
+
+    template<int dim>
+    void
+    BoundaryValues<dim>::value_list(const std::vector<Point<dim>> &points, std::vector<Tensor<1, dim>> &values) const {
+        AssertDimension(points.size(), values.size());
+        for (unsigned int i = 0; i < values.size(); ++i) {
+            BoundaryValues::vector_value(points[i], values[i]);
+        }
     }
 
     template<int dim>
@@ -129,7 +139,7 @@ namespace Stokes {
     template<int dim>
     void StokesNitsche<dim>::make_grid() {
         GridGenerator::channel_with_cylinder(triangulation, 0.03, 2, 2.0, true);
-        triangulation.refine_global(dim == 2 ? 1 : 0);
+        triangulation.refine_global(dim == 2 ? 3 : 0);
 
         // Write svg of grid to file.
         if (dim == 2) {
@@ -203,8 +213,8 @@ namespace Stokes {
         // TODO dim eller dim + 1? (se step-22)
         std::vector<Vector<double>>
                 rhs_values(n_q_points, Vector<double>(dim));
-        std::vector<Vector<double>>
-                bdd_values(n_q_face_points, Vector<double>(dim));
+        std::vector<Tensor<1, dim>>
+                bdd_values(n_q_face_points, Tensor<1, dim>());
 
         const FEValuesExtractors::Vector velocities(0);
         const FEValuesExtractors::Scalar pressure(dim);
@@ -269,20 +279,20 @@ namespace Stokes {
                     fe_face_values.reinit(cell, face);
 
                     // Evaluate the boundary function for all quadrature points on this face.
-                    boundary_values.vector_value_list(fe_face_values.get_quadrature_points(), bdd_values);
+                    boundary_values.value_list(fe_face_values.get_quadrature_points(), bdd_values);
 
                     h = std::pow(face->measure(), 1.0 / (dim - 1));
-                    mu = 5 / h;  // Penalty parameter
+                    mu = 50 / h;  // Penalty parameter
 
                     for (unsigned int q : fe_face_values.quadrature_point_indices()) {
                         x_q = fe_face_values.quadrature_point(q);
                         normal = fe_face_values.normal_vector(q);
 
-                        for (const unsigned int k : fe_values.dof_indices()) {
-                            grad_phi_u[k] = fe_values[velocities].gradient(k, q);
-                            div_phi_u[k] = fe_values[velocities].divergence(k, q);
-                            phi_u[k] = fe_values[velocities].value(k, q);
-                            phi_p[k] = fe_values[pressure].value(k, q);
+                        for (const unsigned int k : fe_face_values.dof_indices()) {
+                            grad_phi_u[k] = fe_face_values[velocities].gradient(k, q);
+                            div_phi_u[k] = fe_face_values[velocities].divergence(k, q);
+                            phi_u[k] = fe_face_values[velocities].value(k, q);
+                            phi_p[k] = fe_face_values[pressure].value(k, q);
                         }
 
                         for (const unsigned int i : fe_face_values.dof_indices()) {
@@ -294,21 +304,13 @@ namespace Stokes {
                                          + mu * (phi_u[i] * phi_u[j])          // mu (u, v)
                                          + (normal * phi_u[j]) * phi_p[i]      // (n * v, p)
                                          + (normal * phi_u[i]) * phi_p[j]      // (n * u, q)
-                                        ) * fe_face_values.JxW(q);             // dx
+                                        ) * fe_face_values.JxW(q);             // ds
                             }
 
                             Tensor<1, dim> prod_r = mu * phi_u[i] - grad_phi_u[i] * normal + phi_p[i] * normal;
-                            // TODO må finnes en oneliner for Vector(dim) * Tensor<1, dim>...
-                            // eller skal jeg gjøre som i step-22, er det en primitive?
-                            // Calculate the inner product "manually" because one is a Vector and the other a Tensor.
-                            double face_ips = 0;
-                            for (unsigned int k = 0; k < dim; ++k) {
-                                face_ips += bdd_values[q](k) * prod_r[k];  // (g, mu v - n grad v + q * n)
-                            }
-
                             local_rhs(i) +=
-                                    face_ips        //
-                                    * fe_values.JxW(q);  // dx
+                                    prod_r * bdd_values[q]    // (g, mu v - n grad v + q * n)
+                                    * fe_face_values.JxW(q);  // ds
                         }
                     }
                 }
