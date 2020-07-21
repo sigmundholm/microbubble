@@ -265,7 +265,7 @@ namespace Stokes {
             for (const auto &face : cell->face_iterators()) {
 
                 // TODO hva skal boundary id være?
-                if (face->at_boundary()) {
+                if (face->at_boundary() && face->boundary_id() != 1) {
                     fe_face_values.reinit(cell, face);
 
                     // Evaluate the boundary function for all quadrature points on this face.
