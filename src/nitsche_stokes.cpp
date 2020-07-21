@@ -68,25 +68,37 @@ namespace Stokes {
         Vector<double> system_rhs;
     };
 
-    // TODO make a TensorFunction
-    template<int dim>
-    class RightHandSide : public Function<dim> {
-    public:
-        virtual double value(const Point<dim> &p, const unsigned int component = 0) const override;
 
-        virtual void vector_value(const Point<dim> &p, Vector<double> &value) const override;
+    template<int dim>
+    class RightHandSide : public TensorFunction<1, dim> {
+    public:
+        virtual double point_value(const Point<dim> &p, const unsigned int component = 0) const;
+
+        virtual void vector_value(const Point<dim> &p, Tensor<1, dim> &value) const;
+
+        virtual void value_list(const std::vector<Point<dim>> &points,
+                                std::vector<Tensor<1, dim>> &values) const override;
     };
 
     template<int dim>
-    double RightHandSide<dim>::value(const Point<dim> &p, const unsigned int) const {
+    double RightHandSide<dim>::point_value(const Point<dim> &p, const unsigned int) const {
         (void) p;
         return 0;
     }
 
     template<int dim>
-    void RightHandSide<dim>::vector_value(const Point<dim> &p, Vector<double> &value) const {
-        for (unsigned int i = 0; i < value.size(); ++i)
-            value[i] = this->value(p, i);
+    void RightHandSide<dim>::vector_value(const Point<dim> &p, Tensor<1, dim> &value) const {
+        for (unsigned int c = 0; c < dim; ++c)
+            value[c] = RightHandSide<dim>::point_value(p, c);
+    }
+
+    template<int dim>
+    void
+    RightHandSide<dim>::value_list(const std::vector<Point<dim> > &points, std::vector<Tensor<1, dim> > &values) const {
+        AssertDimension(points.size(), values.size());
+        for (unsigned int i = 0; i < values.size(); ++i) {
+            RightHandSide<dim>::vector_value(points[i], values[i]);
+        }
     }
 
 
@@ -134,7 +146,7 @@ namespace Stokes {
               fe(FESystem<dim>(FE_Q<dim>(degree + 1), dim), 1, FE_Q<dim>(degree),
                  1), // u (with dim components), p (scalar component)
               dof_handler(triangulation) {}
-    // TODO noe spesielt for triangulation?
+
 
     template<int dim>
     void StokesNitsche<dim>::make_grid() {
@@ -160,7 +172,7 @@ namespace Stokes {
     void StokesNitsche<dim>::setup_dofs() {
         dof_handler.distribute_dofs(fe);
         DoFRenumbering::Cuthill_McKee(dof_handler);
-        DoFRenumbering::component_wise(dof_handler);
+        DoFRenumbering::component_wise(dof_handler);  // TODO hva gjør denne?
 
         const std::vector<types::global_dof_index> dofs_per_block =
                 DoFTools::count_dofs_per_fe_block(dof_handler);
@@ -210,9 +222,8 @@ namespace Stokes {
         Vector<double> local_rhs(dofs_per_cell);
 
         // Vector for values of the RightHandSide for all quadrature points on a cell.
-        // TODO dim eller dim + 1? (se step-22)
-        std::vector<Vector<double>>
-                rhs_values(n_q_points, Vector<double>(dim));
+        std::vector<Tensor<1, dim>>
+                rhs_values(n_q_points, Tensor<1, dim>());
         std::vector<Tensor<1, dim>>
                 bdd_values(n_q_face_points, Tensor<1, dim>());
 
@@ -236,7 +247,7 @@ namespace Stokes {
             local_rhs = 0;
 
             // Get the values for the RightHandSide for all quadrature points in this cell.
-            right_hand_side.vector_value_list(fe_values.get_quadrature_points(), rhs_values);
+            right_hand_side.value_list(fe_values.get_quadrature_points(), rhs_values);
 
             // Integrate the contribution for each cell
             for (const unsigned int q : fe_values.quadrature_point_indices()) {
@@ -252,29 +263,22 @@ namespace Stokes {
                     for (const unsigned int j : fe_values.dof_indices()) {
                         local_matrix(i, j) +=
                                 (scalar_product(grad_phi_u[i],
-                                                grad_phi_u[j])  // (grad u, grad v) TODO riktig?
+                                                grad_phi_u[j])  // (grad u, grad v)
                                  - (div_phi_u[j] * phi_p[i])    // -(div v, p)
                                  - (div_phi_u[i] * phi_p[j])    // -(div u, q)
                                 ) * fe_values.JxW(q);           // dx
                     }
                     // RHS
-                    // TODO må finnes en oneliner for Vector(dim) * Tensor<1, dim>...
-                    // eller skal jeg gjøre som i step-22, er det en primitive?
-                    // Calculate the inner product "manually" because one is a Vector and the other a Tensor.
-                    double cell_ips = 0;
-                    for (unsigned int k = 0; k < dim; ++k) {
-                        cell_ips += rhs_values[q](k) * phi_u[q][k];  // (f, v)
-                    }
                     local_rhs(i) +=
-                            cell_ips             // mu (f(x_q), v(x_q))
-                            * fe_values.JxW(q);  // dx
+                            rhs_values[q] * phi_u[i]  // (f, v)
+                            * fe_values.JxW(q);       // dx
                 }
             }
 
 
             for (const auto &face : cell->face_iterators()) {
 
-                // TODO hva skal boundary id være?
+                // The right boundary has boundary_id=1, so do nothing there for outflow.
                 if (face->at_boundary() && face->boundary_id() != 1) {
                     fe_face_values.reinit(cell, face);
 
