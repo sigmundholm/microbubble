@@ -1,27 +1,8 @@
-#include <deal.II/grid/grid_generator.h>
-#include <deal.II/grid/grid_out.h>
-#include <deal.II/grid/grid_tools.h>
-#include <deal.II/grid/tria.h>
-#include <deal.II/grid/tria_iterator.h>
-
-#include <deal.II/dofs/dof_handler.h>
-#include <deal.II/dofs/dof_tools.h>
-#include <deal.II/dofs/dof_renumbering.h>
-
-#include <deal.II/fe/fe_q.h>
-#include <deal.II/fe/fe_system.h>
-#include <deal.II/fe/fe_values.h>
-
 #include <deal.II/base/function.h>
 #include <deal.II/base/tensor_function.h>
 #include <deal.II/base/logstream.h>
 #include <deal.II/base/template_constraints.h>
 #include <deal.II/base/quadrature_lib.h>
-
-#include <deal.II/numerics/data_out.h>
-#include <deal.II/numerics/data_component_interpretation.h>
-#include <deal.II/numerics/matrix_tools.h>
-#include <deal.II/numerics/vector_tools.h>
 
 #include <deal.II/lac/block_vector.h>
 #include <deal.II/lac/dynamic_sparsity_pattern.h>
@@ -31,43 +12,33 @@
 #include <deal.II/lac/sparse_matrix.h>
 #include <deal.II/lac/vector.h>
 
+#include <deal.II/grid/grid_generator.h>
+#include <deal.II/grid/grid_out.h>
+#include <deal.II/grid/tria.h>
+#include <deal.II/grid/tria_iterator.h>
+
+#include <deal.II/dofs/dof_tools.h>
+#include <deal.II/dofs/dof_renumbering.h>
+
+#include <deal.II/fe/fe_q.h>
+#include <deal.II/fe/fe_system.h>
+#include <deal.II/fe/fe_values.h>
+
+#include <deal.II/numerics/data_out.h>
+#include <deal.II/numerics/data_component_interpretation.h>
+#include <deal.II/numerics/matrix_tools.h>
+#include <deal.II/numerics/vector_tools.h>
+
 #include <fstream>
 #include <iostream>
+
+#include "nitsche_stokes.h"
+
 
 namespace Stokes {
 
 
     using namespace dealii;
-
-    template<int dim>
-    class StokesNitsche {
-    public:
-        StokesNitsche(const unsigned int degree);
-
-        void run();
-
-    private:
-        void make_grid();
-
-        void setup_dofs();
-
-        void assemble_system();
-
-        void solve();
-
-        void output_results() const;
-
-        const unsigned int degree;
-        Triangulation<dim> triangulation;
-        FESystem<dim> fe;
-        DoFHandler<dim> dof_handler;
-
-        SparsityPattern sparsity_pattern;
-        SparseMatrix<double> system_matrix;
-        Vector<double> solution;
-        Vector<double> system_rhs;
-    };
-
 
     template<int dim>
     class RightHandSide : public TensorFunction<1, dim> {
@@ -93,8 +64,8 @@ namespace Stokes {
     }
 
     template<int dim>
-    void
-    RightHandSide<dim>::value_list(const std::vector<Point<dim> > &points, std::vector<Tensor<1, dim> > &values) const {
+    void RightHandSide<dim>::value_list(const std::vector<Point<dim>> &points,
+                                        std::vector<Tensor<1, dim>> &values) const {
         AssertDimension(points.size(), values.size());
         for (unsigned int i = 0; i < values.size(); ++i) {
             RightHandSide<dim>::vector_value(points[i], values[i]);
@@ -132,8 +103,8 @@ namespace Stokes {
     }
 
     template<int dim>
-    void
-    BoundaryValues<dim>::value_list(const std::vector<Point<dim>> &points, std::vector<Tensor<1, dim>> &values) const {
+    void BoundaryValues<dim>::value_list(const std::vector<Point<dim>> &points,
+                                         std::vector<Tensor<1, dim>> &values) const {
         AssertDimension(points.size(), values.size());
         for (unsigned int i = 0; i < values.size(); ++i) {
             BoundaryValues::vector_value(points[i], values[i]);
@@ -369,16 +340,11 @@ namespace Stokes {
         assemble_system();
         solve();
         output_results();
-        // TODO refinement
     }
+
+
+    template
+    class StokesNitsche<2>;
+
 
 } // namespace Stokes
-
-int main() {
-    std::cout << "StokesNitsche" << std::endl;
-    {
-        using namespace Stokes;
-        StokesNitsche<2> stokesNitsche(1);
-        stokesNitsche.run();
-    }
-}
