@@ -40,16 +40,6 @@ namespace Stokes {
 
     using namespace dealii;
 
-    template<int dim>
-    class RightHandSide : public TensorFunction<1, dim> {
-    public:
-        virtual double point_value(const Point<dim> &p, const unsigned int component = 0) const;
-
-        virtual void vector_value(const Point<dim> &p, Tensor<1, dim> &value) const;
-
-        virtual void value_list(const std::vector<Point<dim>> &points,
-                                std::vector<Tensor<1, dim>> &values) const override;
-    };
 
     template<int dim>
     double RightHandSide<dim>::point_value(const Point<dim> &p, const unsigned int) const {
@@ -72,17 +62,6 @@ namespace Stokes {
         }
     }
 
-
-    template<int dim>
-    class BoundaryValues : public TensorFunction<1, dim> {
-    public:
-        virtual double point_value(const Point<dim> &p, const unsigned int component) const;
-
-        virtual void vector_value(const Point<dim> &p, Tensor<1, dim> &value) const;
-
-        virtual void value_list(const std::vector<Point<dim>> &points,
-                                std::vector<Tensor<1, dim>> &values) const override;
-    };
 
     template<int dim>
     double BoundaryValues<dim>::point_value(const Point<dim> &p, const unsigned int component) const {
@@ -170,9 +149,6 @@ namespace Stokes {
 
         QGauss<dim> quadrature_formula(fe.degree + 2);  // TODO degree+1 eller +2?
         QGauss<dim - 1> face_quadrature_formula(fe.degree + 1);
-
-        RightHandSide<dim> right_hand_side;
-        BoundaryValues<dim> boundary_values;
 
         FEValues<dim> fe_values(fe,
                                 quadrature_formula,
@@ -342,7 +318,7 @@ namespace Stokes {
         output_results();
     }
 
-
+    // Initialise the template.
     template
     class StokesNitsche<2>;
 
