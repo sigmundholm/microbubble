@@ -11,18 +11,13 @@ namespace Error {
     using namespace Stokes;
 
     template<int dim>
-    class RightHandSide : public TensorFunction<1, dim> {
+    class ErrorRightHandSide : public RightHandSide<dim> {
     public:
         virtual double point_value(const Point<dim> &p, const unsigned int component = 0) const;
-
-        virtual void vector_value(const Point<dim> &p, Tensor<1, dim> &value) const;
-
-        virtual void value_list(const std::vector<Point<dim>> &points,
-                                std::vector<Tensor<1, dim>> &values) const override;
     };
 
     template<int dim>
-    double RightHandSide<dim>::point_value(const Point<dim> &p, const unsigned int component) const {
+    double ErrorRightHandSide<dim>::point_value(const Point<dim> &p, const unsigned int component) const {
         (void) p;
         std::cout << "RightHandSide used" << std::endl;
         double pressure_drop = 15.5;
@@ -34,31 +29,11 @@ namespace Error {
     }
 
     template<int dim>
-    void RightHandSide<dim>::vector_value(const Point<dim> &p, Tensor<1, dim> &value) const {
-        for (unsigned int c = 0; c < dim; ++c)
-            value[c] = RightHandSide<dim>::point_value(p, c);
-    }
-
-    template<int dim>
-    void RightHandSide<dim>::value_list(const std::vector<Point<dim>> &points,
-                                        std::vector<Tensor<1, dim>> &values) const {
-        AssertDimension(points.size(), values.size());
-        for (unsigned int i = 0; i < values.size(); ++i) {
-            RightHandSide<dim>::vector_value(points[i], values[i]);
-        }
-    }
-
-    template<int dim>
-    class BoundaryValues : public TensorFunction<1, dim> {
+    class ErrorBoundaryValues : public BoundaryValues<dim> {
     public:
-        BoundaryValues(double left_boundary, double radius);
+        ErrorBoundaryValues(double left_boundary, double radius);
 
         virtual double point_value(const Point<dim> &p, const unsigned int component) const;
-
-        virtual void vector_value(const Point<dim> &p, Tensor<1, dim> &value) const;
-
-        virtual void value_list(const std::vector<Point<dim>> &points,
-                                std::vector<Tensor<1, dim>> &values) const override;
 
         double left_boundary;  // x-coordinate of left side of the domain.
         double radius; // radius of the cylinder
@@ -66,12 +41,13 @@ namespace Error {
 
 
     template<int dim>
-    BoundaryValues<dim>::BoundaryValues(double left_boundary, double radius)
+    ErrorBoundaryValues<dim>::ErrorBoundaryValues(double left_boundary, double radius)
             : left_boundary(left_boundary), radius(radius) {}
 
     template<int dim>
-    double BoundaryValues<dim>::point_value(const Point<dim> &p, const unsigned int component) const {
+    double ErrorBoundaryValues<dim>::point_value(const Point<dim> &p, const unsigned int component) const {
         (void) p;
+        std::cout << "ErrorBdValues.point_value" << std::endl;
         if (component == 0 && p[0] <= left_boundary + 0.001) {
             if (dim == 2) {
                 return -2.5 * (p[1] - radius) * (p[1] + radius);
@@ -79,22 +55,6 @@ namespace Error {
             throw std::exception(); // TODO fix 3D
         }
         return 0;
-    }
-
-    template<int dim>
-    void BoundaryValues<dim>::vector_value(const Point<dim> &p, Tensor<1, dim> &value) const {
-        for (unsigned int c = 0; c < dim; ++c)
-            value[c] = BoundaryValues<dim>::point_value(p, c);
-    }
-
-    template<int dim>
-    void
-    BoundaryValues<dim>::value_list(const std::vector<Point<dim>> &points,
-                                    std::vector<Tensor<1, dim>> &values) const {
-        AssertDimension(points.size(), values.size());
-        for (unsigned int i = 0; i < values.size(); ++i) {
-            BoundaryValues::vector_value(points[i], values[i]);
-        }
     }
 
 
@@ -129,9 +89,10 @@ namespace Error {
     template<int dim>
     class StokesError : public StokesNitsche<dim> {
     public:
-        StokesError(unsigned int degree);
+        StokesError(const unsigned int degree, ErrorRightHandSide<dim> rhs, ErrorBoundaryValues<dim> bdd_val);
 
         virtual void make_grid();
+
         virtual void run();
 
     private:
@@ -141,24 +102,25 @@ namespace Error {
 
         double left_boundary;
         double radius;
-
     };
 
     template<int dim>
-    StokesError<dim>::StokesError(const unsigned int degree)
-            : StokesNitsche<dim>(degree) {
+    StokesError<dim>::StokesError(const unsigned int degree, ErrorRightHandSide<dim> rhs,
+                                  ErrorBoundaryValues<dim> bdd_val)
+            : StokesNitsche<dim>(degree, rhs, bdd_val) {
         std::cout << "hei" << std::endl;
         // TODO ta inn hvilke boundary_ids som skal ignoreres for Do Nothing bdd conditions. Gjør dette i base klassen.
         // TODO finn ut hvordan man endrer type på objektene right_hand_side og boundary_values til de som er
         //  spesifisert lenger opp i fila. Se c++ boka.
-        // TODO sett eget navn på fila som skrives.
+        // TODO sett eget navn på fila som skrives her.
+        left_boundary = bdd_val.left_boundary;
+        radius = bdd_val.radius;
     }
 
     template<int dim>
     void StokesError<dim>::make_grid() {
         std::cout << "StokesError::makegrid" << std::endl;
-        left_boundary = -1;
-        radius = 0.21;
+
         GridGenerator::cylinder(StokesNitsche<dim>::triangulation, 0.205, -left_boundary);
         GridTools::remove_anisotropy(StokesNitsche<dim>::triangulation, 1.618, 5);
         StokesNitsche<dim>::triangulation.refine_global(dim == 2 ? 4 : 0);
@@ -242,7 +204,13 @@ int main() {
 
     std::cout << "StokesNitsche" << std::endl;
 
-    StokesError<2> stokes_error(1);
+    const int dim = 2;
+    double left_boundary = -1;
+    double radius = 0.21;
+    ErrorRightHandSide<dim> error_rhs;
+    ErrorBoundaryValues<dim> error_bdd(left_boundary, radius);
+
+    StokesError<dim> stokes_error(1, error_rhs, error_bdd);
     stokes_error.run();
 
     std::cout << "main error" << std::endl;

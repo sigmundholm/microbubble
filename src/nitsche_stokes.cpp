@@ -95,7 +95,16 @@ namespace Stokes {
             : degree(degree),
               fe(FESystem<dim>(FE_Q<dim>(degree + 1), dim), 1, FE_Q<dim>(degree),
                  1), // u (with dim components), p (scalar component)
-              dof_handler(triangulation) {}
+              dof_handler(triangulation) {
+        std::cout << "StokesNitsche constructor" << std::endl;
+    }
+
+    template<int dim>
+    StokesNitsche<dim>::StokesNitsche(const unsigned int degree, RightHandSide<dim> rhs, BoundaryValues<dim> bdd_val)
+            : degree(degree),
+              fe(FESystem<dim>(FE_Q<dim>(degree + 1), dim), 1, FE_Q<dim>(degree),
+                 1), // u (with dim components), p (scalar component)
+              dof_handler(triangulation), right_hand_side(rhs), boundary_values(bdd_val) {}
 
 
     template<int dim>

@@ -16,9 +16,9 @@ namespace Stokes {
     public:
         virtual double point_value(const Point<dim> &p, const unsigned int component = 0) const;
 
-        virtual void vector_value(const Point<dim> &p, Tensor<1, dim> &value) const;
+        void vector_value(const Point<dim> &p, Tensor<1, dim> &value) const;
 
-        virtual void value_list(const std::vector<Point<dim>> &points,
+        void value_list(const std::vector<Point<dim>> &points,
                                 std::vector<Tensor<1, dim>> &values) const override;
     };
 
@@ -28,9 +28,9 @@ namespace Stokes {
     public:
         virtual double point_value(const Point<dim> &p, const unsigned int component) const;
 
-        virtual void vector_value(const Point<dim> &p, Tensor<1, dim> &value) const;
+        void vector_value(const Point<dim> &p, Tensor<1, dim> &value) const;
 
-        virtual void value_list(const std::vector<Point<dim>> &points,
+        void value_list(const std::vector<Point<dim>> &points,
                                 std::vector<Tensor<1, dim>> &values) const override;
     };
 
@@ -39,6 +39,8 @@ namespace Stokes {
     class StokesNitsche {
     public:
         StokesNitsche(const unsigned int degree);
+
+        StokesNitsche(const unsigned int degree, RightHandSide<dim> rhs, BoundaryValues<dim> bdd_val);
 
         virtual void run();
 
@@ -64,7 +66,5 @@ namespace Stokes {
         SparseMatrix<double> system_matrix;
         Vector<double> solution;
         Vector<double> system_rhs;
-        double left_boundary;
-        double radius;
     };
 }
