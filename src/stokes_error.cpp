@@ -13,7 +13,7 @@ namespace Error {
     template<int dim>
     class ErrorRightHandSide : public RightHandSide<dim> {
     public:
-        virtual double point_value(const Point<dim> &p, const unsigned int component = 0) const;
+        double point_value(const Point<dim> &p, const unsigned int component = 0) const;
     };
 
     template<int dim>
@@ -47,7 +47,7 @@ namespace Error {
     template<int dim>
     double ErrorBoundaryValues<dim>::point_value(const Point<dim> &p, const unsigned int component) const {
         (void) p;
-        std::cout << "ErrorBdValues.point_value" << std::endl;
+        // std::cout << "ErrorBoundaryValues.point_value" << std::endl;
         if (component == 0 && p[0] <= left_boundary + 0.001) {
             if (dim == 2) {
                 return -2.5 * (p[1] - radius) * (p[1] + radius);
@@ -89,11 +89,11 @@ namespace Error {
     template<int dim>
     class StokesError : public StokesNitsche<dim> {
     public:
-        StokesError(const unsigned int degree, ErrorRightHandSide<dim> rhs, ErrorBoundaryValues<dim> bdd_val);
+        StokesError(const unsigned int degree, ErrorRightHandSide<dim> &rhs, ErrorBoundaryValues<dim> &bdd_val);
 
-        virtual void make_grid();
+        void make_grid();
 
-        virtual void run();
+        void run();
 
     private:
         double get_pressure_difference() const;
@@ -105,10 +105,9 @@ namespace Error {
     };
 
     template<int dim>
-    StokesError<dim>::StokesError(const unsigned int degree, ErrorRightHandSide<dim> rhs,
-                                  ErrorBoundaryValues<dim> bdd_val)
+    StokesError<dim>::StokesError(const unsigned int degree, ErrorRightHandSide<dim> &rhs,
+                                  ErrorBoundaryValues<dim> &bdd_val)
             : StokesNitsche<dim>(degree, rhs, bdd_val) {
-        std::cout << "hei" << std::endl;
         // TODO ta inn hvilke boundary_ids som skal ignoreres for Do Nothing bdd conditions. Gjør dette i base klassen.
         // TODO finn ut hvordan man endrer type på objektene right_hand_side og boundary_values til de som er
         //  spesifisert lenger opp i fila. Se c++ boka.

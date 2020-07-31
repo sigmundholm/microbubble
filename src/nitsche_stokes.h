@@ -19,7 +19,7 @@ namespace Stokes {
         void vector_value(const Point<dim> &p, Tensor<1, dim> &value) const;
 
         void value_list(const std::vector<Point<dim>> &points,
-                                std::vector<Tensor<1, dim>> &values) const override;
+                        std::vector<Tensor<1, dim>> &values) const override;
     };
 
 
@@ -31,7 +31,7 @@ namespace Stokes {
         void vector_value(const Point<dim> &p, Tensor<1, dim> &value) const;
 
         void value_list(const std::vector<Point<dim>> &points,
-                                std::vector<Tensor<1, dim>> &values) const override;
+                        std::vector<Tensor<1, dim>> &values) const override;
     };
 
 
@@ -40,7 +40,7 @@ namespace Stokes {
     public:
         StokesNitsche(const unsigned int degree);
 
-        StokesNitsche(const unsigned int degree, RightHandSide<dim> rhs, BoundaryValues<dim> bdd_val);
+        StokesNitsche(const unsigned int degree, RightHandSide<dim> &rhs, BoundaryValues<dim> &bdd_val);
 
         virtual void run();
 
@@ -59,8 +59,8 @@ namespace Stokes {
         Triangulation<dim> triangulation;
         FESystem<dim> fe;
         DoFHandler<dim> dof_handler;
-        RightHandSide<dim> right_hand_side;
-        BoundaryValues<dim> boundary_values;
+        RightHandSide<dim> *right_hand_side;
+        BoundaryValues<dim> *boundary_values;
 
         SparsityPattern sparsity_pattern;
         SparseMatrix<double> system_matrix;

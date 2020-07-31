@@ -5,7 +5,12 @@ int main() {
     std::cout << "StokesNitsche" << std::endl;
     {
         using namespace Stokes;
-        StokesNitsche<2> stokesNitsche(1);
+
+        const int dim = 2;
+        RightHandSide<dim> rhs;
+        BoundaryValues<dim> bdd_vals;
+
+        StokesNitsche<dim> stokesNitsche(1, rhs, bdd_vals);
         stokesNitsche.run();
     }
 }

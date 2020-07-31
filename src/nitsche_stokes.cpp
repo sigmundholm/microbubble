@@ -1,5 +1,3 @@
-#include <deal.II/base/function.h>
-#include <deal.II/base/tensor_function.h>
 #include <deal.II/base/logstream.h>
 #include <deal.II/base/template_constraints.h>
 #include <deal.II/base/quadrature_lib.h>
@@ -50,7 +48,7 @@ namespace Stokes {
     template<int dim>
     void RightHandSide<dim>::vector_value(const Point<dim> &p, Tensor<1, dim> &value) const {
         for (unsigned int c = 0; c < dim; ++c)
-            value[c] = RightHandSide<dim>::point_value(p, c);
+            value[c] = point_value(p, c);
     }
 
     template<int dim>
@@ -58,7 +56,7 @@ namespace Stokes {
                                         std::vector<Tensor<1, dim>> &values) const {
         AssertDimension(points.size(), values.size());
         for (unsigned int i = 0; i < values.size(); ++i) {
-            RightHandSide<dim>::vector_value(points[i], values[i]);
+            vector_value(points[i], values[i]);
         }
     }
 
@@ -78,7 +76,7 @@ namespace Stokes {
     template<int dim>
     void BoundaryValues<dim>::vector_value(const Point<dim> &p, Tensor<1, dim> &value) const {
         for (unsigned int c = 0; c < dim; ++c)
-            value[c] = BoundaryValues<dim>::point_value(p, c);
+            value[c] = point_value(p, c);
     }
 
     template<int dim>
@@ -86,7 +84,7 @@ namespace Stokes {
                                          std::vector<Tensor<1, dim>> &values) const {
         AssertDimension(points.size(), values.size());
         for (unsigned int i = 0; i < values.size(); ++i) {
-            BoundaryValues::vector_value(points[i], values[i]);
+            vector_value(points[i], values[i]);
         }
     }
 
@@ -100,11 +98,14 @@ namespace Stokes {
     }
 
     template<int dim>
-    StokesNitsche<dim>::StokesNitsche(const unsigned int degree, RightHandSide<dim> rhs, BoundaryValues<dim> bdd_val)
+    StokesNitsche<dim>::StokesNitsche(const unsigned int degree, RightHandSide<dim> &rhs, BoundaryValues<dim> &bdd_val)
             : degree(degree),
               fe(FESystem<dim>(FE_Q<dim>(degree + 1), dim), 1, FE_Q<dim>(degree),
                  1), // u (with dim components), p (scalar component)
-              dof_handler(triangulation), right_hand_side(rhs), boundary_values(bdd_val) {}
+              dof_handler(triangulation) {
+        right_hand_side = &rhs;
+        boundary_values = &bdd_val;
+    }
 
 
     template<int dim>
@@ -203,7 +204,7 @@ namespace Stokes {
             local_rhs = 0;
 
             // Get the values for the RightHandSide for all quadrature points in this cell.
-            right_hand_side.value_list(fe_values.get_quadrature_points(), rhs_values);
+            right_hand_side->value_list(fe_values.get_quadrature_points(), rhs_values);
 
             // Integrate the contribution for each cell
             for (const unsigned int q : fe_values.quadrature_point_indices()) {
@@ -239,7 +240,7 @@ namespace Stokes {
                     fe_face_values.reinit(cell, face);
 
                     // Evaluate the boundary function for all quadrature points on this face.
-                    boundary_values.value_list(fe_face_values.get_quadrature_points(), bdd_values);
+                    boundary_values->value_list(fe_face_values.get_quadrature_points(), bdd_values);
 
                     h = std::pow(face->measure(), 1.0 / (dim - 1));
                     mu = 50 / h;  // Penalty parameter
@@ -327,9 +328,16 @@ namespace Stokes {
         output_results();
     }
 
-    // Initialise the template.
+
+    // Initialise the templates.
     template
     class StokesNitsche<2>;
 
+    template
+    class RightHandSide<2>;
+
+
+    template
+    class BoundaryValues<2>;
 
 } // namespace Stokes
