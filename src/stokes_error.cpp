@@ -13,45 +13,53 @@ namespace Error {
     template<int dim>
     class ErrorRightHandSide : public RightHandSide<dim> {
     public:
+        ErrorRightHandSide(double length, double pressure_drop);
+
         double point_value(const Point<dim> &p, const unsigned int component = 0) const;
+
+        double length;
+        double pressure_drop;
     };
+
+    template<int dim>
+    ErrorRightHandSide<dim>::ErrorRightHandSide(double length, double pressure_drop)
+            : length(length), pressure_drop(pressure_drop){}
+
 
     template<int dim>
     double ErrorRightHandSide<dim>::point_value(const Point<dim> &p, const unsigned int component) const {
         (void) p;
-        /*
-        double pressure_drop = 12.82;
-        double length = 2;
-        if (component == 1) {
-            return pressure_drop / length;
+        if (component == 0) {
+            return - 0.5 * pressure_drop / length;
         }
-         */
         return 0;
     }
 
     template<int dim>
     class ErrorBoundaryValues : public BoundaryValues<dim> {
     public:
-        ErrorBoundaryValues(double left_boundary, double radius);
+        ErrorBoundaryValues(double left_boundary, double radius, double pressure_drop);
 
         virtual double point_value(const Point<dim> &p, const unsigned int component) const;
 
         double left_boundary;  // x-coordinate of left side of the domain.
-        double radius; // radius of the cylinder
+        double radius;         // radius of the cylinder
+        double pressure_drop;
     };
 
 
     template<int dim>
-    ErrorBoundaryValues<dim>::ErrorBoundaryValues(double left_boundary, double radius)
-            : left_boundary(left_boundary), radius(radius) {}
+    ErrorBoundaryValues<dim>::ErrorBoundaryValues(double left_boundary, double radius, double pressure_drop)
+            : left_boundary(left_boundary), radius(radius), pressure_drop(pressure_drop) {}
 
     template<int dim>
     double ErrorBoundaryValues<dim>::point_value(const Point<dim> &p, const unsigned int component) const {
         (void) p;
-        // std::cout << "ErrorBoundaryValues.point_value" << std::endl;
-        if (component == 0 && p[0] <= left_boundary + 0.001) {
+        double length = -2 * left_boundary;
+        // TODO check boundary id instead of coordinate for boundary
+        if (component == 0 && p[0] == left_boundary) {
             if (dim == 2) {
-                return -2.5 * (p[1] - radius) * (p[1] + radius);
+                return pressure_drop / (4 * length) * (radius * radius - p[1] * p[1]);
             }
             throw std::exception(); // TODO fix 3D
         }
@@ -205,11 +213,17 @@ int main() {
     const int dim = 2;
     double left_boundary = -1;
     double radius = 0.21;
-    ErrorRightHandSide<dim> error_rhs;
-    ErrorBoundaryValues<dim> error_bdd(left_boundary, radius);
+    double pressure_drop = 20;
+    double length = -2 * left_boundary;
+    ErrorRightHandSide<dim> error_rhs(length, pressure_drop);
+    ErrorBoundaryValues<dim> error_bdd(left_boundary, radius, pressure_drop);
 
     StokesError<dim> stokes_error(1, error_rhs, error_bdd, 2);
     stokes_error.run();
 
+    double square_integrand = pressure_drop * pressure_drop * std::pow(radius, 5) / (15 * (-2 * left_boundary));
+    double L_2_norm_exact = std::pow(square_integrand, 0.5);
+
+    std::cout << "Exact res?? " << L_2_norm_exact << " " << std::endl;
     return 0;
 }
