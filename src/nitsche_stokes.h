@@ -38,14 +38,15 @@ namespace Stokes {
     template<int dim>
     class StokesNitsche {
     public:
-        StokesNitsche(const unsigned int degree);
-
-        StokesNitsche(const unsigned int degree, RightHandSide<dim> &rhs, BoundaryValues<dim> &bdd_val);
+        StokesNitsche(const unsigned int degree, RightHandSide<dim> &rhs, BoundaryValues<dim> &bdd_val,
+                      unsigned int do_nothing_bdd_id=1);
 
         virtual void run();
 
     protected:
         virtual void make_grid();
+
+        void output_grid();
 
         void setup_dofs();
 
@@ -61,6 +62,7 @@ namespace Stokes {
         DoFHandler<dim> dof_handler;
         RightHandSide<dim> *right_hand_side;
         BoundaryValues<dim> *boundary_values;
+        const unsigned int do_nothing_bdd_id;
 
         SparsityPattern sparsity_pattern;
         SparseMatrix<double> system_matrix;

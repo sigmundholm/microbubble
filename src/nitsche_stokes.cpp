@@ -89,20 +89,12 @@ namespace Stokes {
     }
 
     template<int dim>
-    StokesNitsche<dim>::StokesNitsche(const unsigned int degree)
+    StokesNitsche<dim>::StokesNitsche(const unsigned int degree, RightHandSide<dim> &rhs, BoundaryValues<dim> &bdd_val,
+                                      const unsigned int do_nothing_bdd_id)
             : degree(degree),
               fe(FESystem<dim>(FE_Q<dim>(degree + 1), dim), 1, FE_Q<dim>(degree),
                  1), // u (with dim components), p (scalar component)
-              dof_handler(triangulation) {
-        std::cout << "StokesNitsche constructor" << std::endl;
-    }
-
-    template<int dim>
-    StokesNitsche<dim>::StokesNitsche(const unsigned int degree, RightHandSide<dim> &rhs, BoundaryValues<dim> &bdd_val)
-            : degree(degree),
-              fe(FESystem<dim>(FE_Q<dim>(degree + 1), dim), 1, FE_Q<dim>(degree),
-                 1), // u (with dim components), p (scalar component)
-              dof_handler(triangulation) {
+              dof_handler(triangulation), do_nothing_bdd_id(do_nothing_bdd_id) {
         right_hand_side = &rhs;
         boundary_values = &bdd_val;
     }
@@ -112,7 +104,10 @@ namespace Stokes {
     void StokesNitsche<dim>::make_grid() {
         GridGenerator::channel_with_cylinder(triangulation, 0.03, 2, 2.0, true);
         triangulation.refine_global(dim == 2 ? 3 : 0);
+    }
 
+    template<int dim>
+    void StokesNitsche<dim>::output_grid() {
         // Write svg of grid to file.
         if (dim == 2) {
             std::ofstream out("nitsche-stokes-grid.svg");
@@ -153,7 +148,6 @@ namespace Stokes {
 
     template<int dim>
     void StokesNitsche<dim>::assemble_system() {
-
         system_matrix = 0;
         system_rhs = 0;
 
@@ -236,7 +230,7 @@ namespace Stokes {
             for (const auto &face : cell->face_iterators()) {
 
                 // The right boundary has boundary_id=1, so do nothing there for outflow.
-                if (face->at_boundary() && face->boundary_id() != 1) {
+                if (face->at_boundary() && face->boundary_id() != do_nothing_bdd_id) {
                     fe_face_values.reinit(cell, face);
 
                     // Evaluate the boundary function for all quadrature points on this face.
@@ -322,6 +316,7 @@ namespace Stokes {
     template<int dim>
     void StokesNitsche<dim>::run() {
         make_grid();
+        output_grid();
         setup_dofs();
         assemble_system();
         solve();
