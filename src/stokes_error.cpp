@@ -119,8 +119,6 @@ namespace Error {
                                   ErrorBoundaryValues<dim> &bdd_val, const unsigned int do_nothing_bdd_id)
             : StokesNitsche<dim>(degree, rhs, bdd_val, do_nothing_bdd_id) {
         // TODO ta inn hvilke boundary_ids som skal ignoreres for Do Nothing bdd conditions. Gjør dette i base klassen.
-        // TODO finn ut hvordan man endrer type på objektene right_hand_side og boundary_values til de som er
-        //  spesifisert lenger opp i fila. Se c++ boka.
         // TODO sett eget navn på fila som skrives her.
         left_boundary = bdd_val.left_boundary;
         radius = bdd_val.radius;
@@ -128,7 +126,7 @@ namespace Error {
 
     template<int dim>
     void StokesError<dim>::make_grid() {
-        GridGenerator::cylinder(this->triangulation, 0.205, -left_boundary);
+        GridGenerator::cylinder(this->triangulation, radius, -left_boundary);
         GridTools::remove_anisotropy(this->triangulation, 1.618, 5);
         this->triangulation.refine_global(dim == 2 ? 4 : 0);
     }
