@@ -8,3 +8,6 @@ PROJECT(microbubble)
 
 ADD_EXECUTABLE(nitsche-poisson src/nitsche_poisson.cpp)
 DEAL_II_SETUP_TARGET(nitsche-poisson)
+
+ADD_EXECUTABLE(nitsche-stokes src/nitsche_stokes.cpp)
+DEAL_II_SETUP_TARGET(nitsche-stokes)
