@@ -2,6 +2,8 @@
 #include <deal.II/grid/grid_generator.h>
 #include <deal.II/grid/grid_tools.h>
 #include <deal.II/numerics/vector_tools.h>
+#include <deal.II/fe/fe_values.h>
+
 
 #include "nitsche_stokes.h"
 
@@ -23,14 +25,14 @@ namespace Error {
 
     template<int dim>
     ErrorRightHandSide<dim>::ErrorRightHandSide(double length, double pressure_drop)
-            : length(length), pressure_drop(pressure_drop){}
+            : length(length), pressure_drop(pressure_drop) {}
 
 
     template<int dim>
     double ErrorRightHandSide<dim>::point_value(const Point<dim> &p, const unsigned int component) const {
         (void) p;
         if (component == 0) {
-            return - 0.5 * pressure_drop / length;
+            return -0.5 * pressure_drop / length;
         }
         return 0;
     }
@@ -106,12 +108,11 @@ namespace Error {
         void run();
 
     private:
-        double get_pressure_difference() const;
-
         void compute_errors() const;
 
         double left_boundary;
         double radius;
+        double pressure_drop;
     };
 
     template<int dim>
@@ -122,6 +123,7 @@ namespace Error {
         // TODO sett eget navn på fila som skrives her.
         left_boundary = bdd_val.left_boundary;
         radius = bdd_val.radius;
+        pressure_drop = bdd_val.pressure_drop;
     }
 
     template<int dim>
@@ -132,53 +134,18 @@ namespace Error {
     }
 
     template<int dim>
-    double StokesError<dim>::get_pressure_difference() const {
-        int count = 0;
-        double max = this->solution[0];
-        double min = this->solution[0];
-        // TODO fix, denne går gjennom både trykk og hastighet
-        for (double value : this->solution) {
-            ++count;
-            if (value < min) {
-                min = value;
-            }
-            if (value > max) {
-                max = value;
-            }
-        }
-        std::cout << "min: " << min << std::endl;
-        std::cout << "diff: " << max - min << std::endl;
-
-        return max - min;
-    }
-
-    template<int dim>
     void StokesError<dim>::compute_errors() const {
         const ComponentSelectFunction<dim> pressure_mask(dim, dim + 1);
         const ComponentSelectFunction<dim> velocity_mask(std::make_pair(0, dim),
                                                          dim + 1);
-        double pressure_drop = this->get_pressure_difference();  // TODO Calc from pressure component?
-
         double length = -2 * left_boundary;
-        std::cout << "length: " << length << std::endl;
-        std::cout << "radius: " << radius << std::endl;
-        std::cout << "presure drop: " << pressure_drop << std::endl;
+
         ExactSolution<dim> exact_solution(radius, length, pressure_drop);
 
         Vector<double> cellwise_errors(this->triangulation.n_active_cells());
         QTrapez<1> q_trapez;
         QIterated<dim> quadrature(q_trapez, this->degree + 2);
 
-        VectorTools::integrate_difference(this->dof_handler,
-                                          this->solution,
-                                          ZeroFunction<dim>(dim + 1),
-                                          cellwise_errors,
-                                          quadrature,
-                                          VectorTools::L2_norm,
-                                          &velocity_mask);
-        const double u_l2 = VectorTools::compute_global_error(this->triangulation,
-                                                              cellwise_errors,
-                                                              VectorTools::L2_norm);
         VectorTools::integrate_difference(this->dof_handler,
                                           this->solution,
                                           exact_solution,
@@ -190,7 +157,6 @@ namespace Error {
                                                                     cellwise_errors,
                                                                     VectorTools::L2_norm);
 
-        std::cout << "  Integral: ||e_p||_L2 = " << u_l2 << std::endl;
         std::cout << "  Errors: ||e_p||_L2 = " << u_l2_error << std::endl;
     }
 
@@ -219,9 +185,6 @@ int main() {
     StokesError<dim> stokes_error(1, error_rhs, error_bdd, 2);
     stokes_error.run();
 
-    double square_integrand = pressure_drop * pressure_drop * std::pow(radius, 5) / (15 * (-2 * left_boundary));
-    double L_2_norm_exact = std::pow(square_integrand, 0.5);
-
-    std::cout << "Exact res?? " << L_2_norm_exact << " " << std::endl;
+    // TODO create loop for convergence plot
     return 0;
 }
