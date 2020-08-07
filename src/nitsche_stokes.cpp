@@ -1,27 +1,6 @@
-#include <deal.II/grid/grid_generator.h>
-#include <deal.II/grid/grid_out.h>
-#include <deal.II/grid/grid_tools.h>
-#include <deal.II/grid/tria.h>
-#include <deal.II/grid/tria_iterator.h>
-
-#include <deal.II/dofs/dof_handler.h>
-#include <deal.II/dofs/dof_tools.h>
-#include <deal.II/dofs/dof_renumbering.h>
-
-#include <deal.II/fe/fe_q.h>
-#include <deal.II/fe/fe_system.h>
-#include <deal.II/fe/fe_values.h>
-
-#include <deal.II/base/function.h>
-#include <deal.II/base/tensor_function.h>
 #include <deal.II/base/logstream.h>
 #include <deal.II/base/template_constraints.h>
 #include <deal.II/base/quadrature_lib.h>
-
-#include <deal.II/numerics/data_out.h>
-#include <deal.II/numerics/data_component_interpretation.h>
-#include <deal.II/numerics/matrix_tools.h>
-#include <deal.II/numerics/vector_tools.h>
 
 #include <deal.II/lac/block_vector.h>
 #include <deal.II/lac/dynamic_sparsity_pattern.h>
@@ -31,54 +10,34 @@
 #include <deal.II/lac/sparse_matrix.h>
 #include <deal.II/lac/vector.h>
 
+#include <deal.II/grid/grid_generator.h>
+#include <deal.II/grid/grid_out.h>
+#include <deal.II/grid/tria.h>
+#include <deal.II/grid/tria_iterator.h>
+
+#include <deal.II/dofs/dof_tools.h>
+#include <deal.II/dofs/dof_renumbering.h>
+
+#include <deal.II/fe/fe_q.h>
+#include <deal.II/fe/fe_system.h>
+#include <deal.II/fe/fe_values.h>
+
+#include <deal.II/numerics/data_out.h>
+#include <deal.II/numerics/data_component_interpretation.h>
+#include <deal.II/numerics/matrix_tools.h>
+#include <deal.II/numerics/vector_tools.h>
+
 #include <fstream>
 #include <iostream>
+
+#include "nitsche_stokes.h"
+
 
 namespace Stokes {
 
 
     using namespace dealii;
 
-    template<int dim>
-    class StokesNitsche {
-    public:
-        StokesNitsche(const unsigned int degree);
-
-        void run();
-
-    private:
-        void make_grid();
-
-        void setup_dofs();
-
-        void assemble_system();
-
-        void solve();
-
-        void output_results() const;
-
-        const unsigned int degree;
-        Triangulation<dim> triangulation;
-        FESystem<dim> fe;
-        DoFHandler<dim> dof_handler;
-
-        SparsityPattern sparsity_pattern;
-        SparseMatrix<double> system_matrix;
-        Vector<double> solution;
-        Vector<double> system_rhs;
-    };
-
-
-    template<int dim>
-    class RightHandSide : public TensorFunction<1, dim> {
-    public:
-        virtual double point_value(const Point<dim> &p, const unsigned int component = 0) const;
-
-        virtual void vector_value(const Point<dim> &p, Tensor<1, dim> &value) const;
-
-        virtual void value_list(const std::vector<Point<dim>> &points,
-                                std::vector<Tensor<1, dim>> &values) const override;
-    };
 
     template<int dim>
     double RightHandSide<dim>::point_value(const Point<dim> &p, const unsigned int) const {
@@ -89,29 +48,18 @@ namespace Stokes {
     template<int dim>
     void RightHandSide<dim>::vector_value(const Point<dim> &p, Tensor<1, dim> &value) const {
         for (unsigned int c = 0; c < dim; ++c)
-            value[c] = RightHandSide<dim>::point_value(p, c);
+            value[c] = point_value(p, c);
     }
 
     template<int dim>
-    void
-    RightHandSide<dim>::value_list(const std::vector<Point<dim> > &points, std::vector<Tensor<1, dim> > &values) const {
+    void RightHandSide<dim>::value_list(const std::vector<Point<dim>> &points,
+                                        std::vector<Tensor<1, dim>> &values) const {
         AssertDimension(points.size(), values.size());
         for (unsigned int i = 0; i < values.size(); ++i) {
-            RightHandSide<dim>::vector_value(points[i], values[i]);
+            vector_value(points[i], values[i]);
         }
     }
 
-
-    template<int dim>
-    class BoundaryValues : public TensorFunction<1, dim> {
-    public:
-        virtual double point_value(const Point<dim> &p, const unsigned int component) const;
-
-        virtual void vector_value(const Point<dim> &p, Tensor<1, dim> &value) const;
-
-        virtual void value_list(const std::vector<Point<dim>> &points,
-                                std::vector<Tensor<1, dim>> &values) const override;
-    };
 
     template<int dim>
     double BoundaryValues<dim>::point_value(const Point<dim> &p, const unsigned int component) const {
@@ -128,31 +76,38 @@ namespace Stokes {
     template<int dim>
     void BoundaryValues<dim>::vector_value(const Point<dim> &p, Tensor<1, dim> &value) const {
         for (unsigned int c = 0; c < dim; ++c)
-            value[c] = BoundaryValues<dim>::point_value(p, c);
+            value[c] = point_value(p, c);
     }
 
     template<int dim>
-    void
-    BoundaryValues<dim>::value_list(const std::vector<Point<dim>> &points, std::vector<Tensor<1, dim>> &values) const {
+    void BoundaryValues<dim>::value_list(const std::vector<Point<dim>> &points,
+                                         std::vector<Tensor<1, dim>> &values) const {
         AssertDimension(points.size(), values.size());
         for (unsigned int i = 0; i < values.size(); ++i) {
-            BoundaryValues::vector_value(points[i], values[i]);
+            vector_value(points[i], values[i]);
         }
     }
 
     template<int dim>
-    StokesNitsche<dim>::StokesNitsche(const unsigned int degree)
+    StokesNitsche<dim>::StokesNitsche(const unsigned int degree, RightHandSide<dim> &rhs, BoundaryValues<dim> &bdd_val,
+                                      const unsigned int do_nothing_bdd_id)
             : degree(degree),
               fe(FESystem<dim>(FE_Q<dim>(degree + 1), dim), 1, FE_Q<dim>(degree),
                  1), // u (with dim components), p (scalar component)
-              dof_handler(triangulation) {}
+              dof_handler(triangulation), do_nothing_bdd_id(do_nothing_bdd_id) {
+        right_hand_side = &rhs;
+        boundary_values = &bdd_val;
+    }
 
 
     template<int dim>
     void StokesNitsche<dim>::make_grid() {
         GridGenerator::channel_with_cylinder(triangulation, 0.03, 2, 2.0, true);
         triangulation.refine_global(dim == 2 ? 3 : 0);
+    }
 
+    template<int dim>
+    void StokesNitsche<dim>::output_grid() {
         // Write svg of grid to file.
         if (dim == 2) {
             std::ofstream out("nitsche-stokes-grid.svg");
@@ -193,15 +148,11 @@ namespace Stokes {
 
     template<int dim>
     void StokesNitsche<dim>::assemble_system() {
-
         system_matrix = 0;
         system_rhs = 0;
 
         QGauss<dim> quadrature_formula(fe.degree + 2);  // TODO degree+1 eller +2?
         QGauss<dim - 1> face_quadrature_formula(fe.degree + 1);
-
-        RightHandSide<dim> right_hand_side;
-        BoundaryValues<dim> boundary_values;
 
         FEValues<dim> fe_values(fe,
                                 quadrature_formula,
@@ -247,7 +198,7 @@ namespace Stokes {
             local_rhs = 0;
 
             // Get the values for the RightHandSide for all quadrature points in this cell.
-            right_hand_side.value_list(fe_values.get_quadrature_points(), rhs_values);
+            right_hand_side->value_list(fe_values.get_quadrature_points(), rhs_values);
 
             // Integrate the contribution for each cell
             for (const unsigned int q : fe_values.quadrature_point_indices()) {
@@ -279,11 +230,11 @@ namespace Stokes {
             for (const auto &face : cell->face_iterators()) {
 
                 // The right boundary has boundary_id=1, so do nothing there for outflow.
-                if (face->at_boundary() && face->boundary_id() != 1) {
+                if (face->at_boundary() && face->boundary_id() != do_nothing_bdd_id) {
                     fe_face_values.reinit(cell, face);
 
                     // Evaluate the boundary function for all quadrature points on this face.
-                    boundary_values.value_list(fe_face_values.get_quadrature_points(), bdd_values);
+                    boundary_values->value_list(fe_face_values.get_quadrature_points(), bdd_values);
 
                     h = std::pow(face->measure(), 1.0 / (dim - 1));
                     mu = 50 / h;  // Penalty parameter
@@ -365,20 +316,23 @@ namespace Stokes {
     template<int dim>
     void StokesNitsche<dim>::run() {
         make_grid();
+        output_grid();
         setup_dofs();
         assemble_system();
         solve();
         output_results();
-        // TODO refinement
     }
+
+
+    // Initialise the templates.
+    template
+    class StokesNitsche<2>;
+
+    template
+    class RightHandSide<2>;
+
+
+    template
+    class BoundaryValues<2>;
 
 } // namespace Stokes
-
-int main() {
-    std::cout << "StokesNitsche" << std::endl;
-    {
-        using namespace Stokes;
-        StokesNitsche<2> stokesNitsche(1);
-        stokesNitsche.run();
-    }
-}
