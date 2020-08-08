@@ -34,10 +34,10 @@ using namespace cutfem;
 using NonMatching::LocationToLevelSet;
 
 template <int dim>
-class PoissonDiskTest
+class StokesCylinder
 {
 public:
-  PoissonDiskTest(const unsigned int n_subdivisions,
+  StokesCylinder(const unsigned int n_subdivisions,
                   const unsigned int n_refines,
                   const int          element_order,
                   const bool         write_output);
@@ -92,7 +92,7 @@ private:
   const double          sphere_radius = 1;
   const Point<dim>      center;
   const double          frequency_analytic_solution = numbers::PI;
-  const PoissonRhs<dim> rhs_function;
+  const StokesRhs<dim> rhs_function;
 
   // Cell side-length.
   double             h;

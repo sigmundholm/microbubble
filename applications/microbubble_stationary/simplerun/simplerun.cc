@@ -17,6 +17,6 @@ main()
   printf("elementOrder=%d\n", elementOrder);
   const bool write_vtk = true;
 
-  PoissonDiskTest<2> s3(n_subdivisions, n_refines, elementOrder, write_vtk);
+  StokesCylinder<2> s3(n_subdivisions, n_refines, elementOrder, write_vtk);
   s3.run();
 }

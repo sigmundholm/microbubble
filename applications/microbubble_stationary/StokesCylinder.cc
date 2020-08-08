@@ -39,7 +39,7 @@ compute_gammaD(const unsigned int element_order)
 }
 
 template <int dim>
-PoissonDiskTest<dim>::PoissonDiskTest(const unsigned int n_subdivisions,
+StokesCylinder<dim>::StokesCylinder(const unsigned int n_subdivisions,
                                       const unsigned int n_refines,
                                       const int          element_order,
                                       const bool         write_output)
@@ -62,7 +62,7 @@ PoissonDiskTest<dim>::PoissonDiskTest(const unsigned int n_subdivisions,
 
 template <int dim>
 void
-PoissonDiskTest<dim>::setup_quadrature()
+StokesCylinder<dim>::setup_quadrature()
 {
   const unsigned int quadOrder = 2 * element_order + 1;
   q_collection.push_back(QGauss<dim>(quadOrder));
@@ -71,7 +71,7 @@ PoissonDiskTest<dim>::setup_quadrature()
 
 template <int dim>
 void
-PoissonDiskTest<dim>::run()
+StokesCylinder<dim>::run()
 {
   make_grid();
   setup_quadrature();
@@ -89,7 +89,7 @@ PoissonDiskTest<dim>::run()
 
 template <int dim>
 void
-PoissonDiskTest<dim>::make_grid()
+StokesCylinder<dim>::make_grid()
 {
   std::cout << "Creating triangulation" << std::endl;
 
@@ -109,7 +109,7 @@ PoissonDiskTest<dim>::make_grid()
 
 template <int dim>
 void
-PoissonDiskTest<dim>::setup_level_set()
+StokesCylinder<dim>::setup_level_set()
 {
   std::cout << "Setting up level set" << std::endl;
 
@@ -129,7 +129,7 @@ PoissonDiskTest<dim>::setup_level_set()
 
 template <int dim>
 void
-PoissonDiskTest<dim>::distribute_dofs()
+StokesCylinder<dim>::distribute_dofs()
 {
   std::cout << "Distributing dofs" << std::endl;
 
@@ -158,7 +158,7 @@ PoissonDiskTest<dim>::distribute_dofs()
 
 template <int dim>
 void
-PoissonDiskTest<dim>::initialize_matrices()
+StokesCylinder<dim>::initialize_matrices()
 {
   solution.reinit(dof_handler.n_dofs());
   rhs.reinit(dof_handler.n_dofs());
@@ -170,7 +170,7 @@ PoissonDiskTest<dim>::initialize_matrices()
 
 template <int dim>
 void
-PoissonDiskTest<dim>::assemble_system()
+StokesCylinder<dim>::assemble_system()
 {
   std::cout << "Assembling" << std::endl;
 
@@ -239,7 +239,7 @@ PoissonDiskTest<dim>::assemble_system()
 
 template <int dim>
 void
-PoissonDiskTest<dim>::assemble_local_over_bulk(
+StokesCylinder<dim>::assemble_local_over_bulk(
   const FEValues<dim> &                       fe_values,
   const std::vector<types::global_dof_index> &loc2glb)
 {
@@ -271,7 +271,7 @@ PoissonDiskTest<dim>::assemble_local_over_bulk(
 
 template <int dim>
 void
-PoissonDiskTest<dim>::assemble_local_over_surface(
+StokesCylinder<dim>::assemble_local_over_surface(
   const FEImmersedSurfaceValues<dim> &        fe_values,
   const std::vector<types::global_dof_index> &loc2glb)
 {
@@ -302,7 +302,7 @@ PoissonDiskTest<dim>::assemble_local_over_surface(
 
 template <int dim>
 void
-PoissonDiskTest<dim>::solve()
+StokesCylinder<dim>::solve()
 {
   std::cout << "Solving system" << std::endl;
 
@@ -315,7 +315,7 @@ PoissonDiskTest<dim>::solve()
 
 template <int dim>
 void
-PoissonDiskTest<dim>::output_results() const
+StokesCylinder<dim>::output_results() const
 {
   DataOut<dim, hp::DoFHandler<dim>> data_out;
   data_out.attach_dof_handler(dof_handler);
@@ -335,9 +335,9 @@ PoissonDiskTest<dim>::output_results() const
 
 template <int dim>
 errors::Errors
-PoissonDiskTest<dim>::compute_errors() const
+StokesCylinder<dim>::compute_errors() const
 {
-  const PoissonAnalytical<dim>  analytic(frequency_analytic_solution,
+  const StokesAnalytical<dim>  analytic(frequency_analytic_solution,
                                          center,
                                          sphere_radius);
   errors::AnalyticFunction<dim> analytic_wrapper(analytic);
@@ -349,5 +349,5 @@ PoissonDiskTest<dim>::compute_errors() const
   return computed_errors;
 }
 
-template class PoissonDiskTest<2>;
-template class PoissonDiskTest<3>;
+template class StokesCylinder<2>;
+template class StokesCylinder<3>;

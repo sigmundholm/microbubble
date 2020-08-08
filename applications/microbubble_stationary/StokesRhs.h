@@ -16,10 +16,10 @@ using namespace dealii;
  * where r is the distance to origo and \omega is a given frequency.
  */
 template <int dim>
-class PoissonRhs : public Function<dim>
+class StokesRhs : public Function<dim>
 {
 public:
-  PoissonRhs(const double frequency, const Point<dim> &center);
+  StokesRhs(const double frequency, const Point<dim> &center);
 
   double
   value(const Point<dim> &p, const unsigned int component = 0) const override;
@@ -40,10 +40,10 @@ private:
  * function is zero.
  */
 template <int dim>
-class PoissonAnalytical : public Function<dim>
+class StokesAnalytical : public Function<dim>
 {
 public:
-  PoissonAnalytical(const double      frequency,
+  StokesAnalytical(const double      frequency,
                     const Point<dim> &center,
                     const double      radius_of_boundary);
 

@@ -9,7 +9,7 @@
 #include "StokesRhs.h"
 
 template <int dim>
-PoissonRhs<dim>::PoissonRhs(const double frequency, const Point<dim> &center)
+StokesRhs<dim>::StokesRhs(const double frequency, const Point<dim> &center)
   : frequency(frequency)
   , center(center)
 {}
@@ -18,7 +18,7 @@ PoissonRhs<dim>::PoissonRhs(const double frequency, const Point<dim> &center)
 
 template <int dim>
 double
-PoissonRhs<dim>::value(const Point<dim> &p, const unsigned int component) const
+StokesRhs<dim>::value(const Point<dim> &p, const unsigned int component) const
 {
   Assert(component == 0, ExcInternalError());
 
@@ -35,7 +35,7 @@ PoissonRhs<dim>::value(const Point<dim> &p, const unsigned int component) const
 
 
 template <int dim>
-PoissonAnalytical<dim>::PoissonAnalytical(const double      frequency,
+StokesAnalytical<dim>::StokesAnalytical(const double      frequency,
                                           const Point<dim> &center,
                                           const double      radius_of_boundary)
   : frequency(frequency)
@@ -47,7 +47,7 @@ PoissonAnalytical<dim>::PoissonAnalytical(const double      frequency,
 
 template <int dim>
 double
-PoissonAnalytical<dim>::value(const Point<dim> & p,
+StokesAnalytical<dim>::value(const Point<dim> & p,
                               const unsigned int component) const
 {
   Assert(component == 0, ExcInternalError());
@@ -65,7 +65,7 @@ PoissonAnalytical<dim>::value(const Point<dim> & p,
 
 template <int dim>
 Tensor<1, dim>
-PoissonAnalytical<dim>::gradient(const Point<dim> & point,
+StokesAnalytical<dim>::gradient(const Point<dim> & point,
                                  const unsigned int component) const
 {
   Assert(component == 0, ExcInternalError());
@@ -80,8 +80,8 @@ PoissonAnalytical<dim>::gradient(const Point<dim> & point,
   return gradient;
 }
 
-template class PoissonRhs<2>;
-template class PoissonRhs<3>;
+template class StokesRhs<2>;
+template class StokesRhs<3>;
 
-template class PoissonAnalytical<2>;
-template class PoissonAnalytical<3>;
+template class StokesAnalytical<2>;
+template class StokesAnalytical<3>;
