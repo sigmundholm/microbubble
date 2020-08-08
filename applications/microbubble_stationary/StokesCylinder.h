@@ -37,10 +37,11 @@ template <int dim>
 class StokesCylinder
 {
 public:
-  StokesCylinder(const unsigned int n_subdivisions,
-                  const unsigned int n_refines,
-                  const int          element_order,
-                  const bool         write_output);
+  StokesCylinder(const double       radius,
+                 const double       half_length,
+                 const unsigned int n_refines,
+                 const int          element_order,
+                 const bool         write_output);
 
   void
   run();
@@ -81,7 +82,8 @@ private:
   void
   output_results() const;
 
-  const unsigned int n_subdivisions;
+  const double       radius;
+  const double       half_length;
   const unsigned int n_refines;
 
   const double gammaA;
@@ -89,9 +91,9 @@ private:
 
   bool write_output;
 
-  const double          sphere_radius = 1;
-  const Point<dim>      center;
-  const double          frequency_analytic_solution = numbers::PI;
+  const double         sphere_radius = 0.25;
+  const Point<dim>     center;
+  const double         frequency_analytic_solution = numbers::PI;
   const StokesRhs<dim> rhs_function;
 
   // Cell side-length.

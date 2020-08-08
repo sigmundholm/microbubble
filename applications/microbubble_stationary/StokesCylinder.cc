@@ -7,6 +7,8 @@
 #include <deal.II/fe/fe_update_flags.h>
 
 #include <deal.II/grid/grid_generator.h>
+#include <deal.II/grid/grid_out.h>
+#include <deal.II/grid/grid_tools.h>
 #include <deal.II/grid/tria_accessor.h>
 
 #include <deal.II/lac/full_matrix.h>
@@ -39,11 +41,13 @@ compute_gammaD(const unsigned int element_order)
 }
 
 template <int dim>
-StokesCylinder<dim>::StokesCylinder(const unsigned int n_subdivisions,
-                                      const unsigned int n_refines,
-                                      const int          element_order,
-                                      const bool         write_output)
-  : n_subdivisions(n_subdivisions)
+StokesCylinder<dim>::StokesCylinder(const double       radius,
+                                    const double       half_length,
+                                    const unsigned int n_refines,
+                                    const int          element_order,
+                                    const bool         write_output)
+  : radius(radius)
+  , half_length(half_length)
   , n_refines(n_refines)
   , gammaA(.5)
   , gammaD(compute_gammaD(element_order))
@@ -93,13 +97,11 @@ StokesCylinder<dim>::make_grid()
 {
   std::cout << "Creating triangulation" << std::endl;
 
-  GridGenerator::subdivided_hyper_cube(triangulation,
-                                       n_subdivisions,
-                                       -1.5,
-                                       1.5);
+  GridGenerator::cylinder(triangulation, radius, half_length);
+  GridTools::remove_anisotropy(triangulation, 1.618, 5);
   triangulation.refine_global(n_refines);
 
-  mapping_collection.push_back(MappingCartesian<dim>());
+  mapping_collection.push_back(MappingCartesian<dim>()); // TODO wut?
 
   // Save the cell-size, we need it in the Nitsche term.
   typename Triangulation<dim>::active_cell_iterator cell =
@@ -119,7 +121,8 @@ StokesCylinder<dim>::setup_level_set()
   levelset.reinit(levelset_dof_handler.n_dofs());
 
   // Project the geometry onto the mesh.
-  cutfem::geometry::SignedDistanceSphere<dim> signed_distance_sphere;
+  cutfem::geometry::SignedDistanceSphere<dim> signed_distance_sphere(
+    sphere_radius, center);
   VectorTools::project(levelset_dof_handler,
                        constraints,
                        QGauss<dim>(2 * element_order + 1),
@@ -287,11 +290,11 @@ StokesCylinder<dim>::assemble_local_over_surface(
             {
               dirichlet_loc(i, j) +=
                 fe_values.JxW(q) * (-normal * fe_values.shape_grad(i, q) *
-                                    fe_values.shape_value(j, q) +
+                                      fe_values.shape_value(j, q) +
                                     -normal * fe_values.shape_grad(j, q) *
-                                    fe_values.shape_value(i, q) +
+                                      fe_values.shape_value(i, q) +
                                     gammaD / h * fe_values.shape_value(i, q) *
-                                    fe_values.shape_value(j, q));
+                                      fe_values.shape_value(j, q));
             }
         }
     }
@@ -337,9 +340,9 @@ template <int dim>
 errors::Errors
 StokesCylinder<dim>::compute_errors() const
 {
-  const StokesAnalytical<dim>  analytic(frequency_analytic_solution,
-                                         center,
-                                         sphere_radius);
+  const StokesAnalytical<dim>   analytic(frequency_analytic_solution,
+                                       center,
+                                       sphere_radius);
   errors::AnalyticFunction<dim> analytic_wrapper(analytic);
   cutfem::errors::ErrorCalculator<dim, Vector<double>> error_calculator(
     levelset_dof_handler, levelset, dof_handler, cut_mesh_classifier);
