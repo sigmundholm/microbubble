@@ -54,6 +54,10 @@ StokesCylinder<dim>::StokesCylinder(const double       radius,
   , write_output(write_output)
   , rhs_function(frequency_analytic_solution, center)
   , element_order(element_order)
+  , stokes_fe(FESystem<dim>(FE_Q<dim>(element_order + 1), dim),
+              1,
+              FE_Q<dim>(element_order),
+              1)
   , fe_levelset(element_order)
   , levelset_dof_handler(triangulation)
   , dof_handler(triangulation)
@@ -80,6 +84,7 @@ StokesCylinder<dim>::run()
   make_grid();
   setup_quadrature();
   setup_level_set();
+  // TODO er det denne som klassifiserer celler i forhold til geometrien?
   cut_mesh_classifier.reclassify();
   distribute_dofs();
   initialize_matrices();
@@ -116,6 +121,7 @@ StokesCylinder<dim>::setup_level_set()
   std::cout << "Setting up level set" << std::endl;
 
   // The level set function lives on the whole background mesh.
+  // TODO forstår ikke helt hva som skjer her
   levelset_dof_handler.distribute_dofs(fe_levelset);
   printf("leveset dofs: %d\n", levelset_dof_handler.n_dofs());
   levelset.reinit(levelset_dof_handler.n_dofs());
@@ -138,13 +144,14 @@ StokesCylinder<dim>::distribute_dofs()
 
   // We want to types of elements on the mesh
   // Lagrange elements and elements that are constant zero..
-  fe_collection.push_back(FE_Q<dim>(element_order));
-  fe_collection.push_back(FE_Nothing<dim>());
+  fe_collection.push_back(stokes_fe);
+  fe_collection.push_back(FESystem<dim>(
+    FESystem<dim>(FE_Nothing<dim>(), dim), 1, FE_Nothing<dim>(), 1));
 
-  // Set inside finite elements to FE_Q and outside to FE_nothing
+  // Set outside finite elements to stokes_fe, and inside to FE_nothing
   for (const auto &cell : dof_handler.active_cell_iterators())
     {
-      if (LocationToLevelSet::OUTSIDE ==
+      if (LocationToLevelSet::INSIDE ==
           cut_mesh_classifier.location_to_level_set(cell))
         {
           // 1 is FE_nothing
@@ -152,7 +159,7 @@ StokesCylinder<dim>::distribute_dofs()
         }
       else
         {
-          // 0 is FE_Q
+          // 0 is stokes_fe
           cell->set_active_fe_index(0);
         }
     }
@@ -163,6 +170,7 @@ template <int dim>
 void
 StokesCylinder<dim>::initialize_matrices()
 {
+  std::cout << "Initialize marices" << std::endl;
   solution.reinit(dof_handler.n_dofs());
   rhs.reinit(dof_handler.n_dofs());
 
@@ -174,6 +182,16 @@ StokesCylinder<dim>::initialize_matrices()
 template <int dim>
 void
 StokesCylinder<dim>::assemble_system()
+{
+
+
+}
+
+
+
+template <int dim>
+void
+StokesCylinder<dim>::assemble_system_old()
 {
   std::cout << "Assembling" << std::endl;
 
@@ -320,6 +338,7 @@ template <int dim>
 void
 StokesCylinder<dim>::output_results() const
 {
+  std::cout << "Output results" << std::endl;
   DataOut<dim, hp::DoFHandler<dim>> data_out;
   data_out.attach_dof_handler(dof_handler);
   data_out.add_data_vector(solution, "solution");

@@ -7,6 +7,7 @@
 
 #include <deal.II/fe/fe_base.h>
 #include <deal.II/fe/fe_q.h>
+#include <deal.II/fe/fe_system.h>
 #include <deal.II/fe/fe_values.h>
 #include <deal.II/fe/mapping_q1.h>
 
@@ -101,16 +102,15 @@ private:
   const unsigned int element_order;
 
   Triangulation<dim> triangulation;
+  FESystem<dim>      stokes_fe;
 
-  FE_Q<dim>             fe_levelset;
-  hp::FECollection<dim> fe_collection;
-
+  hp::FECollection<dim>      fe_collection;
   hp::MappingCollection<dim> mapping_collection;
-
-  hp::QCollection<dim> q_collection;
-  hp::QCollection<1>   q_collection1D;
+  hp::QCollection<dim>       q_collection;
+  hp::QCollection<1>         q_collection1D;
 
   // Object managing degrees of freedom for the level set function.
+  FE_Q<dim>       fe_levelset;
   DoFHandler<dim> levelset_dof_handler;
   Vector<double>  levelset;
 
