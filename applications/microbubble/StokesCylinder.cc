@@ -13,8 +13,8 @@
 
 #include <deal.II/lac/full_matrix.h>
 #include <deal.II/lac/precondition.h>
-#include <deal.II/lac/solver_cg.h>
 #include <deal.II/lac/solver_control.h>
+#include <deal.II/lac/sparse_direct.h>
 
 #include <deal.II/non_matching/cut_mesh_classifier.h>
 #include <deal.II/non_matching/fe_values.h>
@@ -512,12 +512,9 @@ void
 StokesCylinder<dim>::solve()
 {
   std::cout << "Solving system" << std::endl;
-
-  const int     maxIt = 2e4;
-  double        tol   = 1.0e-10;
-  SolverControl solver_control(maxIt, tol);
-  SolverCG<>    solver(solver_control);
-  solver.solve(stiffness_matrix, solution, rhs, PreconditionIdentity());
+  SparseDirectUMFPACK inverse;
+  inverse.initialize(stiffness_matrix);
+  inverse.vmult(solution, rhs);
 }
 
 template <int dim>
@@ -525,9 +522,20 @@ void
 StokesCylinder<dim>::output_results() const
 {
   std::cout << "Output results" << std::endl;
-  DataOut<dim, hp::DoFHandler<dim>> data_out;
+  // Output results, see step-22
+  std::vector<std::string> solution_names(dim, "velocity");
+  solution_names.emplace_back("pressure");
+  std::vector<DataComponentInterpretation::DataComponentInterpretation> dci(
+    dim, DataComponentInterpretation::component_is_part_of_vector);
+  dci.push_back(DataComponentInterpretation::component_is_scalar);
+
+  DataOut<dim> data_out;
   data_out.attach_dof_handler(dof_handler);
-  data_out.add_data_vector(solution, "solution");
+  data_out.add_data_vector(solution,
+                           solution_names,
+                           DataOut<dim>::type_dof_data,
+                           dci);
+
   data_out.build_patches();
   std::ofstream output("solution.vtk");
   data_out.write_vtk(output);
