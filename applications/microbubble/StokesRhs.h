@@ -1,33 +1,39 @@
 #include <deal.II/base/function.h>
 #include <deal.II/base/point.h>
+#include <deal.II/base/tensor_function.h>
 
 using namespace dealii;
 
-/**
- * This function is the -Laplacian
- *
- * f = -\nabla^2 u
- *
- * in \mathbb{R}^d applied to the function
- * PoissonAnalytical:
- *
- * f(r) = \omega^2 ( cos(\omega r) + (d-1)sin(\omega r)/(\omega r) ),
- *
- * where r is the distance to origo and \omega is a given frequency.
- */
+
 template <int dim>
-class StokesRhs : public Function<dim>
+class StokesRhs : public TensorFunction<1, dim>
 {
 public:
-  StokesRhs(const double frequency, const Point<dim> &center);
+  virtual double
+  point_value(const Point<dim> &p, const unsigned int component = 0) const;
 
+  void
+  vector_value(const Point<dim> &p, Tensor<1, dim> &value) const;
+
+  void
+  value_list(const std::vector<Point<dim>> &points,
+             std::vector<Tensor<1, dim>> &  values) const override;
+};
+
+
+template <int dim>
+class BoundaryValues : public TensorFunction<1, dim>
+{
+public:
   double
-  value(const Point<dim> &p, const unsigned int component = 0) const override;
+  point_value(const Point<dim> &p, const unsigned int component) const;
 
-private:
-  const double frequency;
+  void
+  vector_value(const Point<dim> &p, Tensor<1, dim> &value) const;
 
-  const Point<dim> center;
+  void
+  value_list(const std::vector<Point<dim>> &points,
+             std::vector<Tensor<1, dim>> &  values) const;
 };
 
 /**
@@ -44,8 +50,8 @@ class StokesAnalytical : public Function<dim>
 {
 public:
   StokesAnalytical(const double      frequency,
-                    const Point<dim> &center,
-                    const double      radius_of_boundary);
+                   const Point<dim> &center,
+                   const double      radius_of_boundary);
 
   double
   value(const Point<dim> &p, const unsigned int component = 0) const override;

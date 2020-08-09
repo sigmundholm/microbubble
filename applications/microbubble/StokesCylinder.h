@@ -92,10 +92,11 @@ private:
 
   bool write_output;
 
-  const double         sphere_radius = 0.25;
-  const Point<dim>     center;
-  const double         frequency_analytic_solution = numbers::PI;
-  const StokesRhs<dim> rhs_function;
+  const double              sphere_radius = 0.25;
+  const Point<dim>          center;
+  const double              frequency_analytic_solution = numbers::PI;
+  const StokesRhs<dim>      rhs_function;
+  const BoundaryValues<dim> boundary_values;
 
   // Cell side-length.
   double             h;

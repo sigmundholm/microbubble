@@ -52,7 +52,6 @@ StokesCylinder<dim>::StokesCylinder(const double       radius,
   , gammaA(.5)
   , gammaD(compute_gammaD(element_order))
   , write_output(write_output)
-  , rhs_function(frequency_analytic_solution, center)
   , element_order(element_order)
   , stokes_fe(FESystem<dim>(FE_Q<dim>(element_order + 1), dim),
               1,
@@ -183,20 +182,11 @@ template <int dim>
 void
 StokesCylinder<dim>::assemble_system()
 {
-
-
-}
-
-
-
-template <int dim>
-void
-StokesCylinder<dim>::assemble_system_old()
-{
   std::cout << "Assembling" << std::endl;
 
   // The stabilization is quite tricky to compute so this
   // is a helper object to do it.
+  // TODO fjerne alt med stabilization kanskje?
   stabilization::JumpStabilization<dim> stabilization(dof_handler,
                                                       mapping_collection,
                                                       cut_mesh_classifier,
@@ -206,15 +196,12 @@ StokesCylinder<dim>::assemble_system_old()
     stabilization::inside_stabilization);
   stabilization.set_weight_function(stabilization::taylor_weights);
 
-
-
   NonMatching::RegionUpdateFlags region_update_flags;
-  region_update_flags.inside = update_values | update_JxW_values |
-                               update_gradients | update_quadrature_points;
+  region_update_flags.outside = update_values | update_JxW_values |
+                                update_gradients | update_quadrature_points;
   region_update_flags.surface = update_values | update_JxW_values |
                                 update_gradients | update_quadrature_points |
                                 update_normal_vectors;
-
 
   NonMatching::FEValues<dim> cut_fe_values(mapping_collection,
                                            fe_collection,
@@ -228,7 +215,7 @@ StokesCylinder<dim>::assemble_system_old()
   for (const auto &cell : dof_handler.active_cell_iterators())
     {
       const unsigned int n_dofs = cell->get_fe().dofs_per_cell;
-      std::vector<types::global_dof_index> loc2glb(n_dofs);
+      std::vector<types::global_dof_index> loc2glb(n_dofs); // TODO wut?
       cell->get_dof_indices(loc2glb);
 
       // This call will compute quadrature rules relevant for this cell
@@ -237,11 +224,20 @@ StokesCylinder<dim>::assemble_system_old()
 
       // Retrieve an FEValues object with quadrature points
       // over the full cell.
+      // TODO hva menes med bulk?
       const boost::optional<const FEValues<dim> &> fe_values_bulk =
-        cut_fe_values.get_inside_fe_values();
+        cut_fe_values.get_outside_fe_values(); // TODO riktig med outside?
 
       if (fe_values_bulk)
         assemble_local_over_bulk(*fe_values_bulk, loc2glb);
+
+      for (const auto &face : cell->face_iterators())
+        {
+          if (face->at_boundary() && face->boundary_id() != 2)
+            {
+              // TODO FEFaceValues
+            }
+        }
 
       // Retrieve an FEValues object with quadrature points
       // on the immersed surface.
@@ -261,6 +257,72 @@ StokesCylinder<dim>::assemble_system_old()
 template <int dim>
 void
 StokesCylinder<dim>::assemble_local_over_bulk(
+  const FEValues<dim> &                       fe_values,
+  const std::vector<types::global_dof_index> &loc2glb)
+{
+  // TODO generelt: er det for mange hjelpeobjekter som opprettes her i cella?
+  //  bør det heller gjøres i funksjonen før og sendes som argumenter? hvis det
+  //  er mulig mtp cellene som blir cut da
+
+  // Matrix and vector for the contribution of each cell
+  const unsigned int dofs_per_cell = fe_values.get_fe().dofs_per_cell;
+  FullMatrix<double> local_matrix(dofs_per_cell, dofs_per_cell);
+  Vector<double>     local_rhs(dofs_per_cell);
+
+  // TODO kanskje droppe? og bare regne i loopen som simon gjorde?
+  // Vector for values of the RightHandSide for all quadrature points on a cell.
+  std::vector<Tensor<1, dim>> rhs_values(fe_values.n_quadrature_points,
+                                         Tensor<1, dim>());
+  rhs_function.value_list(fe_values.get_quadrature_points(), rhs_values);
+
+  const FEValuesExtractors::Vector velocities(0);
+  const FEValuesExtractors::Scalar pressure(dim);
+
+  // Calculate often used terms in the beginning of each cell-loop
+  std::vector<Tensor<2, dim>> grad_phi_u(dofs_per_cell);
+  std::vector<double>         div_phi_u(dofs_per_cell);
+  std::vector<Tensor<1, dim>> phi_u(dofs_per_cell, Tensor<1, dim>());
+  std::vector<double>         phi_p(dofs_per_cell);
+
+  for (unsigned int q = 0; q < fe_values.n_quadrature_points; ++q)
+    {
+      for (const unsigned int k : fe_values.dof_indices())
+        {
+          grad_phi_u[k] = fe_values[velocities].gradient(k, q);
+          div_phi_u[k]  = fe_values[velocities].divergence(k, q);
+          phi_u[k]      = fe_values[velocities].value(k, q);
+          phi_p[k]      = fe_values[pressure].value(k, q);
+        }
+
+      for (const unsigned int i : fe_values.dof_indices())
+        {
+          for (const unsigned int j : fe_values.dof_indices())
+            {
+              local_matrix(i, j) +=
+                (scalar_product(grad_phi_u[i],
+                                grad_phi_u[j]) // (grad u, grad v)
+                 - (div_phi_u[j] * phi_p[i])   // -(div v, p)
+                 - (div_phi_u[i] * phi_p[j])   // -(div u, q)
+                 ) *
+                fe_values.JxW(q); // dx
+            }
+          // RHS
+          local_rhs(i) += rhs_values[q] * phi_u[i] // (f, v)
+                          * fe_values.JxW(q);      // dx
+        }
+    }
+
+  // map local to global. TODO sjekk om dette stemmer her, jeg looper i min kode
+  // kanskje gjøre det i funksjonen over i slutten av cell loopen istedet?
+  stiffness_matrix.add(loc2glb, local_matrix);
+  rhs.add(loc2glb, local_rhs);
+}
+
+
+/*
+template <int dim>
+void
+StokesCylinder<dim>::assemble_local_over_bulk_old(
   const FEValues<dim> &                       fe_values,
   const std::vector<types::global_dof_index> &loc2glb)
 {
@@ -287,12 +349,77 @@ StokesCylinder<dim>::assemble_local_over_bulk(
   stiffness_matrix.add(loc2glb, gradigradj_loc);
   rhs.add(loc2glb, rhs_loc);
 }
-
+ */
 
 
 template <int dim>
 void
 StokesCylinder<dim>::assemble_local_over_surface(
+  const FEImmersedSurfaceValues<dim> &        fe_values,
+  const std::vector<types::global_dof_index> &loc2glb)
+{
+  // Matrix and vector for the contribution of each cell
+  const unsigned int dofs_per_cell = fe_values.get_fe().dofs_per_cell;
+  FullMatrix<double> local_matrix(dofs_per_cell, dofs_per_cell);
+  Vector<double>     local_rhs(dofs_per_cell);
+
+  // Evaluate the boundary function for all quadrature points on this face.
+  std::vector<Tensor<1, dim>> bdd_values(fe_values.n_quadrature_points,
+                                         Tensor<1, dim>());
+  boundary_values.value_list(fe_values.get_quadrature_points(), bdd_values);
+
+  const FEValuesExtractors::Vector velocities(0);
+  const FEValuesExtractors::Scalar pressure(dim);
+
+  // Calculate often used terms in the beginning of each cell-loop
+  std::vector<Tensor<2, dim>> grad_phi_u(dofs_per_cell);
+  std::vector<double>         div_phi_u(dofs_per_cell);
+  std::vector<Tensor<1, dim>> phi_u(dofs_per_cell, Tensor<1, dim>());
+  std::vector<double>         phi_p(dofs_per_cell);
+
+  double         mu = 50 / h; // Penalty parameter
+  Tensor<1, dim> normal;
+
+  for (unsigned int q : fe_values.quadrature_point_indices())
+    {
+      normal = fe_values.normal_vector(q);
+
+      for (const unsigned int k : fe_values.dof_indices())
+        {
+          grad_phi_u[k] = fe_values[velocities].gradient(k, q);
+          div_phi_u[k]  = fe_values[velocities].divergence(k, q);
+          phi_u[k]      = fe_values[velocities].value(k, q);
+          phi_p[k]      = fe_values[pressure].value(k, q);
+        }
+
+      for (const unsigned int i : fe_values.dof_indices())
+        {
+          for (const unsigned int j : fe_values.dof_indices())
+            {
+              local_matrix(i, j) +=
+                (-(grad_phi_u[i] * normal) * phi_u[j]  // -(n * grad u, v)
+                 - (grad_phi_u[j] * normal) * phi_u[i] // -(n * grad v, u)
+                 + mu * (phi_u[i] * phi_u[j])          // mu (u, v)
+                 + (normal * phi_u[j]) * phi_p[i]      // (n * v, p)
+                 + (normal * phi_u[i]) * phi_p[j]      // (n * u, q)
+                 ) *
+                fe_values.JxW(q); // ds
+            }
+
+          Tensor<1, dim> prod_r =
+            mu * phi_u[i] - grad_phi_u[i] * normal + phi_p[i] * normal;
+          local_rhs(i) += prod_r * bdd_values[q] // (g, mu v - n grad v + q * n)
+                          * fe_values.JxW(q);    // ds
+        }
+    }
+  stiffness_matrix.add(loc2glb, local_matrix);
+  rhs.add(loc2glb, local_rhs);
+}
+
+/*
+template <int dim>
+void
+StokesCylinder<dim>::assemble_local_over_surface_old(
   const FEImmersedSurfaceValues<dim> &        fe_values,
   const std::vector<types::global_dof_index> &loc2glb)
 {
@@ -318,7 +445,7 @@ StokesCylinder<dim>::assemble_local_over_surface(
     }
   stiffness_matrix.add(loc2glb, dirichlet_loc);
 }
-
+ */
 
 
 template <int dim>

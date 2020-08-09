@@ -17,7 +17,7 @@ main()
   printf("elementOrder=%d\n", elementOrder);
   const bool write_vtk = true;
 
-  double radius = 1;
+  double radius      = 1;
   double half_length = 2.5;
 
   StokesCylinder<2> s3(radius, half_length, n_refines, elementOrder, write_vtk);
