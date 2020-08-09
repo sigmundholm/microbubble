@@ -37,18 +37,25 @@ StokesRhs<dim>::value_list(const std::vector<Point<dim>> &points,
 }
 
 
-// TODO fiks for gitt radius og lengde
+
+template <int dim>
+BoundaryValues<dim>::BoundaryValues(double radius, double length)
+  : radius(radius)
+  , length(length)
+{}
+
 template <int dim>
 double
 BoundaryValues<dim>::point_value(const Point<dim> & p,
                                  const unsigned int component) const
 {
   (void)p;
-  if (component == 0 && p[0] == 0)
+  double pressure_drop = 10;  // Only for cylinder channel, Hagen–Poiseuille
+  if (component == 0 && p[0] == -length/2)
     {
       if (dim == 2)
         {
-          return -2.5 * (p[1] - 0.41) * p[1];
+          return pressure_drop / (4 * length) * (radius * radius - p[1] * p[1]);
         }
       throw std::exception(); // TODO fix 3D
     }

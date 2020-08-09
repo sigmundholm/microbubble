@@ -25,6 +25,8 @@ template <int dim>
 class BoundaryValues : public TensorFunction<1, dim>
 {
 public:
+  BoundaryValues(double radius, double length);
+
   double
   point_value(const Point<dim> &p, const unsigned int component) const;
 
@@ -34,6 +36,10 @@ public:
   void
   value_list(const std::vector<Point<dim>> &points,
              std::vector<Tensor<1, dim>> &  values) const;
+
+private:
+  double radius;
+  double length;
 };
 
 /**

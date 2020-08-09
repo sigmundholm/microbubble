@@ -78,6 +78,11 @@ private:
     const std::vector<types::global_dof_index> &loc2glb);
 
   void
+  assemble_local_over_surface(
+    const FEFaceValues<dim> &        fe_values,
+    const std::vector<types::global_dof_index> &loc2glb);
+
+  void
   solve();
 
   void
