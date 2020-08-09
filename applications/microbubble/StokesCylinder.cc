@@ -30,7 +30,7 @@
 
 #include "cutfem/geometry/SignedDistanceSphere.h"
 #include "cutfem/nla/sparsity_pattern.h"
-#include "cutfem/stabilization/jump_stabilization.h"
+
 
 using namespace cutfem;
 
@@ -184,18 +184,6 @@ StokesCylinder<dim>::assemble_system()
 {
   std::cout << "Assembling" << std::endl;
 
-  // The stabilization is quite tricky to compute so this
-  // is a helper object to do it.
-  // TODO fjerne alt med stabilization kanskje?
-  stabilization::JumpStabilization<dim> stabilization(dof_handler,
-                                                      mapping_collection,
-                                                      cut_mesh_classifier,
-                                                      constraints);
-
-  stabilization.set_function_describing_faces_to_stabilize(
-    stabilization::inside_stabilization);
-  stabilization.set_weight_function(stabilization::taylor_weights);
-
   NonMatching::RegionUpdateFlags region_update_flags;
   region_update_flags.outside = update_values | update_JxW_values |
                                 update_gradients | update_quadrature_points;
@@ -247,10 +235,6 @@ StokesCylinder<dim>::assemble_system()
       if (fe_values_surface)
         assemble_local_over_surface(*fe_values_surface, loc2glb);
 
-      // Compute and add stabilization.
-      stabilization.compute_stabilization(cell);
-      stabilization.add_stabilization_to_matrix(gammaA / (h * h),
-                                                stiffness_matrix);
     }
 }
 
