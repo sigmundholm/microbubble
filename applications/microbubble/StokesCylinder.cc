@@ -30,6 +30,7 @@
 
 #include "cutfem/geometry/SignedDistanceSphere.h"
 #include "cutfem/nla/sparsity_pattern.h"
+#include "cutfem/stabilization/jump_stabilization.h"
 
 
 using namespace cutfem;
@@ -153,7 +154,7 @@ StokesCylinder<dim>::distribute_dofs()
   for (const auto &cell : dof_handler.active_cell_iterators())
     {
       if (LocationToLevelSet::OUTSIDE ==
-            cut_mesh_classifier.location_to_level_set(cell))
+          cut_mesh_classifier.location_to_level_set(cell))
         {
           // 1 is FE_nothing
           cell->set_active_fe_index(1);
@@ -186,6 +187,30 @@ StokesCylinder<dim>::assemble_system()
 {
   std::cout << "Assembling" << std::endl;
 
+  // The stabilization is quite tricky to compute so this is a helper object to
+  // do it. TODO ta ut stabiliseringen i en egen funksjon?
+  const FEValuesExtractors::Vector velocities(0);
+  stabilization::JumpStabilization<dim, FEValuesExtractors::Vector>
+    velocity_stabilization(dof_handler,
+                           mapping_collection,
+                           cut_mesh_classifier,
+                           constraints);
+  velocity_stabilization.set_function_describing_faces_to_stabilize(
+    stabilization::inside_stabilization);
+  velocity_stabilization.set_weight_function(stabilization::taylor_weights);
+  velocity_stabilization.set_extractor(velocities);
+
+  const FEValuesExtractors::Scalar pressure(dim);
+  stabilization::JumpStabilization<dim, FEValuesExtractors::Scalar>
+    pressure_stabilization(dof_handler,
+                           mapping_collection,
+                           cut_mesh_classifier,
+                           constraints);
+  pressure_stabilization.set_function_describing_faces_to_stabilize(
+    stabilization::inside_stabilization);
+  pressure_stabilization.set_weight_function(stabilization::taylor_weights);
+  pressure_stabilization.set_extractor(pressure);
+
   NonMatching::RegionUpdateFlags region_update_flags;
   region_update_flags.inside = update_values | update_JxW_values |
                                update_gradients | update_quadrature_points;
@@ -213,7 +238,7 @@ StokesCylinder<dim>::assemble_system()
   for (const auto &cell : dof_handler.active_cell_iterators())
     {
       const unsigned int n_dofs = cell->get_fe().dofs_per_cell;
-      std::vector<types::global_dof_index> loc2glb(n_dofs); // TODO wut?
+      std::vector<types::global_dof_index> loc2glb(n_dofs);
       cell->get_dof_indices(loc2glb);
 
       // This call will compute quadrature rules relevant for this cell
@@ -229,13 +254,14 @@ StokesCylinder<dim>::assemble_system()
       if (fe_values_bulk)
         assemble_local_over_bulk(*fe_values_bulk, loc2glb);
 
+      // Loop through all faces that constitutes the outer boundary of the
+      // domain.
       for (const auto &face : cell->face_iterators())
         {
           if (face->at_boundary() && face->boundary_id() != 2)
             {
               fe_face_values.reinit(cell, face);
-              assemble_local_over_surface(fe_face_values,
-                                          loc2glb); // TODO dette må sjekkes
+              assemble_local_over_surface(fe_face_values, loc2glb);
             }
         }
 
@@ -246,6 +272,15 @@ StokesCylinder<dim>::assemble_system()
 
       if (fe_values_surface)
         assemble_local_over_surface(*fe_values_surface, loc2glb);
+
+      // Compute and add velocity_stabilization.
+      velocity_stabilization.compute_stabilization(cell);
+      velocity_stabilization.add_stabilization_to_matrix(gammaA / (h * h),
+                                                         stiffness_matrix);
+      // Compute and add velocity_stabilization.
+      pressure_stabilization.compute_stabilization(cell);
+      pressure_stabilization.add_stabilization_to_matrix(gammaA / h,
+                                                         stiffness_matrix);
     }
 }
 
@@ -306,9 +341,6 @@ StokesCylinder<dim>::assemble_local_over_bulk(
                           * fe_values.JxW(q);      // dx
         }
     }
-
-  // map local to global. TODO sjekk om dette stemmer her, jeg looper i min kode
-  // kanskje gjøre det i funksjonen over i slutten av cell loopen istedet?
   stiffness_matrix.add(loc2glb, local_matrix);
   rhs.add(loc2glb, local_rhs);
 }
