@@ -129,7 +129,7 @@ StokesCylinder<dim>::setup_level_set()
 
   // Project the geometry onto the mesh.
   cutfem::geometry::SignedDistanceSphere<dim> signed_distance_sphere(
-    sphere_radius, center);
+    sphere_radius, center, -1);
   VectorTools::project(levelset_dof_handler,
                        constraints,
                        QGauss<dim>(2 * element_order + 1),
@@ -152,8 +152,8 @@ StokesCylinder<dim>::distribute_dofs()
   // Set outside finite elements to stokes_fe, and inside to FE_nothing
   for (const auto &cell : dof_handler.active_cell_iterators())
     {
-      if (LocationToLevelSet::INSIDE ==
-          cut_mesh_classifier.location_to_level_set(cell))
+      if (LocationToLevelSet::OUTSIDE ==
+            cut_mesh_classifier.location_to_level_set(cell))
         {
           // 1 is FE_nothing
           cell->set_active_fe_index(1);
@@ -187,8 +187,8 @@ StokesCylinder<dim>::assemble_system()
   std::cout << "Assembling" << std::endl;
 
   NonMatching::RegionUpdateFlags region_update_flags;
-  region_update_flags.outside = update_values | update_JxW_values |
-                                update_gradients | update_quadrature_points;
+  region_update_flags.inside = update_values | update_JxW_values |
+                               update_gradients | update_quadrature_points;
   region_update_flags.surface = update_values | update_JxW_values |
                                 update_gradients | update_quadrature_points |
                                 update_normal_vectors;
@@ -224,7 +224,7 @@ StokesCylinder<dim>::assemble_system()
       // over the full cell.
       // TODO hva menes med bulk?
       const boost::optional<const FEValues<dim> &> fe_values_bulk =
-        cut_fe_values.get_outside_fe_values(); // TODO riktig med outside?
+        cut_fe_values.get_inside_fe_values(); // TODO riktig med outside?
 
       if (fe_values_bulk)
         assemble_local_over_bulk(*fe_values_bulk, loc2glb);
