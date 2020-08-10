@@ -10,7 +10,7 @@ int
 main()
 {
   const unsigned int n_subdivisions = 15;
-  const unsigned int n_refines      = 7;
+  const unsigned int n_refines      = 6;
   const unsigned int elementOrder   = 1;
 
   printf("numRefines=%d\n", n_subdivisions);
