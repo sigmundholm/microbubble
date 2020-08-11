@@ -34,94 +34,93 @@ using namespace cutfem;
 
 using NonMatching::LocationToLevelSet;
 
-template <int dim>
-class StokesCylinder
-{
+template<int dim>
+class StokesCylinder {
 public:
-  StokesCylinder(const double       radius,
-                 const double       half_length,
-                 const unsigned int n_refines,
-                 const int          element_order,
-                 const bool         write_output);
+    StokesCylinder(const double radius,
+                   const double half_length,
+                   const unsigned int n_refines,
+                   const int element_order,
+                   const bool write_output);
 
-  void
-  run();
+    void
+    run();
 
 private:
-  void
-  make_grid();
+    void
+    make_grid();
 
-  void
-  setup_level_set();
+    void
+    setup_level_set();
 
-  void
-  setup_quadrature();
+    void
+    setup_quadrature();
 
-  void
-  distribute_dofs();
+    void
+    distribute_dofs();
 
-  void
-  initialize_matrices();
+    void
+    initialize_matrices();
 
-  void
-  assemble_system();
+    void
+    assemble_system();
 
-  void
-  assemble_local_over_bulk(const FEValues<dim> &fe_values,
-                           const std::vector<types::global_dof_index> &loc2glb);
-  void
-  assemble_local_over_surface(
-    const FEValuesBase<dim> &                   fe_values,
-    const std::vector<types::global_dof_index> &loc2glb);
+    void
+    assemble_local_over_bulk(const FEValues<dim> &fe_values,
+                             const std::vector<types::global_dof_index> &loc2glb);
 
-  void
-  solve();
+    void
+    assemble_local_over_surface(
+            const FEValuesBase<dim> &fe_values,
+            const std::vector<types::global_dof_index> &loc2glb);
 
-  void
-  output_results() const;
+    void
+    solve();
 
-  const double       radius;
-  const double       half_length;
-  const unsigned int n_refines;
+    void
+    output_results() const;
 
-  const double gammaA;
-  const double gammaD;
+    const double radius;
+    const double half_length;
+    const unsigned int n_refines;
 
-  bool write_output;
+    const double gammaA;
+    const double gammaD;
 
-  const double              sphere_radius = 0.25;
-  const Point<dim>          center;
-  const double              frequency_analytic_solution = numbers::PI;
-  const StokesRhs<dim>      rhs_function;
-  const BoundaryValues<dim> boundary_values;
+    bool write_output;
 
-  // Cell side-length.
-  double             h;
-  const unsigned int element_order;
+    const double sphere_radius = 0.25;
+    const Point<dim> center;
+    const StokesRhs<dim> rhs_function;
+    const BoundaryValues<dim> boundary_values;
 
-  Triangulation<dim> triangulation;
-  FESystem<dim>      stokes_fe;
+    // Cell side-length.
+    double h;
+    const unsigned int element_order;
 
-  hp::FECollection<dim>      fe_collection;
-  hp::MappingCollection<dim> mapping_collection;
-  hp::QCollection<dim>       q_collection;
-  hp::QCollection<1>         q_collection1D;
+    Triangulation<dim> triangulation;
+    FESystem<dim> stokes_fe;
 
-  // Object managing degrees of freedom for the level set function.
-  FE_Q<dim>       fe_levelset;
-  DoFHandler<dim> levelset_dof_handler;
-  Vector<double>  levelset;
+    hp::FECollection<dim> fe_collection;
+    hp::MappingCollection<dim> mapping_collection;
+    hp::QCollection<dim> q_collection;
+    hp::QCollection<1> q_collection1D;
 
-  // Object managing degrees of freedom for the cutfem method.
-  hp::DoFHandler<dim> dof_handler;
+    // Object managing degrees of freedom for the level set function.
+    FE_Q<dim> fe_levelset;
+    DoFHandler<dim> levelset_dof_handler;
+    Vector<double> levelset;
 
-  NonMatching::CutMeshClassifier<dim> cut_mesh_classifier;
+    // Object managing degrees of freedom for the cutfem method.
+    hp::DoFHandler<dim> dof_handler;
 
-  SparsityPattern      sparsity_pattern;
-  SparseMatrix<double> stiffness_matrix;
+    NonMatching::CutMeshClassifier<dim> cut_mesh_classifier;
 
-  Vector<double> rhs;
-  Vector<double> solution;
+    SparsityPattern sparsity_pattern;
+    SparseMatrix<double> stiffness_matrix;
 
-  AffineConstraints<double> constraints;
+    Vector<double> rhs;
+    Vector<double> solution;
+
+    AffineConstraints<double> constraints;
 };
