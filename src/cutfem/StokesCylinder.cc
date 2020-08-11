@@ -248,13 +248,13 @@ StokesCylinder<dim>::assemble_system() {
         if (fe_values_surface)
             assemble_local_over_surface(*fe_values_surface, loc2glb);
 
-        // Compute and add velocity_stabilization.
+        // Compute and add the velocity stabilization.
         velocity_stabilization.compute_stabilization(cell);
         velocity_stabilization.add_stabilization_to_matrix(gammaA / (h * h),
                                                            stiffness_matrix);
-        // Compute and add velocity_stabilization.
+        // Compute and add the pressure stabilisation.
         pressure_stabilization.compute_stabilization(cell);
-        pressure_stabilization.add_stabilization_to_matrix(gammaA / h,
+        pressure_stabilization.add_stabilization_to_matrix(-gammaA,
                                                            stiffness_matrix);
     }
 }
