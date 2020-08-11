@@ -1,21 +1,22 @@
-CMAKE_MINIMUM_REQUIRED(VERSION 2.8.12)
+cmake_minimum_required(VERSION 2.8.12)
+
 find_package(deal.II REQUIRED
         HINTS ${DEAL_II_DIR} ../ ../../ $ENV{DEAL_II_DIR})
 
-DEAL_II_INITIALIZE_CACHED_VARIABLES()
+deal_ii_initialize_cached_variables()
 
-PROJECT(microbubble)
+project(microbubble)
 
 find_package(cutfem REQUIRED
         HINTS ${CUTFEM_DIR} $ENV{CUTFEM_DIR})
 
-ADD_EXECUTABLE(nitsche-poisson src/nitsche_poisson.cpp)
-DEAL_II_SETUP_TARGET(nitsche-poisson)
+add_executable(nitsche-poisson src/nitsche_poisson.cpp)
+deal_ii_setup_target(nitsche-poisson)
 
-ADD_EXECUTABLE(nitsche-stokes src/stokes_channel_cylinder.cpp src/nitsche_stokes.cpp)
-DEAL_II_SETUP_TARGET(nitsche-stokes)
+add_executable(nitsche-stokes src/stokes_channel_cylinder.cpp src/nitsche_stokes.cpp)
+deal_ii_setup_target(nitsche-stokes)
 
-ADD_EXECUTABLE(stokes-error src/nitsche_stokes.h src/nitsche_stokes.cpp src/stokes_error.cpp)
-DEAL_II_SETUP_TARGET(stokes-error)
+add_executable(stokes-error src/nitsche_stokes.h src/nitsche_stokes.cpp src/stokes_error.cpp)
+deal_ii_setup_target(stokes-error)
 
-ADD_SUBDIRECTORY(src)
+add_subdirectory(src)

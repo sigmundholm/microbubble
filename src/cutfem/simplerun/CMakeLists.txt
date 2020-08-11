@@ -1,5 +1,5 @@
 add_executable(stokesCylinder
         simplerun.cc)
 
-DEAL_II_SETUP_TARGET(stokesCylinder)
+deal_ii_setup_target(stokesCylinder)
 target_link_libraries(stokesCylinder stokes cutfem)
