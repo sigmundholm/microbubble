@@ -47,9 +47,6 @@ public:
   void
   run();
 
-  errors::Errors
-  compute_errors() const;
-
 private:
   void
   make_grid();

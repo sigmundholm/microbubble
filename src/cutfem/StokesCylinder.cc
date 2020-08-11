@@ -86,7 +86,6 @@ StokesCylinder<dim>::run()
   make_grid();
   setup_quadrature();
   setup_level_set();
-  // TODO er det denne som klassifiserer celler i forhold til geometrien?
   cut_mesh_classifier.reclassify();
   distribute_dofs();
   initialize_matrices();
@@ -108,7 +107,7 @@ StokesCylinder<dim>::make_grid()
   GridTools::remove_anisotropy(triangulation, 1.618, 5);
   triangulation.refine_global(n_refines);
 
-  mapping_collection.push_back(MappingCartesian<dim>()); // TODO wut?
+  mapping_collection.push_back(MappingCartesian<dim>());
 
   // Save the cell-size, we need it in the Nitsche term.
   typename Triangulation<dim>::active_cell_iterator cell =
@@ -123,7 +122,6 @@ StokesCylinder<dim>::setup_level_set()
   std::cout << "Setting up level set" << std::endl;
 
   // The level set function lives on the whole background mesh.
-  // TODO forstår ikke helt hva som skjer her
   levelset_dof_handler.distribute_dofs(fe_levelset);
   printf("leveset dofs: %d\n", levelset_dof_handler.n_dofs());
   levelset.reinit(levelset_dof_handler.n_dofs());
@@ -187,8 +185,8 @@ StokesCylinder<dim>::assemble_system()
 {
   std::cout << "Assembling" << std::endl;
 
-  // The stabilization is quite tricky to compute so this is a helper object to
-  // do it. TODO ta ut stabiliseringen i en egen funksjon?
+  // Use a helper object to compute the stabilisation for both the velocity and the pressure component.
+  // TODO ta ut stabiliseringen i en egen funksjon?
   const FEValuesExtractors::Vector velocities(0);
   stabilization::JumpStabilization<dim, FEValuesExtractors::Vector>
     velocity_stabilization(dof_handler,
@@ -247,9 +245,8 @@ StokesCylinder<dim>::assemble_system()
 
       // Retrieve an FEValues object with quadrature points
       // over the full cell.
-      // TODO hva menes med bulk?
       const boost::optional<const FEValues<dim> &> fe_values_bulk =
-        cut_fe_values.get_inside_fe_values(); // TODO riktig med outside?
+        cut_fe_values.get_inside_fe_values();
 
       if (fe_values_bulk)
         assemble_local_over_bulk(*fe_values_bulk, loc2glb);
@@ -299,7 +296,6 @@ StokesCylinder<dim>::assemble_local_over_bulk(
   FullMatrix<double> local_matrix(dofs_per_cell, dofs_per_cell);
   Vector<double>     local_rhs(dofs_per_cell);
 
-  // TODO kanskje droppe? og bare regne i loopen som simon gjorde?
   // Vector for values of the RightHandSide for all quadrature points on a cell.
   std::vector<Tensor<1, dim>> rhs_values(fe_values.n_quadrature_points,
                                          Tensor<1, dim>());
@@ -453,21 +449,6 @@ StokesCylinder<dim>::output_results() const
   data_out_levelset.write_vtk(output_ls);
 }
 
-template <int dim>
-errors::Errors
-StokesCylinder<dim>::compute_errors() const
-{
-  const StokesAnalytical<dim>   analytic(frequency_analytic_solution,
-                                       center,
-                                       sphere_radius);
-  errors::AnalyticFunction<dim> analytic_wrapper(analytic);
-  cutfem::errors::ErrorCalculator<dim, Vector<double>> error_calculator(
-    levelset_dof_handler, levelset, dof_handler, cut_mesh_classifier);
-
-  errors::Errors computed_errors =
-    error_calculator.calculate_errors(solution, analytic_wrapper);
-  return computed_errors;
-}
 
 template class StokesCylinder<2>;
 template class StokesCylinder<3>;

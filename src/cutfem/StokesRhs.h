@@ -41,35 +41,3 @@ private:
   double radius;
   double length;
 };
-
-/**
- * This function is
- *
- * u(r) = cos(\omega R) - cos(\omega r),
- *
- * where r is the distance to origo.
- * \omega is some given frequency and R is a constant radius at which the
- * function is zero.
- */
-template <int dim>
-class StokesAnalytical : public Function<dim>
-{
-public:
-  StokesAnalytical(const double      frequency,
-                   const Point<dim> &center,
-                   const double      radius_of_boundary);
-
-  double
-  value(const Point<dim> &p, const unsigned int component = 0) const override;
-
-  Tensor<1, dim>
-  gradient(const Point<dim> & point,
-           const unsigned int component = 0) const override;
-
-private:
-  const double frequency;
-
-  const Point<dim> center;
-
-  const double radius_of_boundary;
-};
