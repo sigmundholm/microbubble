@@ -1,3 +1,6 @@
+#ifndef MICROBUBBLE_STOKESCYLINDER_H
+#define MICROBUBBLE_STOKECYLINDER_H
+
 #include <deal.II/base/function.h>
 #include <deal.II/base/point.h>
 #include <deal.II/base/quadrature.h>
@@ -29,6 +32,7 @@
 #include "StokesRhs.h"
 #include "cutfem/errors/error_calculator.h"
 
+
 using namespace dealii;
 using namespace cutfem;
 
@@ -43,10 +47,10 @@ public:
                    const int element_order,
                    const bool write_output);
 
-    void
+    virtual void
     run();
 
-private:
+protected:
     void
     make_grid();
 
@@ -89,8 +93,8 @@ private:
 
     bool write_output;
 
-    const double sphere_radius = 0.25;
-    const Point<dim> center;
+    const double sphere_radius;
+    Point<dim> center;
     const StokesRhs<dim> rhs_function;
     const BoundaryValues<dim> boundary_values;
 
@@ -124,3 +128,6 @@ private:
 
     AffineConstraints<double> constraints;
 };
+
+
+#endif // MICROBUBBLE_STOKESCYLINDER_H
