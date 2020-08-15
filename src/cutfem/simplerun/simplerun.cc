@@ -19,7 +19,12 @@ main() {
     double radius = 0.205;
     double half_length = 1.1;
 
-    StokesCylinder<2> s3(radius, half_length, n_refines, elementOrder,
-                         write_vtk);
-    s3.run();
+    const int dim = 2;
+
+    StokesRhs<dim> stokesRhs;
+    BoundaryValues<dim> boundaryValues(radius, 2 * half_length);
+
+    StokesCylinder<dim> s(radius, half_length, n_refines, elementOrder,
+                         write_vtk, stokesRhs, boundaryValues);
+    s.run();
 }

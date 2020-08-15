@@ -25,13 +25,13 @@ public:
 template<int dim>
 class ErrorStokesRhs : public StokesRhs<dim> {
 public:
-    ErrorStokesRhs(double length, double radius, double pressure_drop);
+    ErrorStokesRhs(double radius, double length, double pressure_drop);
 
     double point_value(const Point <dim> &p,
                        const unsigned int component = 0) const override;
 
-    double length;
     double radius;
+    double length;
     double pressure_drop;
 };
 
@@ -39,10 +39,14 @@ public:
 template<int dim>
 class ErrorBoundaryValues : public BoundaryValues<dim> {
 public:
-    ErrorBoundaryValues(double radius, double length);
+    ErrorBoundaryValues(double radius, double length, double pressure_drop);
 
     double
-    point_value(const Point <dim> &p, const unsigned int component) const;
+    point_value(const Point <dim> &p,
+                const unsigned int component) const override;
+
+private:
+    double pressure_drop;
 };
 
 

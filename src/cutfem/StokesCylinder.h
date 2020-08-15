@@ -45,7 +45,9 @@ public:
                    const double half_length,
                    const unsigned int n_refines,
                    const int element_order,
-                   const bool write_output);
+                   const bool write_output,
+                   StokesRhs<dim> &rhs,
+                   BoundaryValues<dim> &bdd_values);
 
     virtual void
     run();
@@ -95,8 +97,8 @@ protected:
 
     const double sphere_radius;
     Point<dim> center;
-    const StokesRhs<dim> rhs_function;
-    const BoundaryValues<dim> boundary_values;
+    StokesRhs<dim> *rhs_function;
+    BoundaryValues<dim> *boundary_values;
 
     // Cell side-length.
     double h;

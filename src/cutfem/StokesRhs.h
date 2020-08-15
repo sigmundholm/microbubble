@@ -28,7 +28,7 @@ class BoundaryValues : public TensorFunction<1, dim> {
 public:
     BoundaryValues(double radius, double length);
 
-    double
+    virtual double
     point_value(const Point<dim> &p, const unsigned int component) const;
 
     void

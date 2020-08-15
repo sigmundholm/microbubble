@@ -45,12 +45,13 @@ StokesCylinder<dim>::StokesCylinder(const double radius,
                                     const double half_length,
                                     const unsigned int n_refines,
                                     const int element_order,
-                                    const bool write_output)
+                                    const bool write_output,
+                                    StokesRhs<dim> &rhs,
+                                    BoundaryValues<dim> &bdd_values)
         : radius(radius), half_length(half_length), n_refines(n_refines),
           gammaA(.5), gammaD(compute_gammaD(element_order)),
           write_output(write_output), sphere_radius(radius / 4),
           element_order(element_order),
-          boundary_values(radius, 2 * half_length),
           stokes_fe(FESystem<dim>(FE_Q<dim>(element_order + 1), dim),
                     1,
                     FE_Q<dim>(element_order),
@@ -60,6 +61,9 @@ StokesCylinder<dim>::StokesCylinder(const double radius,
     h = 0;
     // Use no constraints when projecting.
     constraints.close();
+
+    rhs_function = &rhs;
+    boundary_values = &bdd_values;
 }
 
 template<int dim>
@@ -276,7 +280,7 @@ StokesCylinder<dim>::assemble_local_over_bulk(
     // Vector for values of the RightHandSide for all quadrature points on a cell.
     std::vector<Tensor<1, dim>> rhs_values(fe_values.n_quadrature_points,
                                            Tensor<1, dim>());
-    rhs_function.value_list(fe_values.get_quadrature_points(), rhs_values);
+    rhs_function->value_list(fe_values.get_quadrature_points(), rhs_values);
 
     const FEValuesExtractors::Vector velocities(0);
     const FEValuesExtractors::Scalar pressure(dim);
@@ -328,7 +332,7 @@ StokesCylinder<dim>::assemble_local_over_surface(
     // Evaluate the boundary function for all quadrature points on this face.
     std::vector<Tensor<1, dim>> bdd_values(fe_values.n_quadrature_points,
                                            Tensor<1, dim>());
-    boundary_values.value_list(fe_values.get_quadrature_points(), bdd_values);
+    boundary_values->value_list(fe_values.get_quadrature_points(), bdd_values);
 
     const FEValuesExtractors::Vector velocities(0);
     const FEValuesExtractors::Scalar pressure(dim);
