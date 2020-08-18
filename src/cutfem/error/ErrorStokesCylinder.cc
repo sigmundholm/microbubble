@@ -30,7 +30,7 @@ ErrorStokesCylinder<dim>::ErrorStokesCylinder(const double radius,
 
 
 template<int dim>
-double ErrorStokesCylinder<dim>::
+Error ErrorStokesCylinder<dim>::
 compute_error() {
     this->run();
     std::cout << "Compute error" << std::endl;
@@ -61,7 +61,25 @@ compute_error() {
             VectorTools::L2_norm);
 
     std::cout << "  Errors: ||e_p||_L2 = " << u_l2_error << std::endl;
-    return u_l2_error;
+
+    Error error;
+    error.mesh_size = this->h;
+    error.l2_error = u_l2_error;
+    return error;
+}
+
+
+template<int dim>
+void ErrorStokesCylinder<dim>::
+write_header_to_file(std::ofstream &file) {
+    file << "mesh_size, u_L2" << std::endl;
+}
+
+
+template<int dim>
+void ErrorStokesCylinder<dim>::
+write_error_to_file(Error &error, std::ofstream &file) {
+    file << error.mesh_size << "," << error.l2_error << std::endl;
 }
 
 

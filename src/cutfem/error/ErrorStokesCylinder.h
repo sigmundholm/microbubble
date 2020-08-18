@@ -20,7 +20,11 @@ public:
                         BoundaryValues<dim> &boundary_values,
                         const double pressure_drop);
 
-    double compute_error();
+    Error compute_error();
+
+    static void write_header_to_file(std::ofstream &file);
+
+    static void write_error_to_file(Error &error, std::ofstream &file);
 
 private:
     double pressure_drop;

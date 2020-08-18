@@ -410,7 +410,9 @@ StokesCylinder<dim>::output_results() const {
                              dci);
 
     data_out.build_patches();
-    std::ofstream output("solution.vtk");
+    std::ofstream output("solution-d" + std::to_string(dim)
+                         + "o" + std::to_string(element_order)
+                         + "r" + std::to_string(n_refines) + ".vtk");
     data_out.write_vtk(output);
 
     // Output levelset function.
@@ -418,7 +420,9 @@ StokesCylinder<dim>::output_results() const {
     data_out_levelset.attach_dof_handler(levelset_dof_handler);
     data_out_levelset.add_data_vector(levelset, "levelset");
     data_out_levelset.build_patches();
-    std::ofstream output_ls("levelset.vtk");
+    std::ofstream output_ls("levelset-d" + std::to_string(dim)
+                            + "o" + std::to_string(element_order)
+                            + "r" + std::to_string(n_refines) + ".vtk");
     data_out_levelset.write_vtk(output_ls);
 }
 

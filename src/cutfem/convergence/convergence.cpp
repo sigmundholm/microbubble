@@ -1,3 +1,4 @@
+#include <iomanip>
 #include <iostream>
 #include <vector>
 
@@ -11,6 +12,10 @@ void solve_for_element_order(int element_order, int max_refinement,
     double half_length = 1.1;
     double pressure_drop = 10;
 
+    std::ofstream file("errors-d" + std::to_string(dim)
+                       + "o" + std::to_string(element_order) + ".csv");
+    ErrorStokesCylinder<dim>::write_header_to_file(file);
+
     ErrorStokesRhs<dim> stokes_rhs(radius, 2 * half_length, pressure_drop);
     ErrorBoundaryValues<dim> boundary_values(radius, 2 * half_length,
                                              pressure_drop);
@@ -22,9 +27,10 @@ void solve_for_element_order(int element_order, int max_refinement,
                                    element_order,
                                    write_output, stokes_rhs, boundary_values,
                                    pressure_drop);
-        double error = s.compute_error();
-        std::cout << "    error=" << error << std::endl;
+        Error error = s.compute_error();
+        ErrorStokesCylinder<dim>::write_error_to_file(error, file);
 
+        std::cout << "    error=" << error.l2_error << std::endl;
     }
 }
 
@@ -44,6 +50,6 @@ int main() {
     //  returnerer double, og som har en konstruktør med refinements og element
     //  order
 
-    run_convergence_test<2>({1, 2}, 4, true);
+    run_convergence_test<2>({1}, 5, true);
 
 }

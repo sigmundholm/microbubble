@@ -50,4 +50,9 @@ private:
 };
 
 
+struct Error {
+    double mesh_size = 0;
+    double l2_error = 0;
+};
+
 #endif // MOCROBUBBLE_ERRORRHS_H
