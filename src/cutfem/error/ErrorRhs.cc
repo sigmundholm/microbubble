@@ -1,5 +1,9 @@
 #include "ErrorRhs.h"
 
+#include <math.h>
+
+#define PI 3.14159265
+#define T 0
 
 using namespace dealii;
 
@@ -18,10 +22,10 @@ vector_value(const Point <dim> &p, Vector<double> &value) const {
     Assert(value.size() == dim + 1,
            ExcDimensionMismatch(value.size(), dim + 1));
     // values = u_1, u_2, p
-    value(0) = pressure_drop / (4 * length)
-               * (radius * radius - p[1] * p[1]);
-    value(1) = 0;
-    value(2) = 0;
+    value(0) = -cos(PI * p[0]) * sin(PI * p[1]) * exp(-2 * PI * PI * T);
+    value(1) = sin(PI * p[0]) * cos(PI * p[1]) * exp(-2 * PI * PI * T);
+    value(2) = -(cos(2 * PI * p[0]) + cos(2 * PI * p[1])) / 4 *
+               exp(-4 * PI * PI * T);
 }
 
 
@@ -32,8 +36,30 @@ ErrorStokesRhs(double radius, double length, double pressure_drop)
 
 template<int dim>
 double ErrorStokesRhs<dim>::
-point_value(const Point <dim> &p, const unsigned int) const {
-    (void) p;
+point_value(const Point <dim> &p, const unsigned int component) const {
+    double x = p[0];
+    double y = p[1];
+
+    if (component == 0) {
+        // -(u_t + u * u_x + v * u_y)
+        return -(2 * PI * PI * exp(-2 * PI * PI * T) * sin(PI * y) *
+                 cos(PI * x) -
+                 PI * exp(-4 * PI * PI * T) * sin(PI * x) * sin(PI * y) *
+                 sin(PI * y) * cos(PI * x) -
+                 PI * exp(-4 * PI * PI * T) * sin(PI * x) * cos(PI * x) *
+                 cos(PI * y) * cos(PI * y));
+    } else if (component == 1) {
+        // -(v_t + u*v_x + v * v_y)
+        return -(-2 * PI * PI * exp(-2 * PI * PI * T) * sin(PI * x) *
+                 cos(PI * y) -
+                 PI * exp(-4 * PI * PI * T) * sin(PI * x) * sin(PI * x) *
+                 sin(PI * y) * cos(PI * y) -
+                 PI * exp(-4 * PI * PI * T) * sin(PI * y) * cos(PI * x) *
+                 cos(PI * x) * cos(PI * y));
+    } else {
+        // These expressions are only for 2D.
+        throw std::exception();
+    }
     return 0;
 }
 
@@ -47,14 +73,17 @@ double ErrorBoundaryValues<dim>::
 point_value(const Point <dim> &p, const unsigned int component) const {
     (void) p;
     double pressure_drop = 10;  // Only for cylinder channel, Hagen–Poiseuille
-    if (component == 0 && p[0] == -this->length / 2) {
-        if (dim == 2) {
-            return pressure_drop / (4 * this->length) *
-                   (this->radius * this->radius - p[1] * p[1]);
+    if (dim == 2) {
+        if (component == 0) {
+            return -cos(PI * p[0]) * sin(PI * p[1]) * exp(-2 * PI * PI * T);
+        } else if (component == 1) {
+            return sin(PI * p[0]) * cos(PI * p[1]) * exp(-2 * PI * PI * T);
+        } else {
+            throw std::exception();
         }
-        throw std::exception(); // TODO fix 3D
+    } else {
+        throw std::exception();
     }
-    return 0;
 }
 
 

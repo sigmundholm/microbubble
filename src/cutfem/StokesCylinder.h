@@ -104,6 +104,8 @@ protected:
     double h;
     const unsigned int element_order;
 
+    unsigned int do_nothing_id = 2;
+
     Triangulation<dim> triangulation;
     FESystem<dim> stokes_fe;
 

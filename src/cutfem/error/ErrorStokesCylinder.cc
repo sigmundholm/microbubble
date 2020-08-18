@@ -1,3 +1,4 @@
+#include <deal.II/base/function.h>
 #include <deal.II/base/point.h>
 #include <deal.II/numerics/vector_tools.h>
 
@@ -6,6 +7,9 @@
 #include <iostream>
 
 #include "ErrorStokesCylinder.h"
+
+
+using namespace dealii;
 
 
 template<int dim>
@@ -26,6 +30,7 @@ ErrorStokesCylinder<dim>::ErrorStokesCylinder(const double radius,
     } else if (dim == 3) {
         this->center = Point<dim>(2 * half_length, 0, 0);
     }
+    this->do_nothing_id = 1000;  // Set to some unused boundary_id
 }
 
 
@@ -35,8 +40,7 @@ compute_error() {
     this->run();
     std::cout << "Compute error" << std::endl;
 
-
-    // const ComponentSelectFunction <dim> pressure_mask(dim, dim + 1);
+    const ComponentSelectFunction <dim> pressure_mask(dim, dim + 1);
     const ComponentSelectFunction <dim> velocity_mask(std::make_pair(0, dim),
                                                       dim + 1);
     double length = 2 * this->half_length;
@@ -45,6 +49,7 @@ compute_error() {
                                                 pressure_drop);
 
     Vector<double> cellwise_errors(this->triangulation.n_active_cells());
+
     QTrapez<1> q_trapez;
     QIterated <dim> quadrature(q_trapez, this->element_order + 2);
 
@@ -59,8 +64,34 @@ compute_error() {
             this->triangulation,
             cellwise_errors,
             VectorTools::L2_norm);
+    std::cout << "  Error u: ||e_p||_L2 = " << u_l2_error << std::endl;
 
-    std::cout << "  Errors: ||e_p||_L2 = " << u_l2_error << std::endl;
+    // Find the L2 error from the ZeroFunction: some integral of the solution.
+    VectorTools::integrate_difference(this->dof_handler,
+                                      this->solution,
+                                      Functions::ZeroFunction<dim>(dim + 1),
+                                      cellwise_errors,
+                                      QGauss<dim>(this->element_order + 2),
+                                      VectorTools::L2_norm,
+                                      &velocity_mask);
+    const double u_l2_int = VectorTools::compute_global_error(
+            this->triangulation,
+            cellwise_errors,
+            VectorTools::L2_norm);
+    std::cout << "  Integral = " << u_l2_int << std::endl;
+
+    VectorTools::integrate_difference(this->dof_handler,
+                                      this->solution,
+                                      analytical_solution,
+                                      cellwise_errors,
+                                      quadrature,
+                                      VectorTools::L2_norm,
+                                      &pressure_mask);
+    const double p_l2_error = VectorTools::compute_global_error(
+            this->triangulation,
+            cellwise_errors,
+            VectorTools::L2_norm);
+    std::cout << "  Error pressure = " << p_l2_error << std::endl;
 
     Error error;
     error.mesh_size = this->h;

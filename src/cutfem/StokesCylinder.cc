@@ -238,7 +238,7 @@ StokesCylinder<dim>::assemble_system() {
         // Loop through all faces that constitutes the outer boundary of the
         // domain.
         for (const auto &face : cell->face_iterators()) {
-            if (face->at_boundary() && face->boundary_id() != 2) {
+            if (face->at_boundary() && face->boundary_id() != do_nothing_id) {
                 fe_face_values.reinit(cell, face);
                 assemble_local_over_surface(fe_face_values, loc2glb);
             }

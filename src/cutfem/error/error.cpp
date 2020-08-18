@@ -26,6 +26,6 @@ int main() {
                                 write_vtk, stokesRhs, boundaryValues,
                                 pressure_drop);
 
-    double error = s3.compute_error();
-    std::cout << "Error was: " << error << std::endl;
+    Error error = s3.compute_error();
+    std::cout << "Error was: " << error.l2_error << std::endl;
 }
