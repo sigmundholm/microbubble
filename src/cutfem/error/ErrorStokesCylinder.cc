@@ -20,17 +20,17 @@ ErrorStokesCylinder<dim>::ErrorStokesCylinder(const double radius,
                                               const bool write_output,
                                               StokesRhs<dim> &rhs,
                                               BoundaryValues<dim> &bdd_values,
-                                              const double pressure_drop)
+                                              const double pressure_drop,  // TODO remove
+                                              const double sphere_radius,
+                                              const double sphere_x_coord)
         : StokesCylinder<dim>(radius, half_length, n_refines, element_order,
-                              write_output, rhs, bdd_values),
+                              write_output, rhs, bdd_values, sphere_radius,
+                              sphere_x_coord),
           pressure_drop(pressure_drop) {
-    // Set the sphere outside, as a quick hack to clear the channel.
-    if (dim == 2) {
-        this->center = Point<dim>(2 * half_length, 0);
-    } else if (dim == 3) {
-        this->center = Point<dim>(2 * half_length, 0, 0);
-    }
-    this->do_nothing_id = 1000;  // Set to some unused boundary_id
+
+    // Set to some unused boundary_id for Dirichlet only
+    // TODO fiks riktige outflow betingelser
+    this->do_nothing_id = 1000;
 }
 
 
@@ -46,7 +46,9 @@ compute_error() {
     double length = 2 * this->half_length;
 
     AnalyticalSolution<dim> analytical_solution(this->radius, length,
-                                                pressure_drop);
+                                                pressure_drop,
+                                                this->sphere_x_coord,
+                                                this->sphere_radius);
 
     Vector<double> cellwise_errors(this->triangulation.n_active_cells());
 

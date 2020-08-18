@@ -11,9 +11,11 @@ using namespace dealii;
 template<int dim>
 AnalyticalSolution<dim>::
 AnalyticalSolution(const double radius, const double length,
-                   const double pressure_drop)
+                   const double pressure_drop, const double sphere_x_coord,
+                   const double sphere_radius)
         : Function<dim>(dim + 1), radius(radius), length(length),
-          pressure_drop(pressure_drop) {}
+          pressure_drop(pressure_drop), sphere_x_coord(sphere_x_coord),
+          sphere_radius(sphere_radius) {}
 
 
 template<int dim>
@@ -22,10 +24,17 @@ vector_value(const Point <dim> &p, Vector<double> &value) const {
     Assert(value.size() == dim + 1,
            ExcDimensionMismatch(value.size(), dim + 1));
     // values = u_1, u_2, p
-    value(0) = -cos(PI * p[0]) * sin(PI * p[1]) * exp(-2 * PI * PI * T);
-    value(1) = sin(PI * p[0]) * cos(PI * p[1]) * exp(-2 * PI * PI * T);
-    value(2) = -(cos(2 * PI * p[0]) + cos(2 * PI * p[1])) / 4 *
-               exp(-4 * PI * PI * T);
+    if (pow(p[0] - sphere_x_coord, 2) + pow(p[1], 2) < pow(sphere_radius, 2)) {
+        // The solution is valued 0 inside the sphere.
+        value(0) = 0;
+        value(1) = 0;
+        value(2) = 0;
+    } else {
+        value(0) = -cos(PI * p[0]) * sin(PI * p[1]) * exp(-2 * PI * PI * T);
+        value(1) = sin(PI * p[0]) * cos(PI * p[1]) * exp(-2 * PI * PI * T);
+        value(2) = -(cos(2 * PI * p[0]) + cos(2 * PI * p[1])) / 4 *
+                   exp(-4 * PI * PI * T);
+    }
 }
 
 

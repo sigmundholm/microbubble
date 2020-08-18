@@ -18,7 +18,9 @@ public:
                         const bool write_output,
                         StokesRhs<dim> &rhs_function,
                         BoundaryValues<dim> &boundary_values,
-                        const double pressure_drop);
+                        const double pressure_drop,
+                        const double sphere_radius,
+                        const double sphere_x_coord);
 
     Error compute_error();
 

@@ -11,7 +11,8 @@ template<int dim>
 class AnalyticalSolution : public Function<dim> {
 public:
     AnalyticalSolution(const double radius, const double length,
-                       const double pressure_drop);
+                       const double pressure_drop, const double sphere_x_coord,
+                       const double sphere_radius);
 
     void vector_value(const Point <dim> &p,
                       Vector<double> &value) const override;
@@ -19,6 +20,8 @@ public:
     double radius;
     double length;
     double pressure_drop;
+    double sphere_x_coord;
+    double sphere_radius;
 };
 
 

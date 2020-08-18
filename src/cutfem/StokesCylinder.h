@@ -47,7 +47,9 @@ public:
                    const int element_order,
                    const bool write_output,
                    StokesRhs<dim> &rhs,
-                   BoundaryValues<dim> &bdd_values);
+                   BoundaryValues<dim> &bdd_values,
+                   const double sphere_radius,
+                   const double sphere_x_coord);
 
     virtual void
     run();
@@ -95,8 +97,10 @@ protected:
 
     bool write_output;
 
-    const double sphere_radius;
+    double sphere_radius;
+    double sphere_x_coord;
     Point<dim> center;
+
     StokesRhs<dim> *rhs_function;
     BoundaryValues<dim> *boundary_values;
 

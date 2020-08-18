@@ -47,10 +47,13 @@ StokesCylinder<dim>::StokesCylinder(const double radius,
                                     const int element_order,
                                     const bool write_output,
                                     StokesRhs<dim> &rhs,
-                                    BoundaryValues<dim> &bdd_values)
+                                    BoundaryValues<dim> &bdd_values,
+                                    const double sphere_radius,
+                                    const double sphere_x_coord)
         : radius(radius), half_length(half_length), n_refines(n_refines),
           gammaA(.5), gammaD(compute_gammaD(element_order)),
-          write_output(write_output), sphere_radius(radius / 4),
+          write_output(write_output), sphere_radius(sphere_radius),
+          sphere_x_coord(sphere_x_coord),
           element_order(element_order),
           stokes_fe(FESystem<dim>(FE_Q<dim>(element_order + 1), dim),
                     1,
@@ -64,6 +67,12 @@ StokesCylinder<dim>::StokesCylinder(const double radius,
 
     rhs_function = &rhs;
     boundary_values = &bdd_values;
+
+    if (dim == 2) {
+        this->center = Point<dim>(sphere_x_coord, 0);
+    } else if (dim == 3) {
+        this->center = Point<dim>(sphere_x_coord, 0, 0);
+    }
 }
 
 template<int dim>
