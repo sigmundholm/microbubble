@@ -8,14 +8,21 @@
 
 
 template<int dim>
-class AnalyticalSolution : public Function<dim> {
+class AnalyticalSolution : public TensorFunction<1, dim> {
 public:
     AnalyticalSolution(const double radius, const double length,
                        const double pressure_drop, const double sphere_x_coord,
                        const double sphere_radius);
 
-    void vector_value(const Point <dim> &p,
-                      Vector<double> &value) const override;
+    virtual double
+    point_value(const Point<dim> &p, const unsigned int component = 0) const;
+
+    void
+    vector_value(const Point<dim> &p, Tensor<1, dim> &value) const;
+
+    void
+    value_list(const std::vector<Point<dim>> &points,
+               std::vector<Tensor<1, dim>> &values) const override;
 
     double radius;
     double length;
@@ -56,6 +63,7 @@ private:
 struct Error {
     double mesh_size = 0;
     double l2_error = 0;
+    double h1_error = 0;
 };
 
 #endif // MOCROBUBBLE_ERRORRHS_H

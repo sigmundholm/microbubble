@@ -2,8 +2,6 @@
 #include <deal.II/base/point.h>
 #include <deal.II/numerics/vector_tools.h>
 
-#include <cstdio>
-#include <cstdlib>
 #include <iostream>
 
 #include "ErrorStokesCylinder.h"
@@ -18,87 +16,94 @@ ErrorStokesCylinder<dim>::ErrorStokesCylinder(const double radius,
                                               const unsigned int n_refines,
                                               const int element_order,
                                               const bool write_output,
-                                              StokesRhs<dim> &rhs,
-                                              BoundaryValues<dim> &bdd_values,
+                                              StokesRhs<dim> &rhs_function,
+                                              BoundaryValues<dim> &boundary_values,
+                                              AnalyticalSolution<dim> &analytical_soln,
                                               const double pressure_drop,  // TODO remove
                                               const double sphere_radius,
                                               const double sphere_x_coord)
         : StokesCylinder<dim>(radius, half_length, n_refines, element_order,
-                              write_output, rhs, bdd_values, sphere_radius,
+                              write_output, rhs_function, boundary_values,
+                              sphere_radius,
                               sphere_x_coord),
           pressure_drop(pressure_drop) {
 
     // Set to some unused boundary_id for Dirichlet only
     // TODO fiks riktige outflow betingelser
     this->do_nothing_id = 1000;
+    analytical_solution = &analytical_soln;
 }
 
 
 template<int dim>
 Error ErrorStokesCylinder<dim>::
-compute_error() {
-    this->run();
-    std::cout << "Compute error" << std::endl;
+compute_error2() {
+    NonMatching::RegionUpdateFlags region_update_flags;
+    region_update_flags.inside = update_values | update_JxW_values |
+                                 update_gradients | update_quadrature_points;
+    region_update_flags.surface = update_values | update_JxW_values |
+                                  update_gradients | update_quadrature_points |
+                                  update_normal_vectors;
 
-    const ComponentSelectFunction <dim> pressure_mask(dim, dim + 1);
-    const ComponentSelectFunction <dim> velocity_mask(std::make_pair(0, dim),
-                                                      dim + 1);
-    double length = 2 * this->half_length;
+    NonMatching::FEValues<dim> cut_fe_values(this->mapping_collection,
+                                             this->fe_collection,
+                                             this->q_collection,
+                                             this->q_collection1D,
+                                             region_update_flags,
+                                             this->cut_mesh_classifier,
+                                             this->levelset_dof_handler,
+                                             this->levelset);
 
-    AnalyticalSolution<dim> analytical_solution(this->radius, length,
-                                                pressure_drop,
-                                                this->sphere_x_coord,
-                                                this->sphere_radius);
+    double l2_error_integral = 0;
+    double h1_error_integral = 0;
 
-    Vector<double> cellwise_errors(this->triangulation.n_active_cells());
+    for (const auto &cell : this->dof_handler.active_cell_iterators()) {
+        cut_fe_values.reinit(cell);
 
-    QTrapez<1> q_trapez;
-    QIterated <dim> quadrature(q_trapez, this->element_order + 2);
+        const boost::optional<const FEValues<dim> &> fe_values_inside =
+                cut_fe_values.get_inside_fe_values();
 
-    VectorTools::integrate_difference(this->dof_handler,
-                                      this->solution,
-                                      analytical_solution,
-                                      cellwise_errors,
-                                      quadrature,
-                                      VectorTools::L2_norm,
-                                      &velocity_mask);
-    const double u_l2_error = VectorTools::compute_global_error(
-            this->triangulation,
-            cellwise_errors,
-            VectorTools::L2_norm);
-    std::cout << "  Error u: ||e_p||_L2 = " << u_l2_error << std::endl;
-
-    // Find the L2 error from the ZeroFunction: some integral of the solution.
-    VectorTools::integrate_difference(this->dof_handler,
-                                      this->solution,
-                                      Functions::ZeroFunction<dim>(dim + 1),
-                                      cellwise_errors,
-                                      QGauss<dim>(this->element_order + 2),
-                                      VectorTools::L2_norm,
-                                      &velocity_mask);
-    const double u_l2_int = VectorTools::compute_global_error(
-            this->triangulation,
-            cellwise_errors,
-            VectorTools::L2_norm);
-    std::cout << "  Integral = " << u_l2_int << std::endl;
-
-    VectorTools::integrate_difference(this->dof_handler,
-                                      this->solution,
-                                      analytical_solution,
-                                      cellwise_errors,
-                                      quadrature,
-                                      VectorTools::L2_norm,
-                                      &pressure_mask);
-    const double p_l2_error = VectorTools::compute_global_error(
-            this->triangulation,
-            cellwise_errors,
-            VectorTools::L2_norm);
-    std::cout << "  Error pressure = " << p_l2_error << std::endl;
+        if (fe_values_inside) {
+            integrate_cell(*fe_values_inside, l2_error_integral,
+                           h1_error_integral);
+        }
+    }
 
     Error error;
     error.mesh_size = this->h;
-    error.l2_error = u_l2_error;
+    error.l2_error = pow(l2_error_integral, 0.5);
+    error.h1_error = pow(h1_error_integral, 0.5);
     return error;
+}
+
+
+template<int dim>
+void ErrorStokesCylinder<dim>::
+integrate_cell(const FEValues<dim> &fe_values,
+               double &l2_error_integral,
+               double &h1_error_integral) const {
+
+    const FEValuesExtractors::Vector velocities(0);
+    const FEValuesExtractors::Scalar pressure(dim);
+
+    std::vector<Tensor<1, dim>> solution_values(fe_values.n_quadrature_points);
+    std::vector<Tensor<2, dim>> gradients(fe_values.n_quadrature_points);
+
+    fe_values[velocities].get_function_values(this->solution, solution_values);
+    fe_values[velocities].get_function_gradients(this->solution, gradients);
+
+    // Exact solution
+    std::vector<Tensor<1, dim>> exact_solution(fe_values.n_quadrature_points,
+                                               Tensor<1, dim>());
+    analytical_solution->value_list(fe_values.get_quadrature_points(),
+                                    exact_solution);
+
+    // TODO calculate the gradient in the analytical solution too, for H1 norm.
+    for (unsigned int q = 0; q < fe_values.n_quadrature_points; ++q) {
+        Tensor<1, dim> diff = exact_solution[q] - solution_values[q];
+        // TODO test denne ved å kun integrere scalarfeltet f(x) = 1.
+        l2_error_integral += diff * diff * fe_values.JxW(q);
+    }
 }
 
 

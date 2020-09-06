@@ -13,27 +13,49 @@ AnalyticalSolution<dim>::
 AnalyticalSolution(const double radius, const double length,
                    const double pressure_drop, const double sphere_x_coord,
                    const double sphere_radius)
-        : Function<dim>(dim + 1), radius(radius), length(length),
-          pressure_drop(pressure_drop), sphere_x_coord(sphere_x_coord),
-          sphere_radius(sphere_radius) {}
+        : radius(radius), length(length), pressure_drop(pressure_drop),
+          sphere_x_coord(sphere_x_coord), sphere_radius(sphere_radius) {}
 
 
 template<int dim>
-void AnalyticalSolution<dim>::
-vector_value(const Point <dim> &p, Vector<double> &value) const {
-    Assert(value.size() == dim + 1,
-           ExcDimensionMismatch(value.size(), dim + 1));
+double
+AnalyticalSolution<dim>::point_value(const Point<dim> &p,
+                                     const unsigned int component) const {
+    // Assert(value.size() == dim + 1, ExcDimensionMismatch(value.size(), dim + 1));
+
     // values = u_1, u_2, p
     if (pow(p[0] - sphere_x_coord, 2) + pow(p[1], 2) < pow(sphere_radius, 2)) {
         // The solution is valued 0 inside the sphere.
-        value(0) = 0;
-        value(1) = 0;
-        value(2) = 0;
+        return 0;
     } else {
-        value(0) = -cos(PI * p[0]) * sin(PI * p[1]) * exp(-2 * PI * PI * T);
-        value(1) = sin(PI * p[0]) * cos(PI * p[1]) * exp(-2 * PI * PI * T);
-        value(2) = -(cos(2 * PI * p[0]) + cos(2 * PI * p[1])) / 4 *
+        if (component == 0) {
+            return -cos(PI * p[0]) * sin(PI * p[1]) * exp(-2 * PI * PI * T);
+        } else if (component == 1) {
+            return sin(PI * p[0]) * cos(PI * p[1]) * exp(-2 * PI * PI * T);
+        } else if (component == 2) {
+            return -(cos(2 * PI * p[0]) + cos(2 * PI * p[1])) / 4 *
                    exp(-4 * PI * PI * T);
+        } else {
+            throw std::exception();
+        }
+    }
+}
+
+template<int dim>
+void
+AnalyticalSolution<dim>::vector_value(const Point<dim> &p,
+                                      Tensor<1, dim> &value) const {
+    for (unsigned int c = 0; c < dim; ++c)
+        value[c] = point_value(p, c);
+}
+
+template<int dim>
+void
+AnalyticalSolution<dim>::value_list(const std::vector<Point<dim>> &points,
+                                    std::vector<Tensor<1, dim>> &values) const {
+    AssertDimension(points.size(), values.size());
+    for (unsigned int i = 0; i < values.size(); ++i) {
+        vector_value(points[i], values[i]);
     }
 }
 
@@ -45,7 +67,7 @@ ErrorStokesRhs(double radius, double length, double pressure_drop)
 
 template<int dim>
 double ErrorStokesRhs<dim>::
-point_value(const Point <dim> &p, const unsigned int component) const {
+point_value(const Point<dim> &p, const unsigned int component) const {
     double x = p[0];
     double y = p[1];
 
@@ -79,7 +101,7 @@ ErrorBoundaryValues(double radius, double length, double pressure_drop)
 
 template<int dim>
 double ErrorBoundaryValues<dim>::
-point_value(const Point <dim> &p, const unsigned int component) const {
+point_value(const Point<dim> &p, const unsigned int component) const {
     (void) p;
     double pressure_drop = 10;  // Only for cylinder channel, Hagen–Poiseuille
     if (dim == 2) {

@@ -13,7 +13,7 @@ void solve_for_element_order(int element_order, int max_refinement,
     double pressure_drop = 10;
 
     double sphere_radius = radius / 4;
-    double sphere_x_coord = - half_length / 2;
+    double sphere_x_coord = -half_length / 2;
 
     std::ofstream file("errors-d" + std::to_string(dim)
                        + "o" + std::to_string(element_order) + ".csv");
@@ -22,16 +22,22 @@ void solve_for_element_order(int element_order, int max_refinement,
     ErrorStokesRhs<dim> stokes_rhs(radius, 2 * half_length, pressure_drop);
     ErrorBoundaryValues<dim> boundary_values(radius, 2 * half_length,
                                              pressure_drop);
+    AnalyticalSolution<dim> analytical_solution(radius, 2 * half_length,
+                                                pressure_drop, sphere_x_coord,
+                                                sphere_radius);
 
     for (int n_refines = 1; n_refines < max_refinement + 1; ++n_refines) {
         std::cout << "\nn_refines=" << n_refines << std::endl;
 
-        ErrorStokesCylinder<dim> s(radius, half_length, n_refines,
-                                   element_order,
-                                   write_output, stokes_rhs, boundary_values,
-                                   pressure_drop, sphere_radius,
-                                   sphere_x_coord);
-        Error error = s.compute_error();
+        ErrorStokesCylinder<dim> stokes(radius, half_length, n_refines,
+                                        element_order,
+                                        write_output, stokes_rhs,
+                                        boundary_values, analytical_solution,
+                                        pressure_drop, sphere_radius,
+                                        sphere_x_coord);
+        stokes.run();
+        Error error = stokes.compute_error2();
+        std::cout << "|| e ||_L2 = " << error.l2_error << std::endl;
         ErrorStokesCylinder<dim>::write_error_to_file(error, file);
     }
 }
