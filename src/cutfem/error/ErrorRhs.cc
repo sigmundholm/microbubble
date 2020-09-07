@@ -21,8 +21,6 @@ template<int dim>
 double
 AnalyticalSolution<dim>::point_value(const Point<dim> &p,
                                      const unsigned int component) const {
-    // Assert(value.size() == dim + 1, ExcDimensionMismatch(value.size(), dim + 1));
-
     // values = u_1, u_2, p
     if (pow(p[0] - sphere_x_coord, 2) + pow(p[1], 2) < pow(sphere_radius, 2)) {
         // The solution is valued 0 inside the sphere.
@@ -91,7 +89,6 @@ point_value(const Point<dim> &p, const unsigned int component) const {
         // These expressions are only for 2D.
         throw std::exception();
     }
-    return 0;
 }
 
 template<int dim>
@@ -103,7 +100,6 @@ template<int dim>
 double ErrorBoundaryValues<dim>::
 point_value(const Point<dim> &p, const unsigned int component) const {
     (void) p;
-    double pressure_drop = 10;  // Only for cylinder channel, Hagen–Poiseuille
     if (dim == 2) {
         if (component == 0) {
             return -cos(PI * p[0]) * sin(PI * p[1]) * exp(-2 * PI * PI * T);

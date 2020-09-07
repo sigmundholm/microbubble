@@ -90,16 +90,19 @@ if __name__ == '__main__':
     full_path = os.path.join(base, "build/src/cutfem/convergence/errors-d2o1.csv")
     data = np.genfromtxt(full_path, delimiter=",")
 
-    skip = 0
+    skip = 2
 
     mesh_size = data[:, 0]
     print("mesh", mesh_size)
     l2 = data[:, 1]
     print("l2", l2)
     ns = np.ceil(0.41 / mesh_size[1 + skip:])
-    print(ns)
+    l2 = l2[1 + skip:]
+    ns = np.array([8, 16, 32, 64, 128])
+    print("order: ", -np.log2(l2[1:]/l2[:-1]))
+    print(np.log2(np.array([2, 4, 8])))
 
-    convergence_plot(ns, l2[1 + skip:], yscale="log10", reference_line_offset=0.5, xlabel="$N$",
+    convergence_plot(ns, l2, yscale="log2", reference_line_offset=-0.5, xlabel="$N$",
                      title=r"\textrm{Channel with sphere. AnalyticalSolution=0 inside sphere.}",
                      desired_order=1)
     # convergence_plot(ns, errors, yscale="log2", reference_line_offset=0.5)

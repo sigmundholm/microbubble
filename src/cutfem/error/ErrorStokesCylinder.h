@@ -23,9 +23,7 @@ public:
                         const double sphere_radius,
                         const double sphere_x_coord);
 
-    // Error compute_error();
-
-    Error compute_error2();
+    Error compute_error();
 
     void integrate_cell(const FEValues <dim> &fe_values,
                    double &l2_error_integral,

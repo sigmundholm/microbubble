@@ -36,7 +36,7 @@ void solve_for_element_order(int element_order, int max_refinement,
                                         pressure_drop, sphere_radius,
                                         sphere_x_coord);
         stokes.run();
-        Error error = stokes.compute_error2();
+        Error error = stokes.compute_error();
         std::cout << "|| e ||_L2 = " << error.l2_error << std::endl;
         ErrorStokesCylinder<dim>::write_error_to_file(error, file);
     }
@@ -55,6 +55,6 @@ void run_convergence_test(std::vector<int> orders, int max_refinement,
 
 int main() {
 
-    run_convergence_test<2>({1}, 5, true);
+    run_convergence_test<2>({1}, 6, true);
 
 }

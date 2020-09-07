@@ -37,7 +37,7 @@ ErrorStokesCylinder<dim>::ErrorStokesCylinder(const double radius,
 
 template<int dim>
 Error ErrorStokesCylinder<dim>::
-compute_error2() {
+compute_error() {
     NonMatching::RegionUpdateFlags region_update_flags;
     region_update_flags.inside = update_values | update_JxW_values |
                                  update_gradients | update_quadrature_points;
@@ -101,7 +101,6 @@ integrate_cell(const FEValues<dim> &fe_values,
     // TODO calculate the gradient in the analytical solution too, for H1 norm.
     for (unsigned int q = 0; q < fe_values.n_quadrature_points; ++q) {
         Tensor<1, dim> diff = exact_solution[q] - solution_values[q];
-        // TODO test denne ved å kun integrere scalarfeltet f(x) = 1.
         l2_error_integral += diff * diff * fe_values.JxW(q);
     }
 }
