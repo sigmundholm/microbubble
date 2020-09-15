@@ -37,7 +37,8 @@ void solve_for_element_order(int element_order, int max_refinement,
                                         sphere_x_coord);
         stokes.run();
         Error error = stokes.compute_error();
-        std::cout << "|| e ||_L2 = " << error.l2_error << std::endl;
+        std::cout << "|| u - u_h ||_L2 = " << error.l2_error_u << std::endl;
+        std::cout << "|| p - p_h ||_L2 = " << error.l2_error_p << std::endl;
         ErrorStokesCylinder<dim>::write_error_to_file(error, file);
     }
 }

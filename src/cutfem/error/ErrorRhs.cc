@@ -21,16 +21,23 @@ template<int dim>
 double
 AnalyticalSolution<dim>::point_value(const Point<dim> &p,
                                      const unsigned int component) const {
+    /**
+     * This is an analytical solution to the Stokes equation in 2D, see Ethier
+     * and Steinman (1994) equation (1).
+     */
     // values = u_1, u_2, p
     if (pow(p[0] - sphere_x_coord, 2) + pow(p[1], 2) < pow(sphere_radius, 2)) {
         // The solution is valued 0 inside the sphere.
         return 0;
     } else {
         if (component == 0) {
+            // Velocity in x-direction
             return -cos(PI * p[0]) * sin(PI * p[1]) * exp(-2 * PI * PI * T);
         } else if (component == 1) {
+            // Velocity in y-direction
             return sin(PI * p[0]) * cos(PI * p[1]) * exp(-2 * PI * PI * T);
         } else if (component == 2) {
+            // Pressure component
             return -(cos(2 * PI * p[0]) + cos(2 * PI * p[1])) / 4 *
                    exp(-4 * PI * PI * T);
         } else {
@@ -54,6 +61,16 @@ AnalyticalSolution<dim>::value_list(const std::vector<Point<dim>> &points,
     AssertDimension(points.size(), values.size());
     for (unsigned int i = 0; i < values.size(); ++i) {
         vector_value(points[i], values[i]);
+    }
+}
+
+template<int dim>
+void AnalyticalSolution<dim>::pressure_value_list(
+        const std::vector<Point<dim>> &points,
+        std::vector<double> &values) {
+    AssertDimension(points.size(), values.size());
+    for (unsigned int i = 0; i < values.size(); ++i) {
+        values[i] = point_value(points[i], dim);
     }
 }
 

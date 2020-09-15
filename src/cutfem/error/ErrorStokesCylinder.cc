@@ -54,8 +54,10 @@ compute_error() {
                                              this->levelset_dof_handler,
                                              this->levelset);
 
-    double l2_error_integral = 0;
-    double h1_error_integral = 0;
+    double l2_error_integral_u = 0;
+    double h1_error_integral_u = 0;
+    double l2_error_integral_p = 0;
+    double h1_error_integral_p = 0;
 
     for (const auto &cell : this->dof_handler.active_cell_iterators()) {
         cut_fe_values.reinit(cell);
@@ -64,15 +66,18 @@ compute_error() {
                 cut_fe_values.get_inside_fe_values();
 
         if (fe_values_inside) {
-            integrate_cell(*fe_values_inside, l2_error_integral,
-                           h1_error_integral);
+            integrate_cell(*fe_values_inside, l2_error_integral_u,
+                           h1_error_integral_u, l2_error_integral_p,
+                           h1_error_integral_p);
         }
     }
 
     Error error;
     error.mesh_size = this->h;
-    error.l2_error = pow(l2_error_integral, 0.5);
-    error.h1_error = pow(h1_error_integral, 0.5);
+    error.l2_error_u = pow(l2_error_integral_u, 0.5);
+    error.h1_error_u = pow(h1_error_integral_u, 0.5);
+    error.l2_error_p = pow(l2_error_integral_p, 0.5);
+    error.h1_error_p = pow(h1_error_integral_p, 0.5);
     return error;
 }
 
@@ -80,28 +85,40 @@ compute_error() {
 template<int dim>
 void ErrorStokesCylinder<dim>::
 integrate_cell(const FEValues<dim> &fe_values,
-               double &l2_error_integral,
-               double &h1_error_integral) const {
+               double &l2_error_integral_u,
+               double &h1_error_integral_u,
+               double &l2_error_integral_p,
+               double &h1_error_integral_p) const {
 
     const FEValuesExtractors::Vector velocities(0);
     const FEValuesExtractors::Scalar pressure(dim);
 
-    std::vector<Tensor<1, dim>> solution_values(fe_values.n_quadrature_points);
+    std::vector<Tensor<1, dim>> u_solution_values(
+            fe_values.n_quadrature_points);
     std::vector<Tensor<2, dim>> gradients(fe_values.n_quadrature_points);
+    std::vector<double> p_solution_values(fe_values.n_quadrature_points);
 
-    fe_values[velocities].get_function_values(this->solution, solution_values);
+    fe_values[velocities].get_function_values(this->solution,
+                                              u_solution_values);
     fe_values[velocities].get_function_gradients(this->solution, gradients);
+    fe_values[pressure].get_function_values(this->solution, p_solution_values);
 
-    // Exact solution
-    std::vector<Tensor<1, dim>> exact_solution(fe_values.n_quadrature_points,
-                                               Tensor<1, dim>());
+    // Exact solution: velocity and pressure
+    std::vector<Tensor<1, dim>> u_exact_solution(fe_values.n_quadrature_points,
+                                                 Tensor<1, dim>());
+    std::vector<double> p_exact_solution(fe_values.n_quadrature_points);
     analytical_solution->value_list(fe_values.get_quadrature_points(),
-                                    exact_solution);
+                                    u_exact_solution);
+    analytical_solution->pressure_value_list(fe_values.get_quadrature_points(),
+                                             p_exact_solution);
 
     // TODO calculate the gradient in the analytical solution too, for H1 norm.
     for (unsigned int q = 0; q < fe_values.n_quadrature_points; ++q) {
-        Tensor<1, dim> diff = exact_solution[q] - solution_values[q];
-        l2_error_integral += diff * diff * fe_values.JxW(q);
+        Tensor<1, dim> diff_u = u_exact_solution[q] - u_solution_values[q];
+        double diff_p = p_exact_solution[q] - p_solution_values[q];
+
+        l2_error_integral_u += diff_u * diff_u * fe_values.JxW(q);
+        l2_error_integral_p += diff_p * diff_p * fe_values.JxW(q);
     }
 }
 
@@ -109,14 +126,16 @@ integrate_cell(const FEValues<dim> &fe_values,
 template<int dim>
 void ErrorStokesCylinder<dim>::
 write_header_to_file(std::ofstream &file) {
-    file << "mesh_size, u_L2" << std::endl;
+    file << "mesh_size, u_L2, p_L2" << std::endl;
 }
 
 
 template<int dim>
 void ErrorStokesCylinder<dim>::
 write_error_to_file(Error &error, std::ofstream &file) {
-    file << error.mesh_size << "," << error.l2_error << std::endl;
+    file << error.mesh_size << ","
+         << error.l2_error_u << ","
+         << error.l2_error_p << std::endl;
 }
 
 

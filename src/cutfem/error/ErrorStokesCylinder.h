@@ -25,9 +25,11 @@ public:
 
     Error compute_error();
 
-    void integrate_cell(const FEValues <dim> &fe_values,
-                   double &l2_error_integral,
-                   double &h1_error_integral) const;
+    void integrate_cell(const FEValues<dim> &fe_values,
+                        double &l2_error_integral_u,
+                        double &h1_error_integral_u,
+                        double &l2_error_integral_p,
+                        double &h1_error_integral_p) const;
 
     static void write_header_to_file(std::ofstream &file);
 

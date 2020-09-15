@@ -33,7 +33,8 @@ def convergence_plot(ns, errors, yscale="log2", desired_order=2, reference_line_
         ax.set_yscale("log")
 
     ax.set_xscale("log")
-    ax.set_title(title)
+    ax.set_title(r"\textrm{" + title + r"}\newline \small{\textrm{Convergence order: " + str(-round(res[0],2)) + " (lin.reg.)}}")
+    # title(r"""\Huge{Big title !} \newline \tiny{Small subtitle !}""")
 
     # Remove scientific notation along x-axis
     ax.xaxis.set_major_formatter(StrMethodFormatter('{x:.0f}'))
@@ -94,15 +95,31 @@ if __name__ == '__main__':
 
     mesh_size = data[:, 0]
     print("mesh", mesh_size)
-    l2 = data[:, 1]
-    print("l2", l2)
-    ns = np.ceil(0.41 / mesh_size[1 + skip:])
-    l2 = l2[1 + skip:]
-    ns = np.array([8, 16, 32, 64, 128])
-    print("order: ", -np.log2(l2[1:]/l2[:-1]))
-    print(np.log2(np.array([2, 4, 8])))
 
-    convergence_plot(ns, l2, yscale="log2", reference_line_offset=-0.5, xlabel="$N$",
-                     title=r"\textrm{Channel with sphere. AnalyticalSolution=0 inside sphere.}",
+    l2_u = data[:, 1]
+    l2_p = data[:, 2]
+    ns = 2 ** np.array(range(len(l2_u)))
+
+    ns = ns[1 + skip:]
+    l2_u = l2_u[1 + skip:]
+    l2_p = l2_p[1 + skip:]
+    print("ns", ns)
+    print("l2_u", l2_u)
+    print("l2_p", l2_p)
+
+    # Velocity plot
+    ns_u = ns
+    print()
+    convergence_plot(ns_u, l2_u, yscale="log2", reference_line_offset=-0.5, xlabel="$N$",
+                     title=r"\textrm{Velocity: Channel with sphere. AnalyticalSolution=0 inside sphere.}",
                      desired_order=1)
+
+    # Pressure convergence plot
+    pressure_skip = 1
+    ns_p = ns
+    print()
+    convergence_plot(ns_p[pressure_skip:], l2_p[pressure_skip:], yscale="log2", reference_line_offset=1, xlabel="$N$",
+                     title=r"\textrm{Pressure: Channel with sphere. AnalyticalSolution=0 inside sphere.}",
+                     desired_order=1)
+
     # convergence_plot(ns, errors, yscale="log2", reference_line_offset=0.5)

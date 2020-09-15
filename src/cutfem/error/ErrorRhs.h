@@ -24,6 +24,10 @@ public:
     value_list(const std::vector<Point<dim>> &points,
                std::vector<Tensor<1, dim>> &values) const override;
 
+    void
+    pressure_value_list(const std::vector<Point<dim>> &points,
+                        std::vector<double> &values);
+
     double radius;
     double length;
     double pressure_drop;
@@ -37,7 +41,7 @@ class ErrorStokesRhs : public StokesRhs<dim> {
 public:
     ErrorStokesRhs(double radius, double length, double pressure_drop);
 
-    double point_value(const Point <dim> &p,
+    double point_value(const Point<dim> &p,
                        const unsigned int component = 0) const override;
 
     double radius;
@@ -52,7 +56,7 @@ public:
     ErrorBoundaryValues(double radius, double length, double pressure_drop);
 
     double
-    point_value(const Point <dim> &p,
+    point_value(const Point<dim> &p,
                 const unsigned int component) const override;
 
 private:
@@ -62,8 +66,10 @@ private:
 
 struct Error {
     double mesh_size = 0;
-    double l2_error = 0;
-    double h1_error = 0;
+    double l2_error_u = 0;
+    double h1_error_u = 0;
+    double l2_error_p = 0;
+    double h1_error_p = 0;
 };
 
 #endif // MOCROBUBBLE_ERRORRHS_H
