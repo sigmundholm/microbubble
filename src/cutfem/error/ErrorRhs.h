@@ -25,6 +25,23 @@ public:
                std::vector<Tensor<1, dim>> &values) const override;
 
     void
+    gradient(const Point<dim> &p,
+             Tensor<2, dim> &value) const;
+
+    void
+    gradient_list(const std::vector<Point<dim>> &points,
+            std::vector<Tensor<2, dim>> &values) const;
+
+    void
+    pressure_gradient(const Point<dim> &p,
+                      Tensor<1, dim> &value) const;
+
+    void
+    pressure_gradient_list(const std::vector<Point<dim>> &points,
+                      std::vector<Tensor<1, dim>> &values) const;
+
+
+    void
     pressure_value_list(const std::vector<Point<dim>> &points,
                         std::vector<double> &values);
 
@@ -68,8 +85,10 @@ struct Error {
     double mesh_size = 0;
     double l2_error_u = 0;
     double h1_error_u = 0;
+    double h1_semi_u = 0;
     double l2_error_p = 0;
     double h1_error_p = 0;
+    double h1_semi_p = 0;
 };
 
 #endif // MOCROBUBBLE_ERRORRHS_H

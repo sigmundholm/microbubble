@@ -18,9 +18,9 @@ AnalyticalSolution(const double radius, const double length,
 
 
 template<int dim>
-double
-AnalyticalSolution<dim>::point_value(const Point<dim> &p,
-                                     const unsigned int component) const {
+double AnalyticalSolution<dim>::
+point_value(const Point<dim> &p,
+            const unsigned int component) const {
     /**
      * This is an analytical solution to the Stokes equation in 2D, see Ethier
      * and Steinman (1994) equation (1).
@@ -47,17 +47,17 @@ AnalyticalSolution<dim>::point_value(const Point<dim> &p,
 }
 
 template<int dim>
-void
-AnalyticalSolution<dim>::vector_value(const Point<dim> &p,
-                                      Tensor<1, dim> &value) const {
+void AnalyticalSolution<dim>::
+vector_value(const Point<dim> &p,
+             Tensor<1, dim> &value) const {
     for (unsigned int c = 0; c < dim; ++c)
         value[c] = point_value(p, c);
 }
 
 template<int dim>
-void
-AnalyticalSolution<dim>::value_list(const std::vector<Point<dim>> &points,
-                                    std::vector<Tensor<1, dim>> &values) const {
+void AnalyticalSolution<dim>::
+value_list(const std::vector<Point<dim>> &points,
+           std::vector<Tensor<1, dim>> &values) const {
     AssertDimension(points.size(), values.size());
     for (unsigned int i = 0; i < values.size(); ++i) {
         vector_value(points[i], values[i]);
@@ -65,9 +65,49 @@ AnalyticalSolution<dim>::value_list(const std::vector<Point<dim>> &points,
 }
 
 template<int dim>
-void AnalyticalSolution<dim>::pressure_value_list(
-        const std::vector<Point<dim>> &points,
-        std::vector<double> &values) {
+void AnalyticalSolution<dim>::
+gradient(const Point<dim> &p,
+         Tensor<2, dim> &value) const {
+    // u_x
+    value[0][0] = PI * exp(-2 * PI * PI * T) * sin(PI * p[0]) * sin(PI * p[1]);
+    // u_y
+    value[0][1] = -PI * exp(-2 * PI * PI * T) * cos(PI * p[0]) * cos(PI * p[1]);
+    // v_x
+    value[1][0] = PI * exp(-2 * PI * PI * T) * cos(PI * p[0]) * cos(PI * p[1]);
+    // v_y
+    value[1][1] = -PI * exp(-2 * PI * PI * T) * sin(PI * p[0]) * sin(PI * p[1]);
+}
+
+template<int dim>
+void AnalyticalSolution<dim>::
+gradient_list(const std::vector<Point<dim>> &points,
+              std::vector<Tensor<2, dim>> &values) const {
+    for (unsigned int i = 0; i < values.size(); ++i) {
+        gradient(points[i], values[i]);
+    }
+}
+
+template<int dim>
+void AnalyticalSolution<dim>::
+pressure_gradient(const Point<dim> &p,
+                  Tensor<1, dim> &value) const {
+    value[0] = PI * exp(-4 * PI * PI * T) * sin(2 * PI * p[0]) / 2;
+    value[1] = PI * exp(-4 * PI * PI * T) * sin(2 * PI * p[1]) / 2;
+}
+
+template<int dim>
+void AnalyticalSolution<dim>::
+pressure_gradient_list(const std::vector<Point<dim>> &points,
+                       std::vector<Tensor<1, dim>> &values) const {
+    for (unsigned int i = 0; i < values.size(); ++i) {
+        pressure_gradient(points[i], values[i]);
+    }
+}
+
+template<int dim>
+void AnalyticalSolution<dim>::
+pressure_value_list(const std::vector<Point<dim>> &points,
+                    std::vector<double> &values) {
     AssertDimension(points.size(), values.size());
     for (unsigned int i = 0; i < values.size(); ++i) {
         values[i] = point_value(points[i], dim);

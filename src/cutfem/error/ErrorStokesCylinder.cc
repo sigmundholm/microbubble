@@ -75,9 +75,11 @@ compute_error() {
     Error error;
     error.mesh_size = this->h;
     error.l2_error_u = pow(l2_error_integral_u, 0.5);
-    error.h1_error_u = pow(h1_error_integral_u, 0.5);
+    error.h1_error_u = pow(l2_error_integral_u + h1_error_integral_u, 0.5);
+    error.h1_semi_u = pow(h1_error_integral_u, 0.5);
     error.l2_error_p = pow(l2_error_integral_p, 0.5);
-    error.h1_error_p = pow(h1_error_integral_p, 0.5);
+    error.h1_error_p = pow(l2_error_integral_p + h1_error_integral_p, 0.5);
+    error.h1_semi_p = pow(h1_error_integral_p, 0.5);
     return error;
 }
 
@@ -95,13 +97,19 @@ integrate_cell(const FEValues<dim> &fe_values,
 
     std::vector<Tensor<1, dim>> u_solution_values(
             fe_values.n_quadrature_points);
-    std::vector<Tensor<2, dim>> gradients(fe_values.n_quadrature_points);
+    std::vector<Tensor<2, dim>> u_solution_gradients(
+            fe_values.n_quadrature_points);
     std::vector<double> p_solution_values(fe_values.n_quadrature_points);
+    std::vector<Tensor<1, dim>> p_solution_gradients(
+            fe_values.n_quadrature_points);
 
     fe_values[velocities].get_function_values(this->solution,
                                               u_solution_values);
-    fe_values[velocities].get_function_gradients(this->solution, gradients);
+    fe_values[velocities].get_function_gradients(this->solution,
+                                                 u_solution_gradients);
     fe_values[pressure].get_function_values(this->solution, p_solution_values);
+    fe_values[pressure].get_function_gradients(this->solution,
+                                               p_solution_gradients);
 
     // Exact solution: velocity and pressure
     std::vector<Tensor<1, dim>> u_exact_solution(fe_values.n_quadrature_points,
@@ -112,13 +120,37 @@ integrate_cell(const FEValues<dim> &fe_values,
     analytical_solution->pressure_value_list(fe_values.get_quadrature_points(),
                                              p_exact_solution);
 
-    // TODO calculate the gradient in the analytical solution too, for H1 norm.
+    // Exact gradients: velocity and pressure
+    std::vector<Tensor<2, dim>> u_exact_gradients(
+            fe_values.n_quadrature_points,
+            Tensor<2, dim>());
+    std::vector<Tensor<1, dim>> p_exact_gradients(
+            fe_values.n_quadrature_points,
+            Tensor<1, dim>());
+    analytical_solution->gradient_list(fe_values.get_quadrature_points(),
+                                       u_exact_gradients);
+    analytical_solution->pressure_gradient_list(
+            fe_values.get_quadrature_points(), p_exact_gradients);
+
     for (unsigned int q = 0; q < fe_values.n_quadrature_points; ++q) {
+        // Integrate the square difference between exact and numeric solution
+        // for function values and gradients (both pressure and velocity).
         Tensor<1, dim> diff_u = u_exact_solution[q] - u_solution_values[q];
         double diff_p = p_exact_solution[q] - p_solution_values[q];
 
+        Tensor<2, dim> diff_u_gradient =
+                u_exact_gradients[q] - u_solution_gradients[q];
+        Tensor<1, dim> diff_p_gradient =
+                p_exact_gradients[q] - p_solution_gradients[q];
+
         l2_error_integral_u += diff_u * diff_u * fe_values.JxW(q);
         l2_error_integral_p += diff_p * diff_p * fe_values.JxW(q);
+
+        h1_error_integral_u +=
+                scalar_product(diff_u_gradient, diff_u_gradient) *
+                fe_values.JxW(q);
+        h1_error_integral_p +=
+                diff_p_gradient * diff_p_gradient * fe_values.JxW(q);
     }
 }
 
@@ -126,7 +158,9 @@ integrate_cell(const FEValues<dim> &fe_values,
 template<int dim>
 void ErrorStokesCylinder<dim>::
 write_header_to_file(std::ofstream &file) {
-    file << "mesh_size, u_L2, p_L2" << std::endl;
+    // u_H1 is the H1 norm of the error for the velocity, while
+    // u_h1 is the H1 semi-norm of the error for the velocity.
+    file << "mesh_size, u_L2, u_H1, u_h1, p_L2, p_H1, p_h1" << std::endl;
 }
 
 
@@ -135,7 +169,11 @@ void ErrorStokesCylinder<dim>::
 write_error_to_file(Error &error, std::ofstream &file) {
     file << error.mesh_size << ","
          << error.l2_error_u << ","
-         << error.l2_error_p << std::endl;
+         << error.h1_error_u << ","
+         << error.h1_semi_u << ","
+         << error.l2_error_p << ","
+         << error.h1_error_p << ","
+         << error.h1_semi_p << std::endl;
 }
 
 
