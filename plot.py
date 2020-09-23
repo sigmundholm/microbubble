@@ -83,12 +83,11 @@ def plot3d(field, title="", latex=False, z_label="z", xs=None, ys=None):
 
 
 if __name__ == '__main__':
-    # Example data with 2nd order convergence
-    # ns = [10, 20, 40, 80]
-    # errors = [0.0008550438272162397, 0.00021361488748972146, 5.1004121790487744e-05, 1.0208028014102588e-05]
+
+    ORDER = 1
 
     base = os.getcwd()
-    full_path = os.path.join(base, "build/src/cutfem/convergence/errors-d2o1.csv")
+    full_path = os.path.join(base, "build/src/cutfem/convergence/errors-d2o" + str(ORDER) + ".csv")
     data = np.genfromtxt(full_path, delimiter=",")
     print(data)
 
@@ -132,33 +131,33 @@ if __name__ == '__main__':
     # VELOCITY
     fig, (ax_u_L2, ax_u_H1, ax_u_h1) = plt.subplots(3, 1, sharex="all")
     fig.subplots_adjust(hspace=0.2)
-    fig.suptitle(r"\textrm{\textbf{Velocity} Channel with sphere. AnalyticalSolution=0 inside sphere.}", fontsize=14)
-    convergence_plot(ns_u, u_L2, yscale="log2", reference_line_offset=-0.5, xlabel="",
-                     title=r"\textrm{L2-norm}",
-                     desired_order=1, ax=ax_u_L2)
-    convergence_plot(ns_u, u_H1, yscale="log2", reference_line_offset=-0.5, xlabel="",
-                     title=r"\textrm{H1-norm}",
-                     desired_order=1, ax=ax_u_H1)
-    convergence_plot(ns_u, u_h1, yscale="log2", reference_line_offset=-0.5, xlabel="$N$",
-                     title=r"\textrm{H1-semi-norm}",
-                     desired_order=1, ax=ax_u_h1)
+    fig.suptitle(r"\textrm{\textbf{Velocity} Channel with sphere. $u\in{\rm I\!P}_" + str(ORDER + 1) + "$}", fontsize=14)
+    convergence_plot(ns_u, u_L2, yscale="log10", reference_line_offset=-0.5, xlabel="",
+                     title=r"\textrm{$L^2$-norm}",
+                     desired_order=0, ax=ax_u_L2)
+    convergence_plot(ns_u, u_H1, yscale="log10", reference_line_offset=-0.5, xlabel="",
+                     title=r"\textrm{$H^1$-norm}",
+                     desired_order=0, ax=ax_u_H1)
+    convergence_plot(ns_u, u_h1, yscale="log10", reference_line_offset=-0.5, xlabel="$N$",
+                     title=r"\textrm{$H^1$-semi-norm}",
+                     desired_order=0, ax=ax_u_h1)
 
     # PRESSURE
     fig, (ax_p_L2, ax_p_H1, ax_p_h1) = plt.subplots(3, 1, sharex="all")
     fig.subplots_adjust(hspace=0.2)
-    fig.suptitle(r"\textrm{\textbf{Pressure:} Channel with sphere.}", fontsize=14)
+    fig.suptitle(r"\textrm{\textbf{Pressure:} Channel with sphere. $p\in {\rm I\!P}_" + str(ORDER) +"$}", fontsize=14)
     # Pressure convergence plot
     ns_p = ns[1 + pressure_skip:]
     print("pressure")
     print(len(ns_p), len(p_L2))
-    convergence_plot(ns_p, p_L2, yscale="log2", reference_line_offset=1, xlabel="",
-                     title=r"\textrm{L2-norm}",
-                     desired_order=1, ax=ax_p_L2)
-    convergence_plot(ns_p, p_H1, yscale="log2", reference_line_offset=1, xlabel="",
-                     title=r"\textrm{H1-norm}",
-                     desired_order=1, ax=ax_p_H1)
-    convergence_plot(ns_p, p_h1, yscale="log2", reference_line_offset=1, xlabel="$N$",
-                     title=r"\textrm{H1-semi-norm}",
-                     desired_order=1, ax=ax_p_h1)
+    convergence_plot(ns_p, p_L2, yscale="log10", reference_line_offset=1, xlabel="",
+                     title=r"\textrm{$L^1$-norm}",
+                     desired_order=0, ax=ax_p_L2)
+    convergence_plot(ns_p, p_H1, yscale="log10", reference_line_offset=1, xlabel="",
+                     title=r"\textrm{$H^1$-norm}",
+                     desired_order=0, ax=ax_p_H1)
+    convergence_plot(ns_p, p_h1, yscale="log10", reference_line_offset=1, xlabel="$N$",
+                     title=r"\textrm{$H^1$-semi-norm}",
+                     desired_order=0, ax=ax_p_h1)
 
     plt.show()
