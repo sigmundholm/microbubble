@@ -1,6 +1,7 @@
 #include "StokesCylinder.h"
 
 #include <deal.II/base/data_out_base.h>
+#include <deal.II/base/function.h>
 #include <deal.II/base/quadrature_lib.h>
 
 #include <deal.II/fe/fe_nothing.h>
@@ -62,6 +63,8 @@ StokesCylinder<dim>::StokesCylinder(const double radius,
           levelset_dof_handler(triangulation), dof_handler(triangulation),
           cut_mesh_classifier(triangulation, levelset_dof_handler, levelset) {
     h = 0;
+    k = 1;  // Set the time step to 1 by default.
+
     // Use no constraints when projecting.
     constraints.close();
 
@@ -85,7 +88,7 @@ StokesCylinder<dim>::setup_quadrature() {
 
 template<int dim>
 void
-StokesCylinder<dim>::run() {
+StokesCylinder<dim>::run_stationary() {
     make_grid();
     setup_quadrature();
     setup_level_set();
@@ -98,6 +101,73 @@ StokesCylinder<dim>::run() {
         output_results();
     }
 }
+
+/**
+ *
+ *
+ * @tparam dim
+ * @param end_time
+ * @param steps
+ */
+template<int dim>
+void StokesCylinder<dim>::
+run_time_dependent(double end_time, unsigned int steps) {
+    //  se run() i step-26
+    k = end_time / steps;
+    double time = 0;
+    time_dependent = true;
+    std::cout << "k: " << k << std::endl;
+
+    // Do the steps that only need to be done once.
+    make_grid();
+    setup_quadrature();
+    setup_level_set();
+    cut_mesh_classifier.reclassify();
+    distribute_dofs();
+    initialize_matrices();
+    old_solution.reinit(dof_handler.n_dofs());
+
+    int step = 0;
+
+    while (time < end_time) {
+        std::cout << "\nTime Step " << step << std::endl;
+
+        time += k;
+        std::cout << "k = " << k << std::endl;
+
+        if (step == 0) {
+            std::cout << "hehehe" << std::endl;
+            const unsigned int n_components_on_element = dim + 1;
+            FEValuesExtractors::Vector velocities(0);
+            VectorFunctionFromTensorFunction <dim> adapter(
+                    *boundary_values,
+                    velocities.first_vector_component,
+                    n_components_on_element);
+            VectorTools::interpolate(
+                    dof_handler,
+                    adapter,
+                    solution,
+                    fe_collection.component_mask(velocities));
+
+            output_results(-1);
+            old_solution = solution;
+        }
+
+        assemble_system();
+        solve();
+        if (write_output) {
+            output_results(step);
+        }
+
+        // Sett old_solution fra solution
+        old_solution = solution;
+        solution.reinit(old_solution.size()); // TODO bortkastet?
+        initialize_matrices(); // TODO nødvendig?
+
+        ++step;
+    }
+}
+
 
 template<int dim>
 void
@@ -300,26 +370,39 @@ StokesCylinder<dim>::assemble_local_over_bulk(
     std::vector<Tensor<1, dim>> phi_u(dofs_per_cell, Tensor<1, dim>());
     std::vector<double> phi_p(dofs_per_cell);
 
+    // Old solution values for time dependent problem
+    std::vector<Tensor<1, dim>> u_solution_values(
+            fe_values.n_quadrature_points);
+    fe_values[velocities].get_function_values(this->old_solution,
+                                              u_solution_values);
+
+    // Disable the term (u, v) and (u_n, v) if we're solving the time
+    // independent problem.
+    int active = time_dependent ? 1 : 0;
+
     for (unsigned int q = 0; q < fe_values.n_quadrature_points; ++q) {
-        for (const unsigned int k : fe_values.dof_indices()) {
-            grad_phi_u[k] = fe_values[velocities].gradient(k, q);
-            div_phi_u[k] = fe_values[velocities].divergence(k, q);
-            phi_u[k] = fe_values[velocities].value(k, q);
-            phi_p[k] = fe_values[pressure].value(k, q);
+        for (const unsigned int m : fe_values.dof_indices()) {
+            grad_phi_u[m] = fe_values[velocities].gradient(m, q);
+            div_phi_u[m] = fe_values[velocities].divergence(m, q);
+            phi_u[m] = fe_values[velocities].value(m, q);
+            phi_p[m] = fe_values[pressure].value(m, q);
         }
 
         for (const unsigned int i : fe_values.dof_indices()) {
             for (const unsigned int j : fe_values.dof_indices()) {
                 local_matrix(i, j) +=
-                        (scalar_product(grad_phi_u[i],
-                                        grad_phi_u[j]) // (grad u, grad v)
-                         - (div_phi_u[j] * phi_p[i])   // -(div v, p)
-                         - (div_phi_u[i] * phi_p[j])   // -(div u, q)
-                        ) *
+                        (active * (phi_u[i] * phi_u[j])   // (u, v)
+                         + (scalar_product(grad_phi_u[i],
+                                           grad_phi_u[j]) // (grad u, grad v)
+                            - (div_phi_u[j] * phi_p[i])   // -(div v, p)
+                            - (div_phi_u[i] * phi_p[j]))  // -(div u, q)
+                        ) * k *
                         fe_values.JxW(q); // dx
             }
             // RHS
-            local_rhs(i) += rhs_values[q] * phi_u[i] // (f, v)
+            local_rhs(i) += (k * rhs_values[q] * phi_u[i]       // k * (f, v)
+                             + active * u_solution_values[q] *
+                               phi_u[i])                        // (u_n, v)
                             * fe_values.JxW(q);      // dx
         }
     }
@@ -358,31 +441,30 @@ StokesCylinder<dim>::assemble_local_over_surface(
     for (unsigned int q : fe_values.quadrature_point_indices()) {
         normal = fe_values.normal_vector(q);
 
-        for (const unsigned int k : fe_values.dof_indices()) {
-            grad_phi_u[k] = fe_values[velocities].gradient(k, q);
-            div_phi_u[k] = fe_values[velocities].divergence(k, q);
-            phi_u[k] = fe_values[velocities].value(k, q);
-            phi_p[k] = fe_values[pressure].value(k, q);
+        for (const unsigned int m : fe_values.dof_indices()) {
+            grad_phi_u[m] = fe_values[velocities].gradient(m, q);
+            div_phi_u[m] = fe_values[velocities].divergence(m, q);
+            phi_u[m] = fe_values[velocities].value(m, q);
+            phi_p[m] = fe_values[pressure].value(m, q);
         }
 
         for (const unsigned int i : fe_values.dof_indices()) {
             for (const unsigned int j : fe_values.dof_indices()) {
                 local_matrix(i, j) +=
-                        (-(grad_phi_u[i] * normal) *
-                         phi_u[j]  // -(n * grad u, v)
-                         -
-                         (grad_phi_u[j] * normal) * phi_u[i] // -(n * grad v, u)
+                        (-(grad_phi_u[i] * normal) * phi_u[j]  // -(n*grad u, v)
+                         - (grad_phi_u[j] * normal) *
+                           phi_u[i]                            // -(n*grad v, u)
                          + mu * (phi_u[i] * phi_u[j])          // mu (u, v)
                          + (normal * phi_u[j]) * phi_p[i]      // (n * v, p)
                          + (normal * phi_u[i]) * phi_p[j]      // (n * u, q)
-                        ) *
+                        ) * k *
                         fe_values.JxW(q); // ds
             }
 
             Tensor<1, dim> prod_r =
                     mu * phi_u[i] - grad_phi_u[i] * normal + phi_p[i] * normal;
             local_rhs(i) +=
-                    prod_r * bdd_values[q] // (g, mu v - n grad v + q * n)
+                    k * prod_r * bdd_values[q] // (g, mu v - n grad v + q * n)
                     * fe_values.JxW(q);    // ds
         }
     }
@@ -402,7 +484,7 @@ StokesCylinder<dim>::solve() {
 
 template<int dim>
 void
-StokesCylinder<dim>::output_results() const {
+StokesCylinder<dim>::output_results(int time_step) const {
     std::cout << "Output results" << std::endl;
     // Output results, see step-22
     std::vector<std::string> solution_names(dim, "velocity");
@@ -421,7 +503,8 @@ StokesCylinder<dim>::output_results() const {
     data_out.build_patches();
     std::ofstream output("solution-d" + std::to_string(dim)
                          + "o" + std::to_string(element_order)
-                         + "r" + std::to_string(n_refines) + ".vtk");
+                         + "r" + std::to_string(n_refines)
+                         + "t" + std::to_string(time_step) + ".vtk");
     data_out.write_vtk(output);
 
     // Output levelset function.
@@ -431,7 +514,8 @@ StokesCylinder<dim>::output_results() const {
     data_out_levelset.build_patches();
     std::ofstream output_ls("levelset-d" + std::to_string(dim)
                             + "o" + std::to_string(element_order)
-                            + "r" + std::to_string(n_refines) + ".vtk");
+                            + "r" + std::to_string(n_refines)
+                            + "t" + std::to_string(time_step) + ".vtk");
     data_out_levelset.write_vtk(output_ls);
 }
 

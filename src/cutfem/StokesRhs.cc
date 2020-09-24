@@ -53,6 +53,18 @@ BoundaryValues<dim>::point_value(const Point<dim> &p,
 }
 
 template<int dim>
+Tensor<1, dim>
+BoundaryValues<dim>::value(const Point<dim> &p) const {
+    // Overridden method, used in VectorFunctionFromTensorFunction, when
+    // interpolating the initial values from this class.
+    Tensor<1, dim> val;
+    for (unsigned int c = 0; c < dim; ++c) {
+        val[c] = point_value(p, c);
+    }
+    return val;
+}
+
+template<int dim>
 void
 BoundaryValues<dim>::vector_value(const Point<dim> &p,
                                   Tensor<1, dim> &value) const {

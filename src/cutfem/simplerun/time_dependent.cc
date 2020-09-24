@@ -8,7 +8,7 @@
 
 int
 main() {
-    const unsigned int n_refines = 6;
+    const unsigned int n_refines = 4;
     const int elementOrder = 1;
 
     printf("numRefines=%d\n", n_refines);
@@ -28,5 +28,5 @@ main() {
     StokesCylinder<dim> s(radius, half_length, n_refines, elementOrder,
                           write_vtk, stokesRhs, boundaryValues, sphere_radius,
                           sphere_x_coord);
-    s.run_stationary();
+    s.run_time_dependent(0.1, 10);
 }

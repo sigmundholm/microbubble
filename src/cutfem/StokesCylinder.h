@@ -52,7 +52,10 @@ public:
                    const double sphere_x_coord);
 
     virtual void
-    run();
+    run_stationary();
+
+    void
+    run_time_dependent(double end_time, unsigned int steps);
 
 protected:
     void
@@ -86,16 +89,18 @@ protected:
     solve();
 
     void
-    output_results() const;
+    output_results(int time_step=0) const;
 
     const double radius;
     const double half_length;
     const unsigned int n_refines;
+    double k = 1;
 
     const double gammaA;
     const double gammaD;
 
     bool write_output;
+    bool time_dependent = false;
 
     double sphere_radius;
     double sphere_x_coord;
@@ -133,6 +138,7 @@ protected:
 
     Vector<double> rhs;
     Vector<double> solution;
+    Vector<double> old_solution;
 
     AffineConstraints<double> constraints;
 };

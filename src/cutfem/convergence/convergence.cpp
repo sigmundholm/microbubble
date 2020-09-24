@@ -35,7 +35,7 @@ void solve_for_element_order(int element_order, int max_refinement,
                                         boundary_values, analytical_solution,
                                         pressure_drop, sphere_radius,
                                         sphere_x_coord);
-        stokes.run();
+        stokes.run_stationary();
         Error error = stokes.compute_error();
         std::cout << "|| u - u_h ||_L2 = " << error.l2_error_u << std::endl;
         std::cout << "|| p - p_h ||_L2 = " << error.l2_error_p << std::endl;

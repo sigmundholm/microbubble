@@ -31,7 +31,7 @@ int main() {
                                     write_vtk, stokesRhs, boundaryValues,
                                     analyticalSolution, pressure_drop,
                                     sphere_radius, sphere_x_coord);
-    stokes.run();
+    stokes.run_stationary();
     Error error = stokes.compute_error();
 
     std::cout << "Mesh size: " << error.mesh_size << std::endl;

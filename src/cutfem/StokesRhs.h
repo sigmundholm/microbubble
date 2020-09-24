@@ -31,6 +31,9 @@ public:
     virtual double
     point_value(const Point<dim> &p, const unsigned int component) const;
 
+    Tensor<1, dim>
+    value(const Point<dim> &p) const override;
+
     void
     vector_value(const Point<dim> &p, Tensor<1, dim> &value) const;
 
