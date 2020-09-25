@@ -8,11 +8,11 @@
 
 int
 main() {
-    const unsigned int n_refines = 4;
-    const int elementOrder = 1;
+    const unsigned int n_refines = 5;
+    const int element_order = 1;
 
-    printf("numRefines=%d\n", n_refines);
-    printf("elementOrder=%d\n", elementOrder);
+    printf("num_refines=%d\n", n_refines);
+    printf("element_order=%d\n", element_order);
     const bool write_vtk = true;
 
     double radius = 0.205;
@@ -22,11 +22,12 @@ main() {
 
     const int dim = 2;
 
-    StokesRhs<dim> stokesRhs;
-    BoundaryValues<dim> boundaryValues(radius, 2 * half_length);
+    StokesRhs<dim> stokes_rhs;
+    BoundaryValues<dim> boundary_values(radius, 2 * half_length);
+    InitialValues<dim> initial_values;
 
-    StokesCylinder<dim> s(radius, half_length, n_refines, elementOrder,
-                          write_vtk, stokesRhs, boundaryValues, sphere_radius,
+    StokesCylinder<dim> s(radius, half_length, n_refines, element_order,
+                          write_vtk, stokes_rhs, boundary_values, initial_values, sphere_radius,
                           sphere_x_coord);
     s.run_time_dependent(0.1, 10);
 }

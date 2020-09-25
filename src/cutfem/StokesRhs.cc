@@ -8,23 +8,23 @@
 #include <iostream>
 
 template<int dim>
-double
-StokesRhs<dim>::point_value(const Point<dim> &p, const unsigned int) const {
+double StokesRhs<dim>::
+point_value(const Point<dim> &p, const unsigned int) const {
     (void) p;
     return 0;
 }
 
 template<int dim>
-void
-StokesRhs<dim>::vector_value(const Point<dim> &p, Tensor<1, dim> &value) const {
+void StokesRhs<dim>::
+vector_value(const Point<dim> &p, Tensor<1, dim> &value) const {
     for (unsigned int c = 0; c < dim; ++c)
         value[c] = point_value(p, c);
 }
 
 template<int dim>
-void
-StokesRhs<dim>::value_list(const std::vector<Point<dim>> &points,
-                           std::vector<Tensor<1, dim>> &values) const {
+void StokesRhs<dim>::
+value_list(const std::vector<Point<dim>> &points,
+           std::vector<Tensor<1, dim>> &values) const {
     AssertDimension(points.size(), values.size());
     for (unsigned int i = 0; i < values.size(); ++i) {
         vector_value(points[i], values[i]);
@@ -37,9 +37,9 @@ BoundaryValues<dim>::BoundaryValues(double radius, double length)
         : radius(radius), length(length) {}
 
 template<int dim>
-double
-BoundaryValues<dim>::point_value(const Point<dim> &p,
-                                 const unsigned int component) const {
+double BoundaryValues<dim>::
+point_value(const Point<dim> &p,
+            const unsigned int component) const {
     (void) p;
     double pressure_drop = 10;  // Only for cylinder channel, Hagen–Poiseuille
     if (component == 0 && p[0] == -length / 2) {
@@ -53,8 +53,8 @@ BoundaryValues<dim>::point_value(const Point<dim> &p,
 }
 
 template<int dim>
-Tensor<1, dim>
-BoundaryValues<dim>::value(const Point<dim> &p) const {
+Tensor<1, dim> BoundaryValues<dim>::
+value(const Point<dim> &p) const {
     // Overridden method, used in VectorFunctionFromTensorFunction, when
     // interpolating the initial values from this class.
     Tensor<1, dim> val;
@@ -65,21 +65,39 @@ BoundaryValues<dim>::value(const Point<dim> &p) const {
 }
 
 template<int dim>
-void
-BoundaryValues<dim>::vector_value(const Point<dim> &p,
-                                  Tensor<1, dim> &value) const {
-    for (unsigned int c = 0; c < dim; ++c)
+void BoundaryValues<dim>::
+vector_value(const Point<dim> &p,
+             Tensor<1, dim> &value,
+             const double time) const {
+    double sigma = 10;
+    for (unsigned int c = 0; c < dim; ++c) {
         value[c] = point_value(p, c);
+        if (time >= 0) {
+            // Gradually increase the boundary values with time.
+            value[c] *= (1 - exp(-sigma * time));
+        }
+    }
 }
 
 template<int dim>
-void
-BoundaryValues<dim>::value_list(const std::vector<Point<dim>> &points,
-                                std::vector<Tensor<1, dim>> &values) const {
+void BoundaryValues<dim>::
+value_list(const std::vector<Point<dim>> &points,
+           std::vector<Tensor<1, dim>> &values,
+           const double time) const {
     AssertDimension(points.size(), values.size());
     for (unsigned int i = 0; i < values.size(); ++i) {
-        vector_value(points[i], values[i]);
+        vector_value(points[i], values[i], time);
     }
+}
+
+
+template<int dim>
+Tensor<1, dim> InitialValues<dim>::
+value(const Point<dim> &p) const {
+    (void) p;
+    Tensor<1, dim> value;
+    for (int c = 0; c < dim; ++c)
+        value[c] = 0;
 }
 
 
@@ -94,3 +112,9 @@ class BoundaryValues<2>;
 
 template
 class BoundaryValues<3>;
+
+template
+class InitialValues<2>;
+
+template
+class InitialValues<3>;

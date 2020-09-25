@@ -35,16 +35,26 @@ public:
     value(const Point<dim> &p) const override;
 
     void
-    vector_value(const Point<dim> &p, Tensor<1, dim> &value) const;
+    vector_value(const Point<dim> &p,
+                 Tensor<1, dim> &value,
+                 const double time) const;
 
     void
     value_list(const std::vector<Point<dim>> &points,
-               std::vector<Tensor<1, dim>> &values) const;
+               std::vector<Tensor<1, dim>> &values,
+               const double time) const;
 
 protected:
     double radius;
     double length;
 };
 
+
+template<int dim>
+class InitialValues : public TensorFunction<1, dim> {
+public:
+    Tensor<1, dim>
+    value(const Point<dim> &p) const override;
+};
 
 #endif // MICROBUBBLE_STOKESRHS_H

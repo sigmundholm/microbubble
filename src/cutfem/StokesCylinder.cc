@@ -42,15 +42,16 @@ compute_gammaD(const unsigned int element_order) {
 }
 
 template<int dim>
-StokesCylinder<dim>::StokesCylinder(const double radius,
-                                    const double half_length,
-                                    const unsigned int n_refines,
-                                    const int element_order,
-                                    const bool write_output,
-                                    StokesRhs<dim> &rhs,
-                                    BoundaryValues<dim> &bdd_values,
-                                    const double sphere_radius,
-                                    const double sphere_x_coord)
+StokesCylinder<dim>::
+StokesCylinder(const double radius,
+               const double half_length,
+               const unsigned int n_refines,
+               const int element_order,
+               const bool write_output,
+               StokesRhs<dim> &rhs,
+               BoundaryValues<dim> &bdd_values,
+               const double sphere_radius,
+               const double sphere_x_coord)
         : radius(radius), half_length(half_length), n_refines(n_refines),
           gammaA(.5), gammaD(compute_gammaD(element_order)),
           write_output(write_output), sphere_radius(sphere_radius),
@@ -79,22 +80,47 @@ StokesCylinder<dim>::StokesCylinder(const double radius,
 }
 
 template<int dim>
-void
-StokesCylinder<dim>::setup_quadrature() {
+StokesCylinder<dim>::
+StokesCylinder(const double radius,
+               const double half_length,
+               const unsigned int n_refines,
+               const int element_order,
+               const bool write_output,
+               StokesRhs<dim> &rhs,
+               BoundaryValues<dim> &bdd_values,
+               InitialValues<dim> &init_values,
+               const double sphere_radius,
+               const double sphere_x_coord)
+        : StokesCylinder(radius, half_length, n_refines, element_order,
+                         write_output, rhs, bdd_values, sphere_radius,
+                         sphere_x_coord) {
+    initial_values = &init_values;
+}
+
+
+template<int dim>
+void StokesCylinder<dim>::
+setup_quadrature() {
     const unsigned int quadOrder = 2 * element_order + 1;
     q_collection.push_back(QGauss<dim>(quadOrder));
     q_collection1D.push_back(QGauss<1>(quadOrder));
 }
 
 template<int dim>
-void
-StokesCylinder<dim>::run_stationary() {
+void StokesCylinder<dim>::
+run_stationary() {
+    time_dependent = false;
+    // When the time is negative it is interpreted as a stationary problem by
+    // the BoundaryValues class.
+    time = -1;
+
     make_grid();
     setup_quadrature();
     setup_level_set();
     cut_mesh_classifier.reclassify();
     distribute_dofs();
     initialize_matrices();
+    old_solution.reinit(dof_handler.n_dofs());
     assemble_system();
     solve();
     if (write_output) {
@@ -103,7 +129,7 @@ StokesCylinder<dim>::run_stationary() {
 }
 
 /**
- *
+ * Run the time dependent problem.
  *
  * @tparam dim
  * @param end_time
@@ -112,11 +138,8 @@ StokesCylinder<dim>::run_stationary() {
 template<int dim>
 void StokesCylinder<dim>::
 run_time_dependent(double end_time, unsigned int steps) {
-    //  se run() i step-26
     k = end_time / steps;
-    double time = 0;
     time_dependent = true;
-    std::cout << "k: " << k << std::endl;
 
     // Do the steps that only need to be done once.
     make_grid();
@@ -130,25 +153,26 @@ run_time_dependent(double end_time, unsigned int steps) {
     int step = 0;
 
     while (time < end_time) {
-        std::cout << "\nTime Step " << step << std::endl;
+        std::cout << "\nTime step " << step << std::endl;
 
         time += k;
         std::cout << "k = " << k << std::endl;
 
         if (step == 0) {
-            std::cout << "hehehe" << std::endl;
+            // Load the initial values in the first time step before solving.
             const unsigned int n_components_on_element = dim + 1;
             FEValuesExtractors::Vector velocities(0);
-            VectorFunctionFromTensorFunction <dim> adapter(
-                    *boundary_values,
+            VectorFunctionFromTensorFunction<dim> adapter(
+                    *initial_values,
                     velocities.first_vector_component,
                     n_components_on_element);
+            // Interpolate the InitialValues to the solution vector
             VectorTools::interpolate(
                     dof_handler,
                     adapter,
                     solution,
                     fe_collection.component_mask(velocities));
-
+            // Output the initial values
             output_results(-1);
             old_solution = solution;
         }
@@ -170,8 +194,8 @@ run_time_dependent(double end_time, unsigned int steps) {
 
 
 template<int dim>
-void
-StokesCylinder<dim>::make_grid() {
+void StokesCylinder<dim>::
+make_grid() {
     std::cout << "Creating triangulation" << std::endl;
 
     GridGenerator::cylinder(triangulation, radius, half_length);
@@ -187,8 +211,8 @@ StokesCylinder<dim>::make_grid() {
 }
 
 template<int dim>
-void
-StokesCylinder<dim>::setup_level_set() {
+void StokesCylinder<dim>::
+setup_level_set() {
     std::cout << "Setting up level set" << std::endl;
 
     // The level set function lives on the whole background mesh.
@@ -207,8 +231,8 @@ StokesCylinder<dim>::setup_level_set() {
 }
 
 template<int dim>
-void
-StokesCylinder<dim>::distribute_dofs() {
+void StokesCylinder<dim>::
+distribute_dofs() {
     std::cout << "Distributing dofs" << std::endl;
 
     // We want to types of elements on the mesh
@@ -232,8 +256,8 @@ StokesCylinder<dim>::distribute_dofs() {
 }
 
 template<int dim>
-void
-StokesCylinder<dim>::initialize_matrices() {
+void StokesCylinder<dim>::
+initialize_matrices() {
     std::cout << "Initialize marices" << std::endl;
     solution.reinit(dof_handler.n_dofs());
     rhs.reinit(dof_handler.n_dofs());
@@ -244,8 +268,8 @@ StokesCylinder<dim>::initialize_matrices() {
 }
 
 template<int dim>
-void
-StokesCylinder<dim>::assemble_system() {
+void StokesCylinder<dim>::
+assemble_system() {
     std::cout << "Assembling" << std::endl;
 
     // Use a helper object to compute the stabilisation for both the velocity
@@ -295,7 +319,8 @@ StokesCylinder<dim>::assemble_system() {
                                      face_quadrature_formula,
                                      update_values | update_gradients |
                                      update_quadrature_points |
-                                     update_normal_vectors | update_JxW_values);
+                                     update_normal_vectors |
+                                     update_JxW_values);
 
     for (const auto &cell : dof_handler.active_cell_iterators()) {
         const unsigned int n_dofs = cell->get_fe().dofs_per_cell;
@@ -343,10 +368,9 @@ StokesCylinder<dim>::assemble_system() {
 }
 
 template<int dim>
-void
-StokesCylinder<dim>::assemble_local_over_bulk(
-        const FEValues<dim> &fe_values,
-        const std::vector<types::global_dof_index> &loc2glb) {
+void StokesCylinder<dim>::
+assemble_local_over_bulk(const FEValues<dim> &fe_values,
+                         const std::vector<types::global_dof_index> &loc2glb) {
     // TODO generelt: er det for mange hjelpeobjekter som opprettes her i cella?
     //  bør det heller gjøres i funksjonen før og sendes som argumenter? hvis
     //  det er mulig mtp cellene som blir cut da
@@ -412,10 +436,9 @@ StokesCylinder<dim>::assemble_local_over_bulk(
 
 
 template<int dim>
-void
-StokesCylinder<dim>::assemble_local_over_surface(
-        const FEValuesBase<dim> &fe_values,
-        const std::vector<types::global_dof_index> &loc2glb) {
+void StokesCylinder<dim>::
+assemble_local_over_surface(const FEValuesBase<dim> &fe_values,
+                            const std::vector<types::global_dof_index> &loc2glb) {
     // Matrix and vector for the contribution of each cell
     const unsigned int dofs_per_cell = fe_values.get_fe().dofs_per_cell;
     FullMatrix<double> local_matrix(dofs_per_cell, dofs_per_cell);
@@ -424,7 +447,8 @@ StokesCylinder<dim>::assemble_local_over_surface(
     // Evaluate the boundary function for all quadrature points on this face.
     std::vector<Tensor<1, dim>> bdd_values(fe_values.n_quadrature_points,
                                            Tensor<1, dim>());
-    boundary_values->value_list(fe_values.get_quadrature_points(), bdd_values);
+    boundary_values->value_list(fe_values.get_quadrature_points(),
+                                bdd_values, time);
 
     const FEValuesExtractors::Vector velocities(0);
     const FEValuesExtractors::Scalar pressure(dim);
@@ -474,8 +498,8 @@ StokesCylinder<dim>::assemble_local_over_surface(
 
 
 template<int dim>
-void
-StokesCylinder<dim>::solve() {
+void StokesCylinder<dim>::
+solve() {
     std::cout << "Solving system" << std::endl;
     SparseDirectUMFPACK inverse;
     inverse.initialize(stiffness_matrix);
@@ -483,8 +507,8 @@ StokesCylinder<dim>::solve() {
 }
 
 template<int dim>
-void
-StokesCylinder<dim>::output_results(int time_step) const {
+void StokesCylinder<dim>::
+output_results(int time_step) const {
     std::cout << "Output results" << std::endl;
     // Output results, see step-22
     std::vector<std::string> solution_names(dim, "velocity");

@@ -51,6 +51,18 @@ public:
                    const double sphere_radius,
                    const double sphere_x_coord);
 
+    // Constructor for the time dependent problem
+    StokesCylinder(const double radius,
+                   const double half_length,
+                   const unsigned int n_refines,
+                   const int element_order,
+                   const bool write_output,
+                   StokesRhs<dim> &rhs,
+                   BoundaryValues<dim> &bdd_values,
+                   InitialValues<dim> &init_values,
+                   const double sphere_radius,
+                   const double sphere_x_coord);
+
     virtual void
     run_stationary();
 
@@ -89,12 +101,13 @@ protected:
     solve();
 
     void
-    output_results(int time_step=0) const;
+    output_results(int time_step = 0) const;
 
     const double radius;
     const double half_length;
     const unsigned int n_refines;
     double k = 1;
+    double time = 0;
 
     const double gammaA;
     const double gammaD;
@@ -108,6 +121,7 @@ protected:
 
     StokesRhs<dim> *rhs_function;
     BoundaryValues<dim> *boundary_values;
+    InitialValues<dim> *initial_values;
 
     // Cell side-length.
     double h;
