@@ -160,7 +160,8 @@ void ErrorStokesCylinder<dim>::
 write_header_to_file(std::ofstream &file) {
     // u_H1 is the H1 norm of the error for the velocity, while
     // u_h1 is the H1 semi-norm of the error for the velocity.
-    file << "mesh_size, u_L2, u_H1, u_h1, p_L2, p_H1, p_h1" << std::endl;
+    file << "h, \\|u\\|_{L^2}, \\|u\\|_{H^1}, |u|_{H^1}, "
+            "\\|p\\|_{L^2}, \\|p\\|_{H^1}, |p|_{H^1}" << std::endl;
 }
 
 
