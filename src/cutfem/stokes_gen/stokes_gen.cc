@@ -329,10 +329,10 @@ namespace GeneralizedStokes {
             for (const unsigned int i : fe_values.dof_indices()) {
                 for (const unsigned int j : fe_values.dof_indices()) {
                     local_matrix(i, j) +=
-                            (scalar_product(grad_phi_u[i],
-                                            grad_phi_u[j]) // (grad u, grad v)
-                             - (div_phi_u[j] * phi_p[i])   // -(div v, p)
-                             - (div_phi_u[i] * phi_p[j])   // -(div u, q)
+                            (scalar_product(grad_phi_u[j],
+                                            grad_phi_u[i]) // (grad u, grad v)
+                             - (div_phi_u[i] * phi_p[j])   // -(div v, p)
+                             - (div_phi_u[j] * phi_p[i])   // -(div u, q)
                             ) *
                             fe_values.JxW(q); // dx
                 }
@@ -387,14 +387,14 @@ namespace GeneralizedStokes {
             for (const unsigned int i : fe_values.dof_indices()) {
                 for (const unsigned int j : fe_values.dof_indices()) {
                     local_matrix(i, j) +=
-                            (-(grad_phi_u[i] * normal) *
-                             phi_u[j]  // -(n * grad u, v)
+                            (-(grad_phi_u[j] * normal) *
+                             phi_u[i]  // -(n * grad u, v)
                              -
-                             (grad_phi_u[j] * normal) *
-                             phi_u[i] // -(n * grad v, u)
-                             + mu * (phi_u[i] * phi_u[j])          // mu (u, v)
-                             + (normal * phi_u[j]) * phi_p[i]      // (n * v, p)
-                             + (normal * phi_u[i]) * phi_p[j]      // (n * u, q)
+                             (grad_phi_u[i] * normal) *
+                             phi_u[j] // -(n * grad v, u)
+                             + mu * (phi_u[j] * phi_u[i])          // mu (u, v)
+                             + (normal * phi_u[i]) * phi_p[j]      // (n * v, p)
+                             + (normal * phi_u[j]) * phi_p[i]      // (n * u, q)
                             ) *
                             fe_values.JxW(q); // ds
                 }
