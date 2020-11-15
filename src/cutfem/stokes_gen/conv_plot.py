@@ -29,4 +29,5 @@ if __name__ == '__main__':
         print("EOC (H1): ", eoc_h1)
         print("========================================")
 
+        # plt.savefig(f"figure-o{poly_order}.pdf")
     plt.show()

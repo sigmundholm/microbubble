@@ -46,6 +46,9 @@ namespace GeneralizedStokes {
     StokesCylinder<dim>::StokesCylinder(const double radius,
                                         const double half_length,
                                         const unsigned int n_refines,
+                                        const double delta,
+                                        const double nu,
+                                        const double tau,
                                         const int element_order,
                                         const bool write_output,
                                         TensorFunction<1, dim> &rhs,
@@ -55,7 +58,8 @@ namespace GeneralizedStokes {
                                         const double sphere_radius,
                                         const double sphere_x_coord)
             : radius(radius), half_length(half_length), n_refines(n_refines),
-              gammaA(.5), gammaD(compute_gammaD(element_order)),
+              delta(delta), nu(nu), tau(tau), gammaA(.5),
+              gammaD(compute_gammaD(element_order)),
               write_output(write_output), sphere_radius(sphere_radius),
               sphere_x_coord(sphere_x_coord),
               element_order(element_order),
@@ -305,17 +309,17 @@ namespace GeneralizedStokes {
         Vector<double> local_rhs(dofs_per_cell);
 
         // Vector for values of the RightHandSide for all quadrature points on a cell.
-        std::vector<Tensor<1, dim>> rhs_values(fe_values.n_quadrature_points,
-                                               Tensor<1, dim>());
+        std::vector <Tensor<1, dim>> rhs_values(fe_values.n_quadrature_points,
+                                                Tensor<1, dim>());
         rhs_function->value_list(fe_values.get_quadrature_points(), rhs_values);
 
         const FEValuesExtractors::Vector velocities(0);
         const FEValuesExtractors::Scalar pressure(dim);
 
         // Calculate often used terms in the beginning of each cell-loop
-        std::vector<Tensor<2, dim>> grad_phi_u(dofs_per_cell);
+        std::vector <Tensor<2, dim>> grad_phi_u(dofs_per_cell);
         std::vector<double> div_phi_u(dofs_per_cell);
-        std::vector<Tensor<1, dim>> phi_u(dofs_per_cell, Tensor<1, dim>());
+        std::vector <Tensor<1, dim>> phi_u(dofs_per_cell, Tensor<1, dim>());
         std::vector<double> phi_p(dofs_per_cell);
 
         for (unsigned int q = 0; q < fe_values.n_quadrature_points; ++q) {
@@ -329,11 +333,13 @@ namespace GeneralizedStokes {
             for (const unsigned int i : fe_values.dof_indices()) {
                 for (const unsigned int j : fe_values.dof_indices()) {
                     local_matrix(i, j) +=
-                            (scalar_product(grad_phi_u[j],
-                                            grad_phi_u[i]) // (grad u, grad v)
-                             - (div_phi_u[i] * phi_p[j])   // -(div v, p)
-                             - (div_phi_u[j] * phi_p[i])   // -(div u, q)
-                            ) *
+                            (delta * phi_u[j] * phi_u[i]  // (u, v)
+                             +
+                             (nu * scalar_product(grad_phi_u[j],
+                                                  grad_phi_u[i]) // (grad u, grad v)
+                              - (div_phi_u[i] * phi_p[j])   // -(div v, p)
+                              - (div_phi_u[j] * phi_p[i])   // -(div u, q)
+                             ) * tau) *
                             fe_values.JxW(q); // dx
                 }
                 // RHS
@@ -387,23 +393,28 @@ namespace GeneralizedStokes {
             for (const unsigned int i : fe_values.dof_indices()) {
                 for (const unsigned int j : fe_values.dof_indices()) {
                     local_matrix(i, j) +=
-                            (-(grad_phi_u[j] * normal) *
-                             phi_u[i]  // -(n * grad u, v)
+                            (-nu * (grad_phi_u[j] * normal) *
+                             phi_u[i]  // -(grad u * n, v)
                              -
                              (grad_phi_u[i] * normal) *
-                             phi_u[j] // -(n * grad v, u)
-                             + mu * (phi_u[j] * phi_u[i])          // mu (u, v)
-                             + (normal * phi_u[i]) * phi_p[j]      // (n * v, p)
-                             + (normal * phi_u[j]) * phi_p[i]      // (n * u, q)
-                            ) *
+                             phi_u[j] // -(grad v * n, u) [Nitsche]
+                             + mu * (phi_u[j] * phi_u[i]) // mu (u, v) [Nitsche]
+                             + (normal * phi_u[i]) *
+                               phi_p[j]                  // (n * v, p) [from ∇p]
+                             + (normal * phi_u[j]) *
+                               phi_p[i]                  // (q*n, u) [Nitsche]
+                            ) * tau *  // Multiply all terms with the time step
                             fe_values.JxW(q); // ds
                 }
 
+                // These terms comes from Nitsches method.
                 Tensor<1, dim> prod_r =
                         mu * phi_u[i] - grad_phi_u[i] * normal +
                         phi_p[i] * normal;
+
                 local_rhs(i) +=
-                        prod_r * bdd_values[q] // (g, mu v - n grad v + q * n)
+                        tau * prod_r *
+                        bdd_values[q] // (g, mu v - n grad v + q * n)
                         * fe_values.JxW(q);    // ds
             }
         }

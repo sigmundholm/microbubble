@@ -12,16 +12,25 @@
 
 namespace GeneralizedStokes {
 
+
+    template<int dim>
+    RightHandSide<dim>::RightHandSide(const double delta,
+                                      const double nu,
+                                      const double tau)
+            : TensorFunction<1, dim>(), delta(delta), nu(nu), tau(tau) {}
+
     template<int dim>
     Tensor<1, dim> RightHandSide<dim>::
     value(const Point<dim> &p) const {
         double x = p[0];
         double y = p[1];
         Tensor<1, dim> val;
-        val[0] = pi * sin(2 * pi * x) / 2 -
-                 2 * pi * pi * sin(pi * y) * cos(pi * x);
-        val[1] = 2 * pi * pi * sin(pi * x) * cos(pi * y) +
-                 pi * sin(2 * pi * y) / 2;
+        val[0] = -delta * sin(pi * y) * cos(pi * x) -
+                 2 * pi * pi * nu * tau * sin(pi * y) * cos(pi * x) +
+                 pi * tau * sin(2 * pi * x) / 2;
+        val[1] = delta * sin(pi * x) * cos(pi * y) +
+                 2 * pi * pi * nu * tau * sin(pi * x) * cos(pi * y) +
+                 pi * tau * sin(2 * pi * y) / 2;
         return val;
     }
 

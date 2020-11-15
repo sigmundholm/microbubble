@@ -48,6 +48,9 @@ namespace GeneralizedStokes {
         StokesCylinder(const double radius,
                        const double half_length,
                        const unsigned int n_refines,
+                       const double delta,
+                       const double nu,
+                       const double tau,
                        const int element_order,
                        const bool write_output,
                        TensorFunction<1, dim> &rhs,
@@ -111,6 +114,10 @@ namespace GeneralizedStokes {
         const double radius;
         const double half_length;
         const unsigned int n_refines;
+
+        const double delta;
+        const double nu;
+        const double tau;
 
         const double gammaA;
         const double gammaD;

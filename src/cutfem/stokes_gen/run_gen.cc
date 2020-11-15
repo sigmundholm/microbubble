@@ -14,21 +14,24 @@ int main() {
     double radius = 0.205;
     double half_length = 1.1;
 
+    double delta = 1;
+    double nu = 1;
+    double tau = 1;
+
     double sphere_radius = radius / 4;
     double sphere_x_coord = -half_length / 2;
 
     const int dim = 2;
 
-
-    RightHandSide<dim> rhs;
+    RightHandSide<dim> rhs(delta, nu, tau);
     BoundaryValues<dim> boundary;
     AnalyticalVelocity<dim> analytical_velocity;
     AnalyticalPressure<dim> analytical_pressure;
 
-    StokesCylinder<dim> stokes(radius, half_length, n_refines, elementOrder,
-                               write_vtk, rhs, boundary, analytical_velocity,
-                               analytical_pressure, sphere_radius,
-                               sphere_x_coord);
+    StokesCylinder<dim> stokes(radius, half_length, n_refines, delta, nu, tau,
+                               elementOrder, write_vtk, rhs, boundary,
+                               analytical_velocity, analytical_pressure,
+                               sphere_radius, sphere_x_coord);
     Error error = stokes.run();
     std::cout << "Mesh size: " << error.mesh_size << std::endl;
     std::cout << "|| u - u_h ||_L2 = " << error.l2_error_u << std::endl;

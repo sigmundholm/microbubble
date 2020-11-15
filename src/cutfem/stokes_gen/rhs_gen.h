@@ -22,8 +22,14 @@ namespace GeneralizedStokes {
     template<int dim>
     class RightHandSide : public TensorFunction<1, dim> {
     public:
+        RightHandSide(const double delta, const double nu, const double tau);
+
         Tensor<1, dim>
         value(const Point<dim> &p) const override;
+
+        const double delta;
+        const double nu;
+        const double tau;
     };
 
 
