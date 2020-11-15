@@ -2,6 +2,7 @@
 #define MICROBUBBLE_STOKES_GEN_H
 
 #include <deal.II/base/function.h>
+#include <deal.II/base/tensor_function.h>
 #include <deal.II/base/point.h>
 #include <deal.II/base/quadrature.h>
 #include <deal.II/base/tensor.h>
@@ -49,13 +50,21 @@ namespace GeneralizedStokes {
                        const unsigned int n_refines,
                        const int element_order,
                        const bool write_output,
-                       RightHandSide<dim> &rhs,
-                       BoundaryValues<dim> &bdd_values,
+                       TensorFunction<1, dim> &rhs,
+                       TensorFunction<1, dim> &bdd_values,
+                       TensorFunction<1, dim> &analytic_vel,
+                       Function<dim> &analytic_pressure,
                        const double sphere_radius,
                        const double sphere_x_coord);
 
-        virtual void
+        virtual Error
         run();
+
+        static void
+        write_header_to_file(std::ofstream &file);
+
+        static void
+        write_error_to_file(Error &error, std::ofstream &file);
 
     protected:
         void
@@ -91,6 +100,14 @@ namespace GeneralizedStokes {
         void
         output_results() const;
 
+        Error compute_error();
+
+        void integrate_cell(const FEValues<dim> &fe_v,
+                            double &l2_error_integral_u,
+                            double &h1_error_integral_u,
+                            double &l2_error_integral_p,
+                            double &h1_error_integral_p) const;
+
         const double radius;
         const double half_length;
         const unsigned int n_refines;
@@ -104,8 +121,10 @@ namespace GeneralizedStokes {
         double sphere_x_coord;
         Point<dim> center;
 
-        RightHandSide<dim> *rhs_function;
-        BoundaryValues<dim> *boundary_values;
+        TensorFunction<1, dim> *rhs_function;
+        TensorFunction<1, dim> *boundary_values;
+        TensorFunction<1, dim> *analytical_velocity;
+        Function<dim> *analytical_pressure;
 
         // Cell side-length.
         double h;

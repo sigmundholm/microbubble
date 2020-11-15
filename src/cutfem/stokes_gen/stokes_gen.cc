@@ -48,8 +48,10 @@ namespace GeneralizedStokes {
                                         const unsigned int n_refines,
                                         const int element_order,
                                         const bool write_output,
-                                        RightHandSide<dim> &rhs,
-                                        BoundaryValues<dim> &bdd_values,
+                                        TensorFunction<1, dim> &rhs,
+                                        TensorFunction<1, dim> &bdd_values,
+                                        TensorFunction<1, dim> &analytic_vel,
+                                        Function<dim> &analytic_pressure,
                                         const double sphere_radius,
                                         const double sphere_x_coord)
             : radius(radius), half_length(half_length), n_refines(n_refines),
@@ -68,8 +70,13 @@ namespace GeneralizedStokes {
         // Use no constraints when projecting.
         constraints.close();
 
+        // Use Dirichlet boundary conditions everywhere.
+        do_nothing_id = 10;
+
         rhs_function = &rhs;
         boundary_values = &bdd_values;
+        analytical_velocity = &analytic_vel;
+        analytical_pressure = &analytic_pressure;
 
         if (dim == 2) {
             this->center = Point<dim>(sphere_x_coord, 0);
@@ -87,7 +94,7 @@ namespace GeneralizedStokes {
     }
 
     template<int dim>
-    void
+    Error
     StokesCylinder<dim>::run() {
         make_grid();
         setup_quadrature();
@@ -100,6 +107,7 @@ namespace GeneralizedStokes {
         if (write_output) {
             output_results();
         }
+        return compute_error();
     }
 
     template<int dim>
@@ -130,7 +138,7 @@ namespace GeneralizedStokes {
         levelset.reinit(levelset_dof_handler.n_dofs());
 
         // Project the geometry onto the mesh.
-        cutfem::geometry::SignedDistanceSphere <dim> signed_distance_sphere(
+        cutfem::geometry::SignedDistanceSphere<dim> signed_distance_sphere(
                 sphere_radius, center, -1);
         VectorTools::project(levelset_dof_handler,
                              constraints,
@@ -186,7 +194,7 @@ namespace GeneralizedStokes {
         // and the pressure component.
         // TODO ta ut stabiliseringen i en egen funksjon?
         const FEValuesExtractors::Vector velocities(0);
-        stabilization::JumpStabilization <dim, FEValuesExtractors::Vector>
+        stabilization::JumpStabilization<dim, FEValuesExtractors::Vector>
                 velocity_stabilization(dof_handler,
                                        mapping_collection,
                                        cut_mesh_classifier,
@@ -198,7 +206,7 @@ namespace GeneralizedStokes {
         velocity_stabilization.set_extractor(velocities);
 
         const FEValuesExtractors::Scalar pressure(dim);
-        stabilization::JumpStabilization <dim, FEValuesExtractors::Scalar>
+        stabilization::JumpStabilization<dim, FEValuesExtractors::Scalar>
                 pressure_stabilization(dof_handler,
                                        mapping_collection,
                                        cut_mesh_classifier,
@@ -446,6 +454,145 @@ namespace GeneralizedStokes {
                                 + "o" + std::to_string(element_order)
                                 + "r" + std::to_string(n_refines) + ".vtk");
         data_out_levelset.write_vtk(output_ls);
+    }
+
+
+    template<int dim>
+    Error StokesCylinder<dim>::
+    compute_error() {
+        std::cout << "Compute error" << std::endl;
+        NonMatching::RegionUpdateFlags region_update_flags;
+        region_update_flags.inside = update_values | update_JxW_values |
+                                     update_gradients |
+                                     update_quadrature_points;
+        region_update_flags.surface = update_values | update_JxW_values |
+                                      update_gradients |
+                                      update_quadrature_points |
+                                      update_normal_vectors;
+
+        NonMatching::FEValues<dim> cut_fe_values(mapping_collection,
+                                                 fe_collection,
+                                                 q_collection,
+                                                 q_collection1D,
+                                                 region_update_flags,
+                                                 cut_mesh_classifier,
+                                                 levelset_dof_handler,
+                                                 levelset);
+
+        double l2_error_integral_u = 0;
+        double h1_error_integral_u = 0;
+        double l2_error_integral_p = 0;
+        double h1_error_integral_p = 0;
+
+        for (const auto &cell : dof_handler.active_cell_iterators()) {
+            cut_fe_values.reinit(cell);
+
+            const boost::optional<const FEValues<dim> &> fe_values_inside =
+                    cut_fe_values.get_inside_fe_values();
+
+            if (fe_values_inside) {
+                integrate_cell(*fe_values_inside, l2_error_integral_u,
+                               h1_error_integral_u, l2_error_integral_p,
+                               h1_error_integral_p);
+            }
+        }
+
+        Error error;
+        error.mesh_size = h;
+        error.l2_error_u = pow(l2_error_integral_u, 0.5);
+        error.h1_error_u = pow(l2_error_integral_u + h1_error_integral_u, 0.5);
+        error.h1_semi_u = pow(h1_error_integral_u, 0.5);
+        error.l2_error_p = pow(l2_error_integral_p, 0.5);
+        error.h1_error_p = pow(l2_error_integral_p + h1_error_integral_p, 0.5);
+        error.h1_semi_p = pow(h1_error_integral_p, 0.5);
+        return error;
+    }
+
+
+    template<int dim>
+    void StokesCylinder<dim>::
+    integrate_cell(const FEValues<dim> &fe_v,
+                   double &l2_error_integral_u,
+                   double &h1_error_integral_u,
+                   double &l2_error_integral_p,
+                   double &h1_error_integral_p) const {
+
+        const FEValuesExtractors::Vector v(0);
+        const FEValuesExtractors::Scalar p(dim);
+
+        std::vector<Tensor<1, dim>> u_solution_values(fe_v.n_quadrature_points);
+        std::vector<Tensor<2, dim>> u_solution_gradients(
+                fe_v.n_quadrature_points);
+        std::vector<double> p_solution_values(fe_v.n_quadrature_points);
+        std::vector<Tensor<1, dim>> p_solution_gradients(
+                fe_v.n_quadrature_points);
+
+        fe_v[v].get_function_values(solution, u_solution_values);
+        fe_v[v].get_function_gradients(solution, u_solution_gradients);
+        fe_v[p].get_function_values(solution, p_solution_values);
+        fe_v[p].get_function_gradients(solution, p_solution_gradients);
+
+        // Exact solution: velocity and pressure
+        std::vector<Tensor<1, dim>> u_exact_solution(
+                fe_v.n_quadrature_points,
+                Tensor<1, dim>());
+        std::vector<double> p_exact_solution(fe_v.n_quadrature_points);
+        analytical_velocity->value_list(fe_v.get_quadrature_points(),
+                                        u_exact_solution);
+        analytical_pressure->value_list(fe_v.get_quadrature_points(),
+                                        p_exact_solution);
+
+        // Exact gradients: velocity and pressure
+        std::vector<Tensor<2, dim>> u_exact_gradients(fe_v.n_quadrature_points,
+                                                      Tensor<2, dim>());
+        std::vector<Tensor<1, dim>> p_exact_gradients(fe_v.n_quadrature_points,
+                                                      Tensor<1, dim>());
+        analytical_velocity->gradient_list(fe_v.get_quadrature_points(),
+                                           u_exact_gradients);
+        analytical_pressure->gradient_list(fe_v.get_quadrature_points(),
+                                           p_exact_gradients);
+
+        for (unsigned int q = 0; q < fe_v.n_quadrature_points; ++q) {
+            // Integrate the square difference between exact and numeric solution
+            // for function values and gradients (both pressure and velocity).
+            Tensor<1, dim> diff_u = u_exact_solution[q] - u_solution_values[q];
+            double diff_p = p_exact_solution[q] - p_solution_values[q];
+
+            Tensor<2, dim> diff_u_gradient =
+                    u_exact_gradients[q] - u_solution_gradients[q];
+            Tensor<1, dim> diff_p_gradient =
+                    p_exact_gradients[q] - p_solution_gradients[q];
+
+            l2_error_integral_u += diff_u * diff_u * fe_v.JxW(q);
+            l2_error_integral_p += diff_p * diff_p * fe_v.JxW(q);
+
+            h1_error_integral_u +=
+                    scalar_product(diff_u_gradient, diff_u_gradient) *
+                    fe_v.JxW(q);
+            h1_error_integral_p +=
+                    diff_p_gradient * diff_p_gradient * fe_v.JxW(q);
+        }
+    }
+
+
+    template<int dim>
+    void StokesCylinder<dim>::
+    write_header_to_file(std::ofstream &file) {
+        file << "h, \\|u\\|_{L^2}, \\|u\\|_{H^1}, |u|_{H^1}, "
+                "\\|p\\|_{L^2}, \\|p\\|_{H^1}, |p|_{H^1}" << std::endl;
+    }
+
+
+    template<int dim>
+    void StokesCylinder<dim>::
+    write_error_to_file(Error &error, std::ofstream &file) {
+        file << error.mesh_size << ","
+             << error.l2_error_u << ","
+             << error.h1_error_u << ","
+             << error.h1_semi_u << ","
+             << error.l2_error_p << ","
+             << error.h1_error_p << ","
+             << error.h1_semi_p << std::endl;
     }
 
 
