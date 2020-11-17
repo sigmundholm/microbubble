@@ -109,7 +109,9 @@ namespace GeneralizedStokes {
                             double &l2_error_integral_u,
                             double &h1_error_integral_u,
                             double &l2_error_integral_p,
-                            double &h1_error_integral_p) const;
+                            double &h1_error_integral_p,
+                            const double &mean_numerical_pressure,
+                            const double &mean_exact_pressure) const;
 
         const double radius;
         const double half_length;

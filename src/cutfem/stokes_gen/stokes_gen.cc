@@ -30,6 +30,7 @@
 #include "cutfem/nla/sparsity_pattern.h"
 #include "cutfem/stabilization/jump_stabilization.h"
 
+#include "../../utils/integration.h"
 #include "stokes_gen.h"
 
 
@@ -486,6 +487,17 @@ namespace GeneralizedStokes {
                                                  levelset_dof_handler,
                                                  levelset);
 
+        // Compute the mean of the numerical and the exact pressure over the
+        // domain, to subtract it before computing the error.
+        double mean_num_pressure = 0;
+        double mean_ext_pressure = 0;
+        Utils::compute_mean_pressure(dof_handler,
+                                     cut_fe_values,
+                                     solution,
+                                     *analytical_pressure,
+                                     mean_num_pressure,
+                                     mean_ext_pressure);
+
         double l2_error_integral_u = 0;
         double h1_error_integral_u = 0;
         double l2_error_integral_p = 0;
@@ -500,7 +512,8 @@ namespace GeneralizedStokes {
             if (fe_values_inside) {
                 integrate_cell(*fe_values_inside, l2_error_integral_u,
                                h1_error_integral_u, l2_error_integral_p,
-                               h1_error_integral_p);
+                               h1_error_integral_p, mean_num_pressure,
+                               mean_ext_pressure);
             }
         }
 
@@ -522,7 +535,9 @@ namespace GeneralizedStokes {
                    double &l2_error_integral_u,
                    double &h1_error_integral_u,
                    double &l2_error_integral_p,
-                   double &h1_error_integral_p) const {
+                   double &h1_error_integral_p,
+                   const double &mean_numerical_pressure,
+                   const double &mean_exact_pressure) const {
 
         const FEValuesExtractors::Vector v(0);
         const FEValuesExtractors::Scalar p(dim);
@@ -563,7 +578,8 @@ namespace GeneralizedStokes {
             // Integrate the square difference between exact and numeric solution
             // for function values and gradients (both pressure and velocity).
             Tensor<1, dim> diff_u = u_exact_solution[q] - u_solution_values[q];
-            double diff_p = p_exact_solution[q] - p_solution_values[q];
+            double diff_p = (p_exact_solution[q] - mean_exact_pressure) -
+                            (p_solution_values[q] - mean_numerical_pressure);
 
             Tensor<2, dim> diff_u_gradient =
                     u_exact_gradients[q] - u_solution_gradients[q];
