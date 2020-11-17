@@ -37,11 +37,6 @@ using namespace cutfem;
 
 namespace GeneralizedStokes {
 
-    unsigned int
-    compute_gammaD(const unsigned int element_order) {
-        return 10.0 / 2 * (element_order + 1) * element_order;
-    }
-
     template<int dim>
     StokesCylinder<dim>::StokesCylinder(const double radius,
                                         const double half_length,
@@ -58,8 +53,7 @@ namespace GeneralizedStokes {
                                         const double sphere_radius,
                                         const double sphere_x_coord)
             : radius(radius), half_length(half_length), n_refines(n_refines),
-              delta(delta), nu(nu), tau(tau), gammaA(.5),
-              gammaD(compute_gammaD(element_order)),
+              delta(delta), nu(nu), tau(tau),
               write_output(write_output), sphere_radius(sphere_radius),
               sphere_x_coord(sphere_x_coord),
               element_order(element_order),
@@ -199,27 +193,29 @@ namespace GeneralizedStokes {
         // TODO ta ut stabiliseringen i en egen funksjon?
         const FEValuesExtractors::Vector velocities(0);
         stabilization::JumpStabilization<dim, FEValuesExtractors::Vector>
-                velocity_stabilization(dof_handler,
-                                       mapping_collection,
-                                       cut_mesh_classifier,
-                                       constraints);
-        velocity_stabilization.set_function_describing_faces_to_stabilize(
+                velocity_stab(dof_handler,
+                              mapping_collection,
+                              cut_mesh_classifier,
+                              constraints);
+        velocity_stab.set_function_describing_faces_to_stabilize(
                 stabilization::inside_stabilization);
-        velocity_stabilization.set_weight_function(
-                stabilization::taylor_weights);
-        velocity_stabilization.set_extractor(velocities);
+        velocity_stab.set_weight_function(stabilization::taylor_weights);
+        velocity_stab.set_extractor(velocities);
 
         const FEValuesExtractors::Scalar pressure(dim);
         stabilization::JumpStabilization<dim, FEValuesExtractors::Scalar>
-                pressure_stabilization(dof_handler,
-                                       mapping_collection,
-                                       cut_mesh_classifier,
-                                       constraints);
-        pressure_stabilization.set_function_describing_faces_to_stabilize(
+                pressure_stab(dof_handler,
+                              mapping_collection,
+                              cut_mesh_classifier,
+                              constraints);
+        pressure_stab.set_function_describing_faces_to_stabilize(
                 stabilization::inside_stabilization);
-        pressure_stabilization.set_weight_function(
-                stabilization::taylor_weights);
-        pressure_stabilization.set_extractor(pressure);
+        pressure_stab.set_weight_function(stabilization::taylor_weights);
+        pressure_stab.set_extractor(pressure);
+
+        // TODO sett disse litt ordentlig.
+        double gammaA = 0.5;
+        double gammaM = 10.0 / 2 * (element_order + 1) * element_order;
 
         NonMatching::RegionUpdateFlags region_update_flags;
         region_update_flags.inside = update_values | update_JxW_values |
@@ -284,13 +280,15 @@ namespace GeneralizedStokes {
                 assemble_local_over_surface(*fe_values_surface, loc2glb);
 
             // Compute and add the velocity stabilization.
-            velocity_stabilization.compute_stabilization(cell);
-            velocity_stabilization.add_stabilization_to_matrix(gammaA / (h * h),
-                                                               stiffness_matrix);
+            velocity_stab.compute_stabilization(cell);
+            velocity_stab.add_stabilization_to_matrix(
+                    gammaM * delta + gammaA * tau * nu / (h * h),
+                    stiffness_matrix);
             // Compute and add the pressure stabilisation.
-            pressure_stabilization.compute_stabilization(cell);
-            pressure_stabilization.add_stabilization_to_matrix(-gammaA,
-                                                               stiffness_matrix);
+            pressure_stab.compute_stabilization(cell);
+            pressure_stab.add_stabilization_to_matrix(-gammaA,
+                                                      stiffness_matrix);
+            // TODO et stabilierings ledd til for trykket også?
         }
     }
 
@@ -299,9 +297,6 @@ namespace GeneralizedStokes {
     StokesCylinder<dim>::assemble_local_over_bulk(
             const FEValues<dim> &fe_values,
             const std::vector<types::global_dof_index> &loc2glb) {
-        // TODO generelt: er det for mange hjelpeobjekter som opprettes her i cella?
-        //  bør det heller gjøres i funksjonen før og sendes som argumenter? hvis
-        //  det er mulig mtp cellene som blir cut da
 
         // Matrix and vector for the contribution of each cell
         const unsigned int dofs_per_cell = fe_values.get_fe().dofs_per_cell;
@@ -309,17 +304,17 @@ namespace GeneralizedStokes {
         Vector<double> local_rhs(dofs_per_cell);
 
         // Vector for values of the RightHandSide for all quadrature points on a cell.
-        std::vector <Tensor<1, dim>> rhs_values(fe_values.n_quadrature_points,
-                                                Tensor<1, dim>());
+        std::vector<Tensor<1, dim>> rhs_values(fe_values.n_quadrature_points,
+                                               Tensor<1, dim>());
         rhs_function->value_list(fe_values.get_quadrature_points(), rhs_values);
 
         const FEValuesExtractors::Vector velocities(0);
         const FEValuesExtractors::Scalar pressure(dim);
 
         // Calculate often used terms in the beginning of each cell-loop
-        std::vector <Tensor<2, dim>> grad_phi_u(dofs_per_cell);
+        std::vector<Tensor<2, dim>> grad_phi_u(dofs_per_cell);
         std::vector<double> div_phi_u(dofs_per_cell);
-        std::vector <Tensor<1, dim>> phi_u(dofs_per_cell, Tensor<1, dim>());
+        std::vector<Tensor<1, dim>> phi_u(dofs_per_cell, Tensor<1, dim>());
         std::vector<double> phi_p(dofs_per_cell);
 
         for (unsigned int q = 0; q < fe_values.n_quadrature_points; ++q) {
@@ -377,7 +372,8 @@ namespace GeneralizedStokes {
         std::vector<Tensor<1, dim>> phi_u(dofs_per_cell, Tensor<1, dim>());
         std::vector<double> phi_p(dofs_per_cell);
 
-        double mu = 50 / h; // Penalty parameter
+        // TODO denne skal vel avhenge av element_order?
+        double mu = 50 / h; // Nitsche penalty parameter
         Tensor<1, dim> normal;
 
         for (unsigned int q : fe_values.quadrature_point_indices()) {

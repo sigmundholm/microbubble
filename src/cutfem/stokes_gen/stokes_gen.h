@@ -119,9 +119,6 @@ namespace GeneralizedStokes {
         const double nu;
         const double tau;
 
-        const double gammaA;
-        const double gammaD;
-
         bool write_output;
 
         double sphere_radius;
