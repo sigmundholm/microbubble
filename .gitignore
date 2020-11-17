@@ -7,3 +7,9 @@ cmake-build-debug
 # CLion
 .idea
 venv
+
+
+# General
+*.pdf
+*.png
+*.pyc
