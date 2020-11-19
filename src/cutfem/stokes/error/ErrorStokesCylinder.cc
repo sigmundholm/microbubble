@@ -4,6 +4,7 @@
 
 #include <iostream>
 
+#include "../../../utils/integration.h"
 #include "ErrorStokesCylinder.h"
 
 
@@ -19,6 +20,7 @@ ErrorStokesCylinder<dim>::ErrorStokesCylinder(const double radius,
                                               StokesRhs<dim> &rhs_function,
                                               BoundaryValues<dim> &boundary_values,
                                               AnalyticalSolution<dim> &analytical_soln,
+                                              Function<dim> &analytic_pressure,
                                               const double pressure_drop,  // TODO remove
                                               const double sphere_radius,
                                               const double sphere_x_coord)
@@ -32,6 +34,7 @@ ErrorStokesCylinder<dim>::ErrorStokesCylinder(const double radius,
     // TODO fiks riktige outflow betingelser
     this->do_nothing_id = 1000;
     analytical_solution = &analytical_soln;
+    analytical_pressure = &analytic_pressure;
 }
 
 
@@ -54,6 +57,17 @@ compute_error() {
                                              this->levelset_dof_handler,
                                              this->levelset);
 
+    // Compute the mean of the numerical and the exact pressure over the
+    // domain, to subtract it before computing the error.
+    double mean_num_pressure = 0;
+    double mean_ext_pressure = 0;
+    Utils::compute_mean_pressure(this->dof_handler,
+                                 cut_fe_values,
+                                 this->solution,
+                                 *analytical_pressure,
+                                 mean_num_pressure,
+                                 mean_ext_pressure);
+
     double l2_error_integral_u = 0;
     double h1_error_integral_u = 0;
     double l2_error_integral_p = 0;
@@ -68,7 +82,8 @@ compute_error() {
         if (fe_values_inside) {
             integrate_cell(*fe_values_inside, l2_error_integral_u,
                            h1_error_integral_u, l2_error_integral_p,
-                           h1_error_integral_p);
+                           h1_error_integral_p, mean_num_pressure,
+                           mean_ext_pressure);
         }
     }
 
@@ -90,7 +105,9 @@ integrate_cell(const FEValues<dim> &fe_values,
                double &l2_error_integral_u,
                double &h1_error_integral_u,
                double &l2_error_integral_p,
-               double &h1_error_integral_p) const {
+               double &h1_error_integral_p,
+               const double &mean_numerical_pressure,
+               const double &mean_exact_pressure) const {
 
     const FEValuesExtractors::Vector velocities(0);
     const FEValuesExtractors::Scalar pressure(dim);
@@ -136,7 +153,8 @@ integrate_cell(const FEValues<dim> &fe_values,
         // Integrate the square difference between exact and numeric solution
         // for function values and gradients (both pressure and velocity).
         Tensor<1, dim> diff_u = u_exact_solution[q] - u_solution_values[q];
-        double diff_p = p_exact_solution[q] - p_solution_values[q];
+        double diff_p = (p_exact_solution[q] - mean_exact_pressure) -
+                        (p_solution_values[q] - mean_numerical_pressure);
 
         Tensor<2, dim> diff_u_gradient =
                 u_exact_gradients[q] - u_solution_gradients[q];

@@ -2,7 +2,7 @@
 
 #include <math.h>
 
-#define PI 3.14159265
+#define PI 3.141592653589793
 #define T 0
 
 using namespace dealii;
@@ -169,6 +169,29 @@ point_value(const Point<dim> &p, const unsigned int component) const {
 }
 
 
+template<int dim>
+double AnalyticalPressure<dim>::
+value(const Point<dim> &p, const unsigned int component) const {
+    (void) component;
+    double x = p[0];
+    double y = p[1];
+    return -cos(2 * PI * x) / 4 - cos(2 * PI * y) / 4;
+}
+
+
+template<int dim>
+Tensor<1, dim> AnalyticalPressure<dim>::
+gradient(const Point<dim> &p, const unsigned int component) const {
+    (void) component;
+    double x = p[0];
+    double y = p[1];
+    Tensor<1, dim> value;
+    value[0] = PI * sin(2 * PI * x) / 2;
+    value[1] = PI * sin(2 * PI * y) / 2;
+    return value;
+}
+
+
 template
 class AnalyticalSolution<2>;
 
@@ -186,3 +209,9 @@ class ErrorBoundaryValues<2>;
 
 template
 class ErrorBoundaryValues<3>;
+
+template
+class AnalyticalPressure<2>;
+
+template
+class AnalyticalPressure<3>;

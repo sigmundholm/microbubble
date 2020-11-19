@@ -81,6 +81,18 @@ private:
 };
 
 
+template<int dim>
+class AnalyticalPressure : public Function<dim> {
+public:
+    double
+    value(const Point<dim> &p, const unsigned int component) const override;
+
+    Tensor<1, dim>
+    gradient(const Point<dim> &p,
+             const unsigned int component) const override;
+};
+
+
 struct Error {
     double mesh_size = 0;
     double l2_error_u = 0;

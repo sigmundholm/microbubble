@@ -1,10 +1,12 @@
 #ifndef MICROBUBBLE_INTEGRATION_H
 #define MICROBUBBLE_INTEGRATION_H
 
+#include <deal.II/base/function.h>
+#include <deal.II/lac/vector.h>
 #include <deal.II/dofs/dof_handler.h>
 #include <deal.II/fe/fe_values.h>
-#include <deal.II/lac/vector.h>
-#include <deal.II/base/function.h>
+#include <deal.II/non_matching/fe_values.h>
+
 
 using namespace dealii;
 
@@ -23,6 +25,7 @@ namespace Utils {
                                double &mean_analytical_pressure) {
         Assert(solution.size() == dof.n_dofs(),
                ExcDimensionMismatch(solution.size(), dof.n_dofs()));
+        const FEValuesExtractors::Scalar p(dim);
 
         double area = 0;
         for (const auto &cell : dof.active_cell_iterators()) {
@@ -31,7 +34,6 @@ namespace Utils {
             const boost::optional<const FEValues<dim> &> fe_v =
                     cut_fe_v.get_inside_fe_values();
             if (fe_v) {
-                const FEValuesExtractors::Scalar p(dim);
 
                 // Extract the numerical pressure values from the solution vector.
                 std::vector<double> numerical(fe_v->n_quadrature_points);

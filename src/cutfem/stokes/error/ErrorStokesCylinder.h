@@ -19,6 +19,7 @@ public:
                         StokesRhs<dim> &rhs_function,
                         BoundaryValues<dim> &boundary_values,
                         AnalyticalSolution<dim> &analytical_soln,
+                        Function<dim> &analytic_pressure,
                         const double pressure_drop,
                         const double sphere_radius,
                         const double sphere_x_coord);
@@ -29,7 +30,9 @@ public:
                         double &l2_error_integral_u,
                         double &h1_error_integral_u,
                         double &l2_error_integral_p,
-                        double &h1_error_integral_p) const;
+                        double &h1_error_integral_p,
+                        const double &mean_numerical_pressure,
+                        const double &mean_exact_pressure) const;
 
     static void write_header_to_file(std::ofstream &file);
 
@@ -38,6 +41,8 @@ public:
 private:
     double pressure_drop;
     AnalyticalSolution<dim> *analytical_solution;
+    Function<dim> *analytical_pressure;
+
     // TODO override run for å legge til mer i matrisa etter assembly, for å fikse
     //  termene som skal legges til ved do-nothing
 };

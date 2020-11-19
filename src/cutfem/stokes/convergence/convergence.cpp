@@ -25,6 +25,7 @@ void solve_for_element_order(int element_order, int max_refinement,
     AnalyticalSolution<dim> analytical_solution(radius, 2 * half_length,
                                                 pressure_drop, sphere_x_coord,
                                                 sphere_radius);
+    AnalyticalPressure<dim> analytical_pressure;
 
     for (int n_refines = 1; n_refines < max_refinement + 1; ++n_refines) {
         std::cout << "\nn_refines=" << n_refines << std::endl;
@@ -33,8 +34,8 @@ void solve_for_element_order(int element_order, int max_refinement,
                                         element_order,
                                         write_output, stokes_rhs,
                                         boundary_values, analytical_solution,
-                                        pressure_drop, sphere_radius,
-                                        sphere_x_coord);
+                                        analytical_pressure, pressure_drop,
+                                        sphere_radius, sphere_x_coord);
         stokes.run();
         Error error = stokes.compute_error();
         std::cout << "|| u - u_h ||_L2 = " << error.l2_error_u << std::endl;

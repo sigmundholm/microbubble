@@ -26,11 +26,14 @@ int main() {
     AnalyticalSolution<dim> analyticalSolution(radius, 2 * half_length,
                                                pressure_drop, sphere_x_coord,
                                                sphere_radius);
+    AnalyticalPressure<dim> analyticalPressure;
 
-    ErrorStokesCylinder<dim> stokes(radius, half_length, n_refines, elementOrder,
+    ErrorStokesCylinder<dim> stokes(radius, half_length, n_refines,
+                                    elementOrder,
                                     write_vtk, stokesRhs, boundaryValues,
-                                    analyticalSolution, pressure_drop,
-                                    sphere_radius, sphere_x_coord);
+                                    analyticalSolution, analyticalPressure,
+                                    pressure_drop, sphere_radius,
+                                    sphere_x_coord);
     stokes.run();
     Error error = stokes.compute_error();
 
