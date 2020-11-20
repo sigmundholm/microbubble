@@ -9,11 +9,11 @@ void solve_for_element_order(int element_order, int max_refinement,
                              bool write_output) {
 
     double radius = 0.205;
-    double half_length = 1.1;
+    double half_length = 0.205;
     double pressure_drop = 10;
 
     double sphere_radius = radius / 4;
-    double sphere_x_coord = -half_length / 2;
+    double sphere_x_coord = 0;
 
     std::ofstream file("errors-d" + std::to_string(dim)
                        + "o" + std::to_string(element_order) + ".csv");
@@ -59,6 +59,6 @@ void run_convergence_test(std::vector<int> orders, int max_refinement,
 
 int main() {
 
-    run_convergence_test<2>({1, 2}, 5, true);
+    run_convergence_test<2>({1, 2}, 7, true);
 
 }

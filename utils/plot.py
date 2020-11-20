@@ -33,7 +33,8 @@ def convergence_plot(ns, errors, yscale="log2", desired_order=2, reference_line_
         ax.set_yscale("log")
 
     ax.set_xscale("log")
-    ax.set_title(r"\textrm{" + title + r"}\newline \small{\textrm{Convergence order: " + str(-round(res[0],2)) + " (lin.reg.)}}")
+    ax.set_title(r"\textrm{" + title + r"}\newline \small{\textrm{Convergence order: " + str(
+        -round(res[0], 2)) + " (lin.reg.)}}")
     # title(r"""\Huge{Big title !} \newline \tiny{Small subtitle !}""")
 
     # Remove scientific notation along x-axis
@@ -103,12 +104,16 @@ def add_convergence_line(ax, ns, errors, yscale="log2", xlabel="$N$", name=""):
     return ax
 
 
-def plot3d(field, title="", latex=False, z_label="z", xs=None, ys=None):
+def if_latex(latex: bool):
     if latex:
         rc('font', **{'family': 'sans-serif', 'sans-serif': ['Helvetica']})
         # for Palatino and other serif fonts use:
         # rc('font',**{'family':'serif','serif':['Palatino']})
         rc('text', usetex=True)
+
+
+def plot3d(field, title="", latex=False, z_label="z", xs=None, ys=None):
+    if_latex(latex)
 
     ys = ys if ys is not None else xs
     X, Y = np.meshgrid(xs, ys)
@@ -124,17 +129,15 @@ def plot3d(field, title="", latex=False, z_label="z", xs=None, ys=None):
     return ax
 
 
-def conv_plots(data, columns, title="", latex=False):
-    if latex:
-        rc('font', **{'family': 'sans-serif', 'sans-serif': ['Helvetica']})
-    # for Palatino and other serif fonts use:
-    # rc('font',**{'family':'serif','serif':['Palatino']})
-    rc('text', usetex=True)
+def conv_plots(data, columns, title="", latex=True):
+    if_latex(latex)
 
-    print(columns)
-    first_axis_name = columns[0]
     mesh_size = data[:, 0]
-    # ns = 1 / mesh_size  # TODO hardcodet inn 1 for domenestørrelsen her, fix...
+
+    matplotlib.rcParams['xtick.minor.size'] = 0
+    matplotlib.rcParams['xtick.minor.width'] = 0
+    matplotlib.rcParams['ytick.minor.size'] = 0
+    matplotlib.rcParams['ytick.minor.width'] = 0
 
     fig, ax = plt.subplots()
     for col_name, data_col in zip(columns[1:], [data[:, i] for i in range(1, data.shape[1])]):
@@ -142,6 +145,47 @@ def conv_plots(data, columns, title="", latex=False):
         print(col_name, data_col)
         ax = add_convergence_line(ax, mesh_size, data_col, "log2", name=col_name, xlabel="$h$")
     ax.set_title(title)
+
+
+def eoc_plot(data, columns, title="", domain_lenght=1, latex=True, lines_at=None):
+    if_latex(latex)
+
+    mesh_size = data[:, 0]
+    ns = domain_lenght / mesh_size
+
+    # Remove small tick lines on the axes, that doesnt have any number with them.
+    matplotlib.rcParams['xtick.minor.size'] = 0
+    matplotlib.rcParams['xtick.minor.width'] = 0
+    matplotlib.rcParams['ytick.minor.size'] = 0
+    matplotlib.rcParams['ytick.minor.width'] = 0
+
+    fig, ax = plt.subplots()
+    ax.set_xscale("log")
+
+    if lines_at is not None:
+        for line_val in lines_at:
+            ax.plot([ns[1], ns[-1]], [line_val, line_val], linestyle='--', linewidth=1, color="gray")
+
+    for col_name, data_col in zip(columns[1:], [data[:, i] for i in range(1, data.shape[1])]):
+        eoc = np.log(data_col[:-1] / data_col[1:]) / np.log(mesh_size[:-1] / mesh_size[1:])
+        print(col_name, eoc)
+
+        ax.plot(ns[1:], eoc, label=r"${" + col_name + "}$", linestyle='--', marker='.')
+
+    # Remove scientific notation along x-axis
+    ax.xaxis.set_major_formatter(StrMethodFormatter('{x:.0f}'))
+    ax.xaxis.set_minor_formatter(NullFormatter())
+
+    ax.set_xticks(ns[1:])
+    ns_names = [f'${int(round(n, 0))}$' for n in ns[1:]]
+    ax.set_xticklabels(ns_names)
+
+    ax.set_title(title)
+    ax.set_xlabel(f"$N$")
+    ax.set_ylabel(r"\textrm{EOC}")
+    ax.legend()
+
+    return ax
 
 
 if __name__ == '__main__':
