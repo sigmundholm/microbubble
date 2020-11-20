@@ -92,9 +92,6 @@ protected:
     const double half_length;
     const unsigned int n_refines;
 
-    const double gammaA;
-    const double gammaD;
-
     bool write_output;
 
     double sphere_radius;

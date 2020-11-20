@@ -35,10 +35,6 @@
 
 using namespace cutfem;
 
-unsigned int
-compute_gammaD(const unsigned int element_order) {
-    return 10.0 / 2 * (element_order + 1) * element_order;
-}
 
 template<int dim>
 StokesCylinder<dim>::StokesCylinder(const double radius,
@@ -51,7 +47,6 @@ StokesCylinder<dim>::StokesCylinder(const double radius,
                                     const double sphere_radius,
                                     const double sphere_x_coord)
         : radius(radius), half_length(half_length), n_refines(n_refines),
-          gammaA(.5), gammaD(compute_gammaD(element_order)),
           write_output(write_output), sphere_radius(sphere_radius),
           sphere_x_coord(sphere_x_coord),
           element_order(element_order),
@@ -178,6 +173,9 @@ void
 StokesCylinder<dim>::assemble_system() {
     std::cout << "Assembling" << std::endl;
 
+    stiffness_matrix = 0;
+    rhs = 0;
+
     // Use a helper object to compute the stabilisation for both the velocity
     // and the pressure component.
     // TODO ta ut stabiliseringen i en egen funksjon?
@@ -227,6 +225,9 @@ StokesCylinder<dim>::assemble_system() {
                                      update_quadrature_points |
                                      update_normal_vectors | update_JxW_values);
 
+    double beta_0 = 0.1;
+    double gamma_A = beta_0 * pow(element_order, 2);
+
     for (const auto &cell : dof_handler.active_cell_iterators()) {
         const unsigned int n_dofs = cell->get_fe().dofs_per_cell;
         std::vector<types::global_dof_index> loc2glb(n_dofs);
@@ -241,8 +242,9 @@ StokesCylinder<dim>::assemble_system() {
         const boost::optional<const FEValues<dim> &> fe_values_bulk =
                 cut_fe_values.get_inside_fe_values();
 
-        if (fe_values_bulk)
+        if (fe_values_bulk) {
             assemble_local_over_bulk(*fe_values_bulk, loc2glb);
+        }
 
         // Loop through all faces that constitutes the outer boundary of the
         // domain.
@@ -263,11 +265,11 @@ StokesCylinder<dim>::assemble_system() {
 
         // Compute and add the velocity stabilization.
         velocity_stabilization.compute_stabilization(cell);
-        velocity_stabilization.add_stabilization_to_matrix(gammaA / (h * h),
+        velocity_stabilization.add_stabilization_to_matrix(gamma_A / (h * h),
                                                            stiffness_matrix);
         // Compute and add the pressure stabilisation.
         pressure_stabilization.compute_stabilization(cell);
-        pressure_stabilization.add_stabilization_to_matrix(-gammaA,
+        pressure_stabilization.add_stabilization_to_matrix(-gamma_A,
                                                            stiffness_matrix);
     }
 }
@@ -311,10 +313,10 @@ StokesCylinder<dim>::assemble_local_over_bulk(
         for (const unsigned int i : fe_values.dof_indices()) {
             for (const unsigned int j : fe_values.dof_indices()) {
                 local_matrix(i, j) +=
-                        (scalar_product(grad_phi_u[i],
-                                        grad_phi_u[j]) // (grad u, grad v)
-                         - (div_phi_u[j] * phi_p[i])   // -(div v, p)
-                         - (div_phi_u[i] * phi_p[j])   // -(div u, q)
+                        (scalar_product(grad_phi_u[j],
+                                        grad_phi_u[i]) // (grad u, grad v)
+                         - (div_phi_u[i] * phi_p[j])   // -(div v, p)
+                         - (div_phi_u[j] * phi_p[i])   // -(div u, q)
                         ) *
                         fe_values.JxW(q); // dx
             }
@@ -368,13 +370,13 @@ StokesCylinder<dim>::assemble_local_over_surface(
         for (const unsigned int i : fe_values.dof_indices()) {
             for (const unsigned int j : fe_values.dof_indices()) {
                 local_matrix(i, j) +=
-                        (-(grad_phi_u[i] * normal) *
-                         phi_u[j]  // -(n * grad u, v)
+                        (-(grad_phi_u[j] * normal) *
+                         phi_u[i]  // -(n * grad u, v)
                          -
-                         (grad_phi_u[j] * normal) * phi_u[i] // -(n * grad v, u)
-                         + mu * (phi_u[i] * phi_u[j])          // mu (u, v)
-                         + (normal * phi_u[j]) * phi_p[i]      // (n * v, p)
-                         + (normal * phi_u[i]) * phi_p[j]      // (n * u, q)
+                         (grad_phi_u[i] * normal) * phi_u[j] // -(n * grad v, u)
+                         + mu * (phi_u[j] * phi_u[i])          // mu (u, v)
+                         + (normal * phi_u[i]) * phi_p[j]      // (n * v, p)
+                         + (normal * phi_u[j]) * phi_p[i]      // (n * u, q)
                         ) *
                         fe_values.JxW(q); // ds
             }
