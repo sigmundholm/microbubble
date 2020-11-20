@@ -215,8 +215,9 @@ namespace GeneralizedStokes {
         pressure_stab.set_extractor(pressure);
 
         // TODO sett disse litt ordentlig.
-        double gammaA = 0.5;
-        double gammaM = 10.0 / 2 * (element_order + 1) * element_order;
+        double beta_0 = 0.1;
+        double gamma_A = beta_0 * element_order * element_order;
+        double gamma_M = beta_0 * element_order * element_order;
 
         NonMatching::RegionUpdateFlags region_update_flags;
         region_update_flags.inside = update_values | update_JxW_values |
@@ -283,11 +284,11 @@ namespace GeneralizedStokes {
             // Compute and add the velocity stabilization.
             velocity_stab.compute_stabilization(cell);
             velocity_stab.add_stabilization_to_matrix(
-                    gammaM * delta + gammaA * tau * nu / (h * h),
+                    gamma_M * delta + gamma_A * tau * nu / (h * h),
                     stiffness_matrix);
             // Compute and add the pressure stabilisation.
             pressure_stab.compute_stabilization(cell);
-            pressure_stab.add_stabilization_to_matrix(-gammaA,
+            pressure_stab.add_stabilization_to_matrix(-gamma_A,
                                                       stiffness_matrix);
             // TODO et stabilierings ledd til for trykket også?
         }

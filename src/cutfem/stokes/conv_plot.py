@@ -19,7 +19,7 @@ if __name__ == '__main__':
         # Create a convergence plot
         conv_plots(data, head,
                    title=r"$\textrm{Stokes (cutFEM), element order: (" + str(poly_order + 1) + ", " + str(
-                       poly_order) + ")}$")
+                       poly_order) + ")}$", domain_length=0.41)
         plt.savefig(f"figure-o{poly_order}.pdf")
 
         # Create a EOC-plot
