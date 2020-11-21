@@ -1,3 +1,6 @@
+#ifndef MICROBUBBLE_STOKESCYLINDER_H
+#define MICROBUBBLE_STOKECYLINDER_H
+
 #include <deal.II/base/function.h>
 #include <deal.II/base/point.h>
 #include <deal.II/base/quadrature.h>
@@ -29,6 +32,7 @@
 #include "StokesRhs.h"
 #include "cutfem/errors/error_calculator.h"
 
+
 using namespace dealii;
 using namespace cutfem;
 
@@ -41,12 +45,16 @@ public:
                    const double half_length,
                    const unsigned int n_refines,
                    const int element_order,
-                   const bool write_output);
+                   const bool write_output,
+                   StokesRhs<dim> &rhs,
+                   BoundaryValues<dim> &bdd_values,
+                   const double sphere_radius,
+                   const double sphere_x_coord);
 
-    void
+    virtual void
     run();
 
-private:
+protected:
     void
     make_grid();
 
@@ -84,19 +92,20 @@ private:
     const double half_length;
     const unsigned int n_refines;
 
-    const double gammaA;
-    const double gammaD;
-
     bool write_output;
 
-    const double sphere_radius = 0.25;
-    const Point<dim> center;
-    const StokesRhs<dim> rhs_function;
-    const BoundaryValues<dim> boundary_values;
+    double sphere_radius;
+    double sphere_x_coord;
+    Point<dim> center;
+
+    StokesRhs<dim> *rhs_function;
+    BoundaryValues<dim> *boundary_values;
 
     // Cell side-length.
     double h;
     const unsigned int element_order;
+
+    unsigned int do_nothing_id = 2;
 
     Triangulation<dim> triangulation;
     FESystem<dim> stokes_fe;
@@ -124,3 +133,6 @@ private:
 
     AffineConstraints<double> constraints;
 };
+
+
+#endif // MICROBUBBLE_STOKESCYLINDER_H

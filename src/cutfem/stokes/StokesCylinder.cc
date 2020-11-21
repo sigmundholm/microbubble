@@ -35,22 +35,21 @@
 
 using namespace cutfem;
 
-unsigned int
-compute_gammaD(const unsigned int element_order) {
-    return 10.0 / 2 * (element_order + 1) * element_order;
-}
 
 template<int dim>
 StokesCylinder<dim>::StokesCylinder(const double radius,
                                     const double half_length,
                                     const unsigned int n_refines,
                                     const int element_order,
-                                    const bool write_output)
+                                    const bool write_output,
+                                    StokesRhs<dim> &rhs,
+                                    BoundaryValues<dim> &bdd_values,
+                                    const double sphere_radius,
+                                    const double sphere_x_coord)
         : radius(radius), half_length(half_length), n_refines(n_refines),
-          gammaA(.5), gammaD(compute_gammaD(element_order)),
-          write_output(write_output), sphere_radius(radius / 4),
+          write_output(write_output), sphere_radius(sphere_radius),
+          sphere_x_coord(sphere_x_coord),
           element_order(element_order),
-          boundary_values(radius, 2 * half_length),
           stokes_fe(FESystem<dim>(FE_Q<dim>(element_order + 1), dim),
                     1,
                     FE_Q<dim>(element_order),
@@ -60,6 +59,15 @@ StokesCylinder<dim>::StokesCylinder(const double radius,
     h = 0;
     // Use no constraints when projecting.
     constraints.close();
+
+    rhs_function = &rhs;
+    boundary_values = &bdd_values;
+
+    if (dim == 2) {
+        this->center = Point<dim>(sphere_x_coord, 0);
+    } else if (dim == 3) {
+        this->center = Point<dim>(sphere_x_coord, 0, 0);
+    }
 }
 
 template<int dim>
@@ -165,6 +173,9 @@ void
 StokesCylinder<dim>::assemble_system() {
     std::cout << "Assembling" << std::endl;
 
+    stiffness_matrix = 0;
+    rhs = 0;
+
     // Use a helper object to compute the stabilisation for both the velocity
     // and the pressure component.
     // TODO ta ut stabiliseringen i en egen funksjon?
@@ -214,6 +225,9 @@ StokesCylinder<dim>::assemble_system() {
                                      update_quadrature_points |
                                      update_normal_vectors | update_JxW_values);
 
+    double beta_0 = 0.1;
+    double gamma_A = beta_0 * pow(element_order, 2);
+
     for (const auto &cell : dof_handler.active_cell_iterators()) {
         const unsigned int n_dofs = cell->get_fe().dofs_per_cell;
         std::vector<types::global_dof_index> loc2glb(n_dofs);
@@ -228,13 +242,14 @@ StokesCylinder<dim>::assemble_system() {
         const boost::optional<const FEValues<dim> &> fe_values_bulk =
                 cut_fe_values.get_inside_fe_values();
 
-        if (fe_values_bulk)
+        if (fe_values_bulk) {
             assemble_local_over_bulk(*fe_values_bulk, loc2glb);
+        }
 
         // Loop through all faces that constitutes the outer boundary of the
         // domain.
         for (const auto &face : cell->face_iterators()) {
-            if (face->at_boundary() && face->boundary_id() != 2) {
+            if (face->at_boundary() && face->boundary_id() != do_nothing_id) {
                 fe_face_values.reinit(cell, face);
                 assemble_local_over_surface(fe_face_values, loc2glb);
             }
@@ -250,11 +265,11 @@ StokesCylinder<dim>::assemble_system() {
 
         // Compute and add the velocity stabilization.
         velocity_stabilization.compute_stabilization(cell);
-        velocity_stabilization.add_stabilization_to_matrix(gammaA / (h * h),
+        velocity_stabilization.add_stabilization_to_matrix(gamma_A / (h * h),
                                                            stiffness_matrix);
         // Compute and add the pressure stabilisation.
         pressure_stabilization.compute_stabilization(cell);
-        pressure_stabilization.add_stabilization_to_matrix(-gammaA,
+        pressure_stabilization.add_stabilization_to_matrix(-gamma_A,
                                                            stiffness_matrix);
     }
 }
@@ -276,7 +291,7 @@ StokesCylinder<dim>::assemble_local_over_bulk(
     // Vector for values of the RightHandSide for all quadrature points on a cell.
     std::vector<Tensor<1, dim>> rhs_values(fe_values.n_quadrature_points,
                                            Tensor<1, dim>());
-    rhs_function.value_list(fe_values.get_quadrature_points(), rhs_values);
+    rhs_function->value_list(fe_values.get_quadrature_points(), rhs_values);
 
     const FEValuesExtractors::Vector velocities(0);
     const FEValuesExtractors::Scalar pressure(dim);
@@ -298,10 +313,10 @@ StokesCylinder<dim>::assemble_local_over_bulk(
         for (const unsigned int i : fe_values.dof_indices()) {
             for (const unsigned int j : fe_values.dof_indices()) {
                 local_matrix(i, j) +=
-                        (scalar_product(grad_phi_u[i],
-                                        grad_phi_u[j]) // (grad u, grad v)
-                         - (div_phi_u[j] * phi_p[i])   // -(div v, p)
-                         - (div_phi_u[i] * phi_p[j])   // -(div u, q)
+                        (scalar_product(grad_phi_u[j],
+                                        grad_phi_u[i]) // (grad u, grad v)
+                         - (div_phi_u[i] * phi_p[j])   // -(div v, p)
+                         - (div_phi_u[j] * phi_p[i])   // -(div u, q)
                         ) *
                         fe_values.JxW(q); // dx
             }
@@ -328,7 +343,7 @@ StokesCylinder<dim>::assemble_local_over_surface(
     // Evaluate the boundary function for all quadrature points on this face.
     std::vector<Tensor<1, dim>> bdd_values(fe_values.n_quadrature_points,
                                            Tensor<1, dim>());
-    boundary_values.value_list(fe_values.get_quadrature_points(), bdd_values);
+    boundary_values->value_list(fe_values.get_quadrature_points(), bdd_values);
 
     const FEValuesExtractors::Vector velocities(0);
     const FEValuesExtractors::Scalar pressure(dim);
@@ -355,13 +370,13 @@ StokesCylinder<dim>::assemble_local_over_surface(
         for (const unsigned int i : fe_values.dof_indices()) {
             for (const unsigned int j : fe_values.dof_indices()) {
                 local_matrix(i, j) +=
-                        (-(grad_phi_u[i] * normal) *
-                         phi_u[j]  // -(n * grad u, v)
+                        (-(grad_phi_u[j] * normal) *
+                         phi_u[i]  // -(n * grad u, v)
                          -
-                         (grad_phi_u[j] * normal) * phi_u[i] // -(n * grad v, u)
-                         + mu * (phi_u[i] * phi_u[j])          // mu (u, v)
-                         + (normal * phi_u[j]) * phi_p[i]      // (n * v, p)
-                         + (normal * phi_u[i]) * phi_p[j]      // (n * u, q)
+                         (grad_phi_u[i] * normal) * phi_u[j] // -(n * grad v, u)
+                         + mu * (phi_u[j] * phi_u[i])          // mu (u, v)
+                         + (normal * phi_u[i]) * phi_p[j]      // (n * v, p)
+                         + (normal * phi_u[j]) * phi_p[i]      // (n * u, q)
                         ) *
                         fe_values.JxW(q); // ds
             }
@@ -406,7 +421,9 @@ StokesCylinder<dim>::output_results() const {
                              dci);
 
     data_out.build_patches();
-    std::ofstream output("solution.vtk");
+    std::ofstream output("solution-d" + std::to_string(dim)
+                         + "o" + std::to_string(element_order)
+                         + "r" + std::to_string(n_refines) + ".vtk");
     data_out.write_vtk(output);
 
     // Output levelset function.
@@ -414,7 +431,9 @@ StokesCylinder<dim>::output_results() const {
     data_out_levelset.attach_dof_handler(levelset_dof_handler);
     data_out_levelset.add_data_vector(levelset, "levelset");
     data_out_levelset.build_patches();
-    std::ofstream output_ls("levelset.vtk");
+    std::ofstream output_ls("levelset-d" + std::to_string(dim)
+                            + "o" + std::to_string(element_order)
+                            + "r" + std::to_string(n_refines) + ".vtk");
     data_out_levelset.write_vtk(output_ls);
 }
 
