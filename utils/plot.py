@@ -129,10 +129,11 @@ def plot3d(field, title="", latex=False, z_label="z", xs=None, ys=None):
     return ax
 
 
-def conv_plots(data, columns, title="", latex=True):
+def conv_plots(data, columns, title="", latex=True, domain_length=1):
     if_latex(latex)
 
     mesh_size = data[:, 0]
+    ns = list(map(int, domain_length / mesh_size))
 
     matplotlib.rcParams['xtick.minor.size'] = 0
     matplotlib.rcParams['xtick.minor.width'] = 0
@@ -143,7 +144,7 @@ def conv_plots(data, columns, title="", latex=True):
     for col_name, data_col in zip(columns[1:], [data[:, i] for i in range(1, data.shape[1])]):
         print()
         print(col_name, data_col)
-        ax = add_convergence_line(ax, mesh_size, data_col, "log2", name=col_name, xlabel="$h$")
+        ax = add_convergence_line(ax, ns, data_col, "log2", name=col_name, xlabel="$N$")
     ax.set_title(title)
 
 
