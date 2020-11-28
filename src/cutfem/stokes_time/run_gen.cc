@@ -15,7 +15,7 @@ int main() {
     double half_length = 0.41;
 
     double nu = 1;
-    double tau = 0.1;
+    double tau = 0.01;
     unsigned int n_steps = 10;
 
     double sphere_radius = radius / 4;

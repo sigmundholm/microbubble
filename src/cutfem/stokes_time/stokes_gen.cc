@@ -106,8 +106,10 @@ namespace TimeDependentStokesIE {
         double k = 0; // the time step index
         time = 0;
 
+        // Vector for the computed error for each time step.
+        std::vector<Error> errors(steps);
 
-        while (k <= steps) {
+        while (k < steps) {
             ++k;
             time += tau;
             std::cout << "\nTime Step = " << k
@@ -144,11 +146,18 @@ namespace TimeDependentStokesIE {
                 output_results(k);
             }
             old_solution = solution;
-            // solution = 0;
-            // initialize_matrices();
+            errors[k - 1] = compute_error();
         }
 
-        return compute_error();
+        // TODO merk at det virker som om feilen er størst i starten for så å
+        //  bli veldig mye mindre etter som t vokser. Er dette feil, eller er
+        //  det fordi løsningen faktisk blir så mye mindre? (i p-L2 feil)
+        for (Error err : errors) {
+            std::cout << "u-l2= " << err.l2_error_u
+                      << "    u-h1= " << err.h1_error_u << std::endl;
+        }
+
+        return compute_time_error(errors);
     }
 
     template<int dim>
@@ -653,6 +662,9 @@ namespace TimeDependentStokesIE {
     compute_error() {
         // TODO move to integration.h
         std::cout << "Compute error" << std::endl;
+        std::cout << "u-time=" << analytical_velocity->get_time() << " p-time="
+                  << analytical_pressure->get_time() << std::endl;
+
         NonMatching::RegionUpdateFlags region_update_flags;
         region_update_flags.inside = update_values | update_JxW_values |
                                      update_gradients |
@@ -779,6 +791,40 @@ namespace TimeDependentStokesIE {
             h1_error_integral_p +=
                     diff_p_gradient * diff_p_gradient * fe_v.JxW(q);
         }
+    }
+
+
+    /**
+     * Compute the L2 and H1 error based on the computed error from each time
+     * step.
+     *
+     * Compute the square root of the sum of the squared errors from each time
+     * steps, weighted by the time step length tau for each term in the sum.
+     */
+    template<int dim>
+    Error StokesCylinder<dim>::
+    compute_time_error(std::vector<Error> errors) {
+        double l2_error_integral_u = 0;
+        double h1_error_integral_u = 0;
+        double l2_error_integral_p = 0;
+        double h1_error_integral_p = 0;
+
+        for (Error error : errors) {
+            l2_error_integral_u += tau * pow(error.l2_error_u, 2);
+            h1_error_integral_u += tau * pow(error.h1_semi_u, 2);
+            l2_error_integral_p += tau * pow(error.l2_error_p, 2);
+            h1_error_integral_p += tau * pow(error.h1_semi_p, 2);
+        }
+
+        Error error;
+        error.mesh_size = errors[0].mesh_size;
+        error.l2_error_u = pow(l2_error_integral_u, 0.5);
+        error.h1_error_u = pow(l2_error_integral_u + h1_error_integral_u, 0.5);
+        error.h1_semi_u = pow(h1_error_integral_u, 0.5);
+        error.l2_error_p = pow(l2_error_integral_p, 0.5);
+        error.h1_error_p = pow(l2_error_integral_p + h1_error_integral_p, 0.5);
+        error.h1_semi_p = pow(h1_error_integral_p, 0.5);
+        return error;
     }
 
 

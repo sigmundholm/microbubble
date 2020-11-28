@@ -28,7 +28,7 @@ void solve_for_element_order(int element_order, int max_refinement,
     AnalyticalVelocity<dim> analytical_velocity(nu);
     AnalyticalPressure<dim> analytical_pressure(nu);
 
-    for (int n_refines = 9; n_refines < max_refinement + 1; ++n_refines) {
+    for (int n_refines = 1; n_refines < max_refinement + 1; ++n_refines) {
         std::cout << "\nn_refines=" << n_refines << std::endl;
 
         StokesCylinder<dim> stokes(radius, half_length, n_refines, nu,
@@ -59,6 +59,6 @@ void run_convergence_test(std::vector<int> orders, int max_refinement,
 
 int main() {
 
-    run_convergence_test<2>({1}, 9, true);
+    run_convergence_test<2>({1}, 6, true);
 
 }

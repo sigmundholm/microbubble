@@ -126,6 +126,8 @@ namespace TimeDependentStokesIE {
                             const double &mean_numerical_pressure,
                             const double &mean_exact_pressure) const;
 
+        Error compute_time_error(std::vector<Error> errors);
+
         const double radius;
         const double half_length;
         const unsigned int n_refines;
