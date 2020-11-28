@@ -101,12 +101,12 @@ namespace TimeDependentStokesIE {
 
         void
         assemble_rhs_local_over_cell(
-                const FEValues<dim> &fe_values,
+                const FEValues<dim> &fe_v,
                 const std::vector<types::global_dof_index> &loc2glb);
 
         void
         assemble_rhs_local_over_surface(
-                const FEValuesBase<dim> &fe_values,
+                const FEValuesBase<dim> &fe_v,
                 const std::vector<types::global_dof_index> &loc2glb);
 
 

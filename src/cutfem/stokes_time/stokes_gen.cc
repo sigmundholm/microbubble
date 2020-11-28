@@ -128,7 +128,7 @@ namespace TimeDependentStokesIE {
                         solution,
                         fe_collection.component_mask(velocities));
 
-                output_results(-1);
+                output_results(0);
                 old_solution = solution;
             }
 
@@ -138,12 +138,7 @@ namespace TimeDependentStokesIE {
             analytical_velocity->set_time(time);
             analytical_pressure->set_time(time);
 
-            // TODO vil egentlig bare assemble en gang. Finn en anne måte å
-            //  sette høyre siden på. Kan evt assemble kun høre side.. det går jo mye raskere.
             assemble_rhs();
-            // load_vector = rhs;
-            // load_vector += old_solution;
-
             solve();
             if (write_output) {
                 output_results(k);
@@ -384,13 +379,10 @@ namespace TimeDependentStokesIE {
                              ) * tau) *
                             fe_values.JxW(q); // dx
                 }
-                // RHS
-                local_rhs(i) += rhs_values[q] * phi_u[i] // (f, v)
-                                * fe_values.JxW(q);      // dx
+                // NB: rhs is assembled in assemble_rhs().
             }
         }
         stiffness_matrix.add(loc2glb, local_matrix);
-        rhs.add(loc2glb, local_rhs);
     }
 
 
@@ -449,20 +441,10 @@ namespace TimeDependentStokesIE {
                             ) * tau *  // Multiply all terms with the time step
                             fe_values.JxW(q); // ds
                 }
-
-                // These terms comes from Nitsches method.
-                Tensor<1, dim> prod_r =
-                        mu * phi_u[i] - grad_phi_u[i] * normal +
-                        phi_p[i] * normal;
-
-                local_rhs(i) +=
-                        tau * prod_r *
-                        bdd_values[q] // (g, mu v - n grad v + q * n)
-                        * fe_values.JxW(q);    // ds
+                // NB: rhs is assembled in assemble_rhs().
             }
         }
         stiffness_matrix.add(loc2glb, local_matrix);
-        rhs.add(loc2glb, local_rhs);
     }
 
 
@@ -473,7 +455,8 @@ namespace TimeDependentStokesIE {
 
         NonMatching::RegionUpdateFlags region_update_flags;
         region_update_flags.inside = update_values | update_quadrature_points
-                                     | update_JxW_values; //  | update_gradients;
+                                     |
+                                     update_JxW_values; //  | update_gradients;
         region_update_flags.surface =
                 update_values | update_JxW_values |
                 update_gradients |
@@ -544,27 +527,33 @@ namespace TimeDependentStokesIE {
     template<int dim>
     void StokesCylinder<dim>::
     assemble_rhs_local_over_cell(
-            const FEValues<dim> &fe_values,
+            const FEValues<dim> &fe_v,
             const std::vector<types::global_dof_index> &loc2glb) {
 
         // Matrix and vector for the contribution of each cell
-        const unsigned int dofs_per_cell = fe_values.get_fe().dofs_per_cell;
+        const unsigned int dofs_per_cell = fe_v.get_fe().dofs_per_cell;
         // FullMatrix<double> local_matrix(dofs_per_cell, dofs_per_cell);
         Vector<double> local_rhs(dofs_per_cell);
 
         // Vector for values of the RightHandSide for all quadrature points on a cell.
-        std::vector<Tensor<1, dim>> rhs_values(fe_values.n_quadrature_points,
+        std::vector<Tensor<1, dim>> rhs_values(fe_v.n_quadrature_points,
                                                Tensor<1, dim>());
-        rhs_function->value_list(fe_values.get_quadrature_points(), rhs_values);
+        rhs_function->value_list(fe_v.get_quadrature_points(), rhs_values);
 
-        const FEValuesExtractors::Vector velocities(0);
+        // Get the values from the solution in the last time step.
+        const FEValuesExtractors::Vector v(0);
+        std::vector<Tensor<1, dim>> u_solution_values(fe_v.n_quadrature_points);
+        fe_v[v].get_function_values(old_solution, u_solution_values);
+        Tensor<1, dim> phi_u;
 
-        for (unsigned int q = 0; q < fe_values.n_quadrature_points; ++q) {
-            for (const unsigned int i : fe_values.dof_indices()) {
+        for (unsigned int q = 0; q < fe_v.n_quadrature_points; ++q) {
+            for (const unsigned int i : fe_v.dof_indices()) {
                 // RHS
-                local_rhs(i) += rhs_values[q] *
-                                tau * fe_values[velocities].value(i, q) // (f, v)
-                                * fe_values.JxW(q);      // dx
+                phi_u = fe_v[v].value(i, q);
+                local_rhs(i) += (tau * rhs_values[q] * phi_u // (f, v)
+                                 +
+                                 u_solution_values[q] * phi_u
+                                ) * fe_v.JxW(q);      // dx
             }
         }
         rhs.add(loc2glb, local_rhs);
@@ -574,40 +563,39 @@ namespace TimeDependentStokesIE {
     template<int dim>
     void StokesCylinder<dim>::
     assemble_rhs_local_over_surface(
-            const FEValuesBase<dim> &fe_values,
+            const FEValuesBase<dim> &fe_v,
             const std::vector<types::global_dof_index> &loc2glb) {
         // Matrix and vector for the contribution of each cell
-        const unsigned int dofs_per_cell = fe_values.get_fe().dofs_per_cell;
+        const unsigned int dofs_per_cell = fe_v.get_fe().dofs_per_cell;
         // FullMatrix<double> local_matrix(dofs_per_cell, dofs_per_cell);
         Vector<double> local_rhs(dofs_per_cell);
 
         // Evaluate the boundary function for all quadrature points on this face.
-        std::vector<Tensor<1, dim>> bdd_values(fe_values.n_quadrature_points,
+        std::vector<Tensor<1, dim>> bdd_values(fe_v.n_quadrature_points,
                                                Tensor<1, dim>());
-        boundary_values->value_list(fe_values.get_quadrature_points(),
-                                    bdd_values);
+        boundary_values->value_list(fe_v.get_quadrature_points(), bdd_values);
 
-        const FEValuesExtractors::Vector velocities(0);
-        const FEValuesExtractors::Scalar pressure(dim);
+        const FEValuesExtractors::Vector v(0);
+        const FEValuesExtractors::Scalar p(dim);
 
         // TODO denne skal vel avhenge av element_order?
         double mu = 50 / h; // Nitsche penalty parameter
         Tensor<1, dim> normal;
 
-        for (unsigned int q : fe_values.quadrature_point_indices()) {
-            normal = fe_values.normal_vector(q);
+        for (unsigned int q : fe_v.quadrature_point_indices()) {
+            normal = fe_v.normal_vector(q);
 
-            for (const unsigned int i : fe_values.dof_indices()) {
+            for (const unsigned int i : fe_v.dof_indices()) {
                 // These terms comes from Nitsches method.
                 Tensor<1, dim> prod_r =
-                        mu * fe_values[velocities].value(i, q) -
-                        fe_values[velocities].gradient(i, q) * normal +
-                        fe_values[pressure].value(i, q) * normal;
+                        mu * fe_v[v].value(i, q) -
+                        fe_v[v].gradient(i, q) * normal +
+                        fe_v[p].value(i, q) * normal;
 
                 local_rhs(i) +=
                         tau * prod_r *
                         bdd_values[q] // (g, mu v - n grad v + q * n)
-                        * fe_values.JxW(q);    // ds
+                        * fe_v.JxW(q);    // ds
             }
         }
         rhs.add(loc2glb, local_rhs);
