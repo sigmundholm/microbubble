@@ -38,7 +38,7 @@
 using namespace dealii;
 using namespace cutfem;
 
-namespace GeneralizedStokes {
+namespace TimeDependentStokesIE {
 
     using NonMatching::LocationToLevelSet;
 
@@ -48,7 +48,6 @@ namespace GeneralizedStokes {
         StokesCylinder(const double radius,
                        const double half_length,
                        const unsigned int n_refines,
-                       const double delta,
                        const double nu,
                        const double tau,
                        const int element_order,
@@ -61,7 +60,7 @@ namespace GeneralizedStokes {
                        const double sphere_x_coord);
 
         virtual Error
-        run();
+        run(unsigned int steps);
 
         static void
         write_header_to_file(std::ofstream &file);
@@ -89,7 +88,7 @@ namespace GeneralizedStokes {
         assemble_system();
 
         void
-        assemble_local_over_bulk(const FEValues<dim> &fe_values,
+        assemble_local_over_cell(const FEValues<dim> &fe_values,
                                  const std::vector<types::global_dof_index> &loc2glb);
 
         void
@@ -98,10 +97,24 @@ namespace GeneralizedStokes {
                 const std::vector<types::global_dof_index> &loc2glb);
 
         void
+        assemble_rhs();
+
+        void
+        assemble_rhs_local_over_cell(
+                const FEValues<dim> &fe_values,
+                const std::vector<types::global_dof_index> &loc2glb);
+
+        void
+        assemble_rhs_local_over_surface(
+                const FEValuesBase<dim> &fe_values,
+                const std::vector<types::global_dof_index> &loc2glb);
+
+
+        void
         solve();
 
         void
-        output_results() const;
+        output_results(int time_step) const;
 
         Error compute_error();
 
@@ -117,9 +130,11 @@ namespace GeneralizedStokes {
         const double half_length;
         const unsigned int n_refines;
 
-        const double delta;
+        const double delta = 1;
         const double nu;
         const double tau;
+
+        double time;
 
         bool write_output;
 
@@ -161,6 +176,7 @@ namespace GeneralizedStokes {
 
         Vector<double> rhs;
         Vector<double> solution;
+        Vector<double> old_solution;
 
         AffineConstraints<double> constraints;
     };

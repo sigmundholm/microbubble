@@ -7,7 +7,7 @@
 
 using namespace dealii;
 
-namespace GeneralizedStokes {
+namespace TimeDependentStokesIE {
 
     struct Error {
         double mesh_size = 0;
@@ -22,12 +22,12 @@ namespace GeneralizedStokes {
     template<int dim>
     class RightHandSide : public TensorFunction<1, dim> {
     public:
-        RightHandSide(const double delta, const double nu, const double tau);
+        RightHandSide(const double nu, const double tau);
 
         Tensor<1, dim>
         value(const Point<dim> &p) const override;
 
-        const double delta;
+        const double delta = 1;
         const double nu;
         const double tau;
     };
@@ -36,31 +36,43 @@ namespace GeneralizedStokes {
     template<int dim>
     class BoundaryValues : public TensorFunction<1, dim> {
     public:
+        BoundaryValues(const double nu);
+
         Tensor<1, dim>
         value(const Point<dim> &p) const override;
+
+        const double nu;
     };
 
 
     template<int dim>
     class AnalyticalVelocity : public TensorFunction<1, dim> {
     public:
+        AnalyticalVelocity(const double nu);
+
         Tensor<1, dim>
         value(const Point<dim> &p) const override;
 
         Tensor<2, dim>
         gradient(const Point<dim> &p) const override;
+
+        const double nu;
     };
 
 
     template<int dim>
     class AnalyticalPressure : public Function<dim> {
     public:
+        AnalyticalPressure(const double nu);
+
         double
         value(const Point<dim> &p, const unsigned int component) const override;
 
         Tensor<1, dim>
         gradient(const Point<dim> &p,
                  const unsigned int component) const override;
+
+        const double nu;
     };
 
 }

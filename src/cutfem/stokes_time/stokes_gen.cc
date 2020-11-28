@@ -36,13 +36,12 @@
 
 using namespace cutfem;
 
-namespace GeneralizedStokes {
+namespace TimeDependentStokesIE {
 
     template<int dim>
     StokesCylinder<dim>::StokesCylinder(const double radius,
                                         const double half_length,
                                         const unsigned int n_refines,
-                                        const double delta,
                                         const double nu,
                                         const double tau,
                                         const int element_order,
@@ -54,7 +53,7 @@ namespace GeneralizedStokes {
                                         const double sphere_radius,
                                         const double sphere_x_coord)
             : radius(radius), half_length(half_length), n_refines(n_refines),
-              delta(delta), nu(nu), tau(tau),
+              nu(nu), tau(tau),
               write_output(write_output), sphere_radius(sphere_radius),
               sphere_x_coord(sphere_x_coord),
               element_order(element_order),
@@ -94,18 +93,66 @@ namespace GeneralizedStokes {
 
     template<int dim>
     Error
-    StokesCylinder<dim>::run() {
+    StokesCylinder<dim>::run(unsigned int steps) {
         make_grid();
         setup_quadrature();
         setup_level_set();
         cut_mesh_classifier.reclassify();
         distribute_dofs();
         initialize_matrices();
+        old_solution.reinit(solution.size());
         assemble_system();
-        solve();
-        if (write_output) {
-            output_results();
+
+        double k = 0; // the time step index
+        time = 0;
+
+
+        while (k <= steps) {
+            ++k;
+            time += tau;
+            std::cout << "\nTime Step = " << k
+                      << ", time = " << time << std::endl;
+
+            if (k == 1) {
+                // Use the boundary_values as initial values. Interpolate the
+                // boundary_values function into the finite element space.
+                const unsigned int n_components_on_element = dim + 1;
+                FEValuesExtractors::Vector velocities(0);
+                VectorFunctionFromTensorFunction<dim> adapter(
+                        *boundary_values,
+                        velocities.first_vector_component,
+                        n_components_on_element);
+                VectorTools::interpolate(
+                        dof_handler,
+                        adapter,
+                        solution,
+                        fe_collection.component_mask(velocities));
+
+                output_results(-1);
+                old_solution = solution;
+            }
+
+            // TODO use advance_time instead?
+            rhs_function->set_time(time);
+            boundary_values->set_time(time);
+            analytical_velocity->set_time(time);
+            analytical_pressure->set_time(time);
+
+            // TODO vil egentlig bare assemble en gang. Finn en anne måte å
+            //  sette høyre siden på. Kan evt assemble kun høre side.. det går jo mye raskere.
+            assemble_rhs();
+            // load_vector = rhs;
+            // load_vector += old_solution;
+
+            solve();
+            if (write_output) {
+                output_results(k);
+            }
+            old_solution = solution;
+            // solution = 0;
+            // initialize_matrices();
         }
+
         return compute_error();
     }
 
@@ -191,7 +238,6 @@ namespace GeneralizedStokes {
 
         // Use a helper object to compute the stabilisation for both the velocity
         // and the pressure component.
-        // TODO ta ut stabiliseringen i en egen funksjon?
         const FEValuesExtractors::Vector velocities(0);
         stabilization::JumpStabilization<dim, FEValuesExtractors::Vector>
                 velocity_stab(dof_handler,
@@ -214,7 +260,6 @@ namespace GeneralizedStokes {
         pressure_stab.set_weight_function(stabilization::taylor_weights);
         pressure_stab.set_extractor(pressure);
 
-        // TODO sett disse litt ordentlig.
         double beta_0 = 0.1;
         double gamma_A = beta_0 * element_order * element_order;
         double gamma_M = beta_0 * element_order * element_order;
@@ -261,7 +306,7 @@ namespace GeneralizedStokes {
                     cut_fe_values.get_inside_fe_values();
 
             if (fe_values_bulk)
-                assemble_local_over_bulk(*fe_values_bulk, loc2glb);
+                assemble_local_over_cell(*fe_values_bulk, loc2glb);
 
             // Loop through all faces that constitutes the outer boundary of the
             // domain.
@@ -296,7 +341,7 @@ namespace GeneralizedStokes {
 
     template<int dim>
     void
-    StokesCylinder<dim>::assemble_local_over_bulk(
+    StokesCylinder<dim>::assemble_local_over_cell(
             const FEValues<dim> &fe_values,
             const std::vector<types::global_dof_index> &loc2glb) {
 
@@ -422,6 +467,153 @@ namespace GeneralizedStokes {
 
 
     template<int dim>
+    void StokesCylinder<dim>::
+    assemble_rhs() {
+        std::cout << "Assembling rhs" << std::endl;
+
+        NonMatching::RegionUpdateFlags region_update_flags;
+        region_update_flags.inside = update_values | update_quadrature_points
+                                     | update_JxW_values; //  | update_gradients;
+        region_update_flags.surface =
+                update_values | update_JxW_values |
+                update_gradients |
+                update_quadrature_points |
+                update_normal_vectors;
+
+        NonMatching::FEValues<dim> cut_fe_values(mapping_collection,
+                                                 fe_collection,
+                                                 q_collection,
+                                                 q_collection1D,
+                                                 region_update_flags,
+                                                 cut_mesh_classifier,
+                                                 levelset_dof_handler,
+                                                 levelset);
+
+        // Quadrature for the faces of the cells on the outer boundary
+        QGauss<dim - 1> face_quadrature_formula(stokes_fe.degree + 1);
+        FEFaceValues<dim> fe_face_values(stokes_fe,
+                                         face_quadrature_formula,
+                                         update_values | update_gradients |
+                                         update_quadrature_points |
+                                         update_normal_vectors |
+                                         update_JxW_values);
+
+        // TODO setter dette alle elementene i rhs til 0?
+        rhs = 0;
+
+        for (const auto &cell : dof_handler.active_cell_iterators()) {
+            const unsigned int n_dofs = cell->get_fe().dofs_per_cell;
+            std::vector<types::global_dof_index> loc2glb(n_dofs);
+            cell->get_dof_indices(loc2glb);
+
+            // This call will compute quadrature rules relevant for this cell
+            // in the background.
+            cut_fe_values.reinit(cell);
+
+            // Retrieve an FEValues object with quadrature points
+            // over the full cell.
+            const boost::optional<const FEValues<dim> &> fe_values_bulk =
+                    cut_fe_values.get_inside_fe_values();
+
+            if (fe_values_bulk) {
+                assemble_rhs_local_over_cell(*fe_values_bulk, loc2glb);
+            }
+
+            // Loop through all faces that constitutes the outer boundary of the
+            // domain.
+            for (const auto &face : cell->face_iterators()) {
+                if (face->at_boundary() &&
+                    face->boundary_id() != do_nothing_id) {
+                    fe_face_values.reinit(cell, face);
+                    assemble_rhs_local_over_surface(fe_face_values, loc2glb);
+                }
+            }
+
+            // Retrieve an FEValues object with quadrature points
+            // on the immersed surface.
+            const boost::optional<const FEImmersedSurfaceValues<dim> &>
+                    fe_values_surface = cut_fe_values.get_surface_fe_values();
+
+            if (fe_values_surface) {
+                assemble_rhs_local_over_surface(*fe_values_surface, loc2glb);
+            }
+        }
+    }
+
+
+    template<int dim>
+    void StokesCylinder<dim>::
+    assemble_rhs_local_over_cell(
+            const FEValues<dim> &fe_values,
+            const std::vector<types::global_dof_index> &loc2glb) {
+
+        // Matrix and vector for the contribution of each cell
+        const unsigned int dofs_per_cell = fe_values.get_fe().dofs_per_cell;
+        // FullMatrix<double> local_matrix(dofs_per_cell, dofs_per_cell);
+        Vector<double> local_rhs(dofs_per_cell);
+
+        // Vector for values of the RightHandSide for all quadrature points on a cell.
+        std::vector<Tensor<1, dim>> rhs_values(fe_values.n_quadrature_points,
+                                               Tensor<1, dim>());
+        rhs_function->value_list(fe_values.get_quadrature_points(), rhs_values);
+
+        const FEValuesExtractors::Vector velocities(0);
+
+        for (unsigned int q = 0; q < fe_values.n_quadrature_points; ++q) {
+            for (const unsigned int i : fe_values.dof_indices()) {
+                // RHS
+                local_rhs(i) += rhs_values[q] *
+                                tau * fe_values[velocities].value(i, q) // (f, v)
+                                * fe_values.JxW(q);      // dx
+            }
+        }
+        rhs.add(loc2glb, local_rhs);
+    }
+
+
+    template<int dim>
+    void StokesCylinder<dim>::
+    assemble_rhs_local_over_surface(
+            const FEValuesBase<dim> &fe_values,
+            const std::vector<types::global_dof_index> &loc2glb) {
+        // Matrix and vector for the contribution of each cell
+        const unsigned int dofs_per_cell = fe_values.get_fe().dofs_per_cell;
+        // FullMatrix<double> local_matrix(dofs_per_cell, dofs_per_cell);
+        Vector<double> local_rhs(dofs_per_cell);
+
+        // Evaluate the boundary function for all quadrature points on this face.
+        std::vector<Tensor<1, dim>> bdd_values(fe_values.n_quadrature_points,
+                                               Tensor<1, dim>());
+        boundary_values->value_list(fe_values.get_quadrature_points(),
+                                    bdd_values);
+
+        const FEValuesExtractors::Vector velocities(0);
+        const FEValuesExtractors::Scalar pressure(dim);
+
+        // TODO denne skal vel avhenge av element_order?
+        double mu = 50 / h; // Nitsche penalty parameter
+        Tensor<1, dim> normal;
+
+        for (unsigned int q : fe_values.quadrature_point_indices()) {
+            normal = fe_values.normal_vector(q);
+
+            for (const unsigned int i : fe_values.dof_indices()) {
+                // These terms comes from Nitsches method.
+                Tensor<1, dim> prod_r =
+                        mu * fe_values[velocities].value(i, q) -
+                        fe_values[velocities].gradient(i, q) * normal +
+                        fe_values[pressure].value(i, q) * normal;
+
+                local_rhs(i) +=
+                        tau * prod_r *
+                        bdd_values[q] // (g, mu v - n grad v + q * n)
+                        * fe_values.JxW(q);    // ds
+            }
+        }
+        rhs.add(loc2glb, local_rhs);
+    }
+
+    template<int dim>
     void
     StokesCylinder<dim>::solve() {
         std::cout << "Solving system" << std::endl;
@@ -431,8 +623,8 @@ namespace GeneralizedStokes {
     }
 
     template<int dim>
-    void
-    StokesCylinder<dim>::output_results() const {
+    void StokesCylinder<dim>::
+    output_results(int time_step) const {
         std::cout << "Output results" << std::endl;
         // Output results, see step-22
         std::vector<std::string> solution_names(dim, "velocity");
@@ -451,7 +643,8 @@ namespace GeneralizedStokes {
         data_out.build_patches();
         std::ofstream output("solution-d" + std::to_string(dim)
                              + "o" + std::to_string(element_order)
-                             + "r" + std::to_string(n_refines) + ".vtk");
+                             + "r" + std::to_string(n_refines)
+                             + "t" + std::to_string(time_step) + ".vtk");
         data_out.write_vtk(output);
 
         // Output levelset function.
@@ -461,7 +654,8 @@ namespace GeneralizedStokes {
         data_out_levelset.build_patches();
         std::ofstream output_ls("levelset-d" + std::to_string(dim)
                                 + "o" + std::to_string(element_order)
-                                + "r" + std::to_string(n_refines) + ".vtk");
+                                + "r" + std::to_string(n_refines)
+                                + "t" + std::to_string(time_step) + ".vtk");
         data_out_levelset.write_vtk(output_ls);
     }
 
@@ -469,6 +663,7 @@ namespace GeneralizedStokes {
     template<int dim>
     Error StokesCylinder<dim>::
     compute_error() {
+        // TODO move to integration.h
         std::cout << "Compute error" << std::endl;
         NonMatching::RegionUpdateFlags region_update_flags;
         region_update_flags.inside = update_values | update_JxW_values |

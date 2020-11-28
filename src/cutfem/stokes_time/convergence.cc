@@ -7,14 +7,14 @@
 template<int dim>
 void solve_for_element_order(int element_order, int max_refinement,
                              bool write_output) {
-    using namespace GeneralizedStokes;
+    using namespace TimeDependentStokesIE;
 
     double radius = 0.205;
     double half_length = 0.205;
 
-    double delta = 1.3;
     double nu = 0.4;
     double tau = 0.1;
+    double n_steps = 10;
 
     double sphere_radius = radius / 4;
     double sphere_x_coord = 0;
@@ -23,20 +23,20 @@ void solve_for_element_order(int element_order, int max_refinement,
                        + "o" + std::to_string(element_order) + ".csv");
     StokesCylinder<dim>::write_header_to_file(file);
 
-    RightHandSide<dim> rhs(delta, nu, tau);
-    BoundaryValues<dim> boundary_values;
-    AnalyticalVelocity<dim> analytical_velocity;
-    AnalyticalPressure<dim> analytical_pressure;
+    RightHandSide<dim> rhs(nu, tau);
+    BoundaryValues<dim> boundary_values(nu);
+    AnalyticalVelocity<dim> analytical_velocity(nu);
+    AnalyticalPressure<dim> analytical_pressure(nu);
 
     for (int n_refines = 9; n_refines < max_refinement + 1; ++n_refines) {
         std::cout << "\nn_refines=" << n_refines << std::endl;
 
-        StokesCylinder<dim> stokes(radius, half_length, n_refines, delta, nu,
+        StokesCylinder<dim> stokes(radius, half_length, n_refines, nu,
                                    tau, element_order, write_output, rhs,
                                    boundary_values, analytical_velocity,
                                    analytical_pressure,
                                    sphere_radius, sphere_x_coord);
-        Error error = stokes.run();
+        Error error = stokes.run(n_steps);
 
         std::cout << "|| u - u_h ||_L2 = " << error.l2_error_u << std::endl;
         std::cout << "|| u - u_h ||_H1 = " << error.h1_error_u << std::endl;

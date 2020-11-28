@@ -22,15 +22,15 @@ def laplace(func):
     return sp.diff(sp.diff(func, x), x) + sp.diff(sp.diff(func, y), y)
 
 
-def get_u():
+def get_u(t=0):
     """Ethier-Steinman (1994)"""
-    x, y = sp.var("x y")
-    u1 = -sp.cos(sp.pi * x) * sp.sin(sp.pi * y)
-    u2 = sp.sin(sp.pi * x) * sp.cos(sp.pi * y)
+    x, y, nu = sp.var("x y nu")
+    u1 = -sp.cos(sp.pi * x) * sp.sin(sp.pi * y) * sp.exp(-2 * sp.pi ** 2 * nu * t)
+    u2 = sp.sin(sp.pi * x) * sp.cos(sp.pi * y) * sp.exp(-2 * sp.pi ** 2 * nu * t)
     return u1, u2
 
 
-def get_p():
+def get_p(t=0):
     """Ethier-Steinman (1994)"""
-    x, y = sp.var("x y")
-    return -(sp.cos(2 * sp.pi * x) + sp.cos(2 * sp.pi * y)) / 4
+    x, y, nu = sp.var("x y nu")
+    return -(sp.cos(2 * sp.pi * x) + sp.cos(2 * sp.pi * y)) / 4 * sp.exp(-4 * sp.pi ** 2 * nu * t)
