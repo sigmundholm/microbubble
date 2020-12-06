@@ -75,7 +75,7 @@ namespace TimeDependentStokesIE {
         const double nu;
     };
 
-}
+} // namespace TimeDependentStokesIE
 
 
 #endif // MICROBUBBLE_RHS_GEN_H

@@ -4,8 +4,8 @@ from utils.expressions import *
 def get_f(u, p):
     u1, u2 = u
     p_x, p_y = grad(p)
-    f1 = delta * u1 - tau * nu * laplace(u1) + tau * p_x
-    f2 = delta * u2 - tau * nu * laplace(u2) + tau * p_y
+    f1 = sp.diff(u1, t) - nu * laplace(u1) + p_x
+    f2 = sp.diff(u2, t) - nu * laplace(u2) + p_y
     return f1, f2
 
 
@@ -13,10 +13,9 @@ if __name__ == '__main__':
     """
     Here we want to solve the equations
         
-        u - τνΔu + τ∇p = f
+        ∂_t u - νΔu + ∇p = f
     """
-    delta, nu, tau = sp.var("delta nu tau")
-    t = sp.var("t")
+    t, nu, tau = sp.var("t nu tau")
 
     u1, u2 = get_u(t)
     p = get_p(t)

@@ -26,16 +26,8 @@ namespace TimeDependentStokesIE {
         double t = this->get_time();
 
         Tensor<1, dim> val;
-        val[0] = -delta * exp(-2 * pi * pi * nu * t) * sin(pi * y) *
-                 cos(pi * x) -
-                 2 * pi * pi * nu * tau * exp(-2 * pi * pi * nu * t) *
-                 sin(pi * y) * cos(pi * x) +
-                 pi * tau * exp(-4 * pi * pi * nu * t) * sin(2 * pi * x) / 2;
-        val[1] =
-                delta * exp(-2 * pi * pi * nu * t) * sin(pi * x) * cos(pi * y) +
-                2 * pi * pi * nu * tau * exp(-2 * pi * pi * nu * t) *
-                sin(pi * x) * cos(pi * y) +
-                pi * tau * exp(-4 * pi * pi * nu * t) * sin(2 * pi * y) / 2;
+        val[0] = pi * exp(-4 * pi * pi * nu * t) * sin(2 * pi * x) / 2;
+        val[1] = pi * exp(-4 * pi * pi * nu * t) * sin(2 * pi * y) / 2;
         return val;
     }
 
@@ -137,4 +129,4 @@ namespace TimeDependentStokesIE {
     template
     class AnalyticalPressure<2>;
 
-} // namespace GeneralizedStokes
+} // namespace TimeDependentStokesIE
