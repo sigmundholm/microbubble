@@ -104,7 +104,7 @@ namespace TimeDependentStokesIE {
         assemble_system();
 
         double k = 0; // the time step index
-        time = 0;
+        double time = 0;
 
         // Vector for the computed error for each time step.
         std::vector<Error> errors(steps);
@@ -114,6 +114,12 @@ namespace TimeDependentStokesIE {
             time += tau;
             std::cout << "\nTime Step = " << k
                       << ", time = " << time << std::endl;
+
+            // TODO use advance_time instead?
+            rhs_function->set_time(time);
+            boundary_values->set_time(time);
+            analytical_velocity->set_time(time);
+            analytical_pressure->set_time(time);
 
             if (k == 1) {
                 // Use the boundary_values as initial values. Interpolate the
@@ -134,11 +140,9 @@ namespace TimeDependentStokesIE {
                 old_solution = solution;
             }
 
-            // TODO use advance_time instead?
-            rhs_function->set_time(time);
-            boundary_values->set_time(time);
-            analytical_velocity->set_time(time);
-            analytical_pressure->set_time(time);
+            // TODO nødvendig??
+            solution.reinit(solution.size());
+            rhs.reinit(solution.size());
 
             assemble_rhs();
             solve();
@@ -146,7 +150,7 @@ namespace TimeDependentStokesIE {
                 output_results(k);
             }
             old_solution = solution;
-            errors[k - 1] = compute_error();
+            errors[k- 1] = compute_error();
         }
 
         // TODO merk at det virker som om feilen er størst i starten for så å
@@ -491,7 +495,7 @@ namespace TimeDependentStokesIE {
                                          update_JxW_values);
 
         // TODO setter dette alle elementene i rhs til 0?
-        rhs = 0;
+        // rhs = 0;
 
         for (const auto &cell : dof_handler.active_cell_iterators()) {
             const unsigned int n_dofs = cell->get_fe().dofs_per_cell;

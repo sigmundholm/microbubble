@@ -136,8 +136,6 @@ namespace TimeDependentStokesIE {
         const double nu;
         const double tau;
 
-        double time;
-
         bool write_output;
 
         double sphere_radius;
