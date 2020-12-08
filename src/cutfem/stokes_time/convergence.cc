@@ -13,8 +13,8 @@ void solve_for_element_order(int element_order, int max_refinement,
     double half_length = 0.205;
 
     double nu = 0.4;
-    double tau = 0.1;
-    double n_steps = 10;
+    double tau = 0.01;
+    double n_steps = 5;
 
     double sphere_radius = radius / 4;
     double sphere_x_coord = 0;

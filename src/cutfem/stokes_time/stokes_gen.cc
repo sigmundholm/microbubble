@@ -31,6 +31,7 @@
 #include "cutfem/stabilization/jump_stabilization.h"
 
 #include "../../utils/integration.h"
+#include "../../utils/output.h"
 #include "stokes_gen.h"
 
 
@@ -150,7 +151,7 @@ namespace TimeDependentStokesIE {
                 output_results(k);
             }
             old_solution = solution;
-            errors[k- 1] = compute_error();
+            errors[k - 1] = compute_error();
         }
 
         // TODO merk at det virker som om feilen er størst i starten for så å
@@ -627,26 +628,28 @@ namespace TimeDependentStokesIE {
     void StokesCylinder<dim>::
     output_results(int time_step) const {
         std::cout << "Output results" << std::endl;
-        // Output results, see step-22
-        std::vector<std::string> solution_names(dim, "velocity");
-        solution_names.emplace_back("pressure");
-        std::vector<DataComponentInterpretation::DataComponentInterpretation> dci(
-                dim, DataComponentInterpretation::component_is_part_of_vector);
-        dci.push_back(DataComponentInterpretation::component_is_scalar);
 
-        DataOut<dim> data_out;
-        data_out.attach_dof_handler(dof_handler);
-        data_out.add_data_vector(solution,
-                                 solution_names,
-                                 DataOut<dim>::type_dof_data,
-                                 dci);
-
-        data_out.build_patches();
         std::ofstream output("solution-d" + std::to_string(dim)
                              + "o" + std::to_string(element_order)
                              + "r" + std::to_string(n_refines)
                              + "t" + std::to_string(time_step) + ".vtk");
-        data_out.write_vtk(output);
+        Utils::writeNumericalSolution(dof_handler, solution, output);
+
+        std::ofstream output_ex("analytical-d" + std::to_string(dim)
+                                + "o" + std::to_string(element_order)
+                                + "r" + std::to_string(n_refines)
+                                + "t" + std::to_string(time_step) + ".vtk");
+        std::ofstream file_diff("diff-d" + std::to_string(dim)
+                                + "o" + std::to_string(element_order)
+                                + "r" + std::to_string(n_refines)
+                                + "t" + std::to_string(time_step) + ".vtk");
+        Utils::writeAnalyticalSolutionAndDiff(dof_handler,
+                                              fe_collection,
+                                              solution,
+                                              *analytical_velocity,
+                                              *analytical_pressure,
+                                              output_ex,
+                                              file_diff);
 
         // Output levelset function.
         DataOut<dim, DoFHandler<dim>> data_out_levelset;
