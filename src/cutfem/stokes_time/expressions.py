@@ -9,6 +9,14 @@ def get_f(u, p):
     return f1, f2
 
 
+def get_f_stokes_gen(u, p):
+    u1, u2 = u
+    p_x, p_y = grad(p)
+    f1 = (delta * u1 - tau * nu * laplace(u1) + tau * p_x)  # / tau  # - u1
+    f2 = (delta * u2 - tau * nu * laplace(u2) + tau * p_y)  # / tau  # - u1
+    return f1, f2
+
+
 if __name__ == '__main__':
     """
     Here we want to solve the equations
@@ -16,10 +24,11 @@ if __name__ == '__main__':
         ∂_t u - νΔu + ∇p = f
     """
     t, nu, tau = sp.var("t nu tau")
+    delta = sp.var("delta")
 
     u1, u2 = get_u(t)
     p = get_p(t)
-    f1, f2 = get_f((u1, u2), p)
+    f1, f2 = get_f_stokes_gen((u1, u2), p)
 
     print("u_1 =", u1)
     print("u_2 =", u2)

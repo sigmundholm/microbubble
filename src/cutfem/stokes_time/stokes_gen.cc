@@ -159,7 +159,9 @@ namespace TimeDependentStokesIE {
         //  det fordi løsningen faktisk blir så mye mindre? (i p-L2 feil)
         for (Error err : errors) {
             std::cout << "u-l2= " << err.l2_error_u
-                      << "    u-h1= " << err.h1_error_u << std::endl;
+                      << "    u-h1= " << err.h1_error_u
+                      << "    p-l2= " << err.l2_error_p
+                      << "    p-h1= " << err.h1_error_p << std::endl;
         }
 
         return compute_time_error(errors);
@@ -564,9 +566,8 @@ namespace TimeDependentStokesIE {
             for (const unsigned int i : fe_v.dof_indices()) {
                 // RHS
                 phi_u = fe_v[v].value(i, q);
-                local_rhs(i) += (tau * rhs_values[q] * phi_u // (f, v)
-                                 +
-                                 u_solution_values[q] * phi_u
+                local_rhs(i) += (rhs_values[q] * phi_u // τ(f, v) // TODO fix
+                                        //+ u_solution_values[q] * phi_u // (u_n, v)
                                 ) * fe_v.JxW(q);      // dx
             }
         }
@@ -825,6 +826,8 @@ namespace TimeDependentStokesIE {
 
         Error error;
         error.mesh_size = errors[0].mesh_size;
+        error.time_step = tau;
+
         error.l2_error_u = pow(l2_error_integral_u, 0.5);
         error.h1_error_u = pow(l2_error_integral_u + h1_error_integral_u, 0.5);
         error.h1_semi_u = pow(h1_error_integral_u, 0.5);

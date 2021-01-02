@@ -14,9 +14,10 @@ namespace TimeDependentStokesIE {
 
 
     template<int dim>
-    RightHandSide<dim>::RightHandSide(const double nu,
+    RightHandSide<dim>::RightHandSide(const double delta,
+                                      const double nu,
                                       const double tau)
-            : TensorFunction<1, dim>(), nu(nu), tau(tau) {}
+            : TensorFunction<1, dim>(), delta(delta), nu(nu), tau(tau) {}
 
     template<int dim>
     Tensor<1, dim> RightHandSide<dim>::
@@ -26,8 +27,23 @@ namespace TimeDependentStokesIE {
         double t = this->get_time();
 
         Tensor<1, dim> val;
-        val[0] = pi * exp(-4 * pi * pi * nu * t) * sin(2 * pi * x) / 2;
-        val[1] = pi * exp(-4 * pi * pi * nu * t) * sin(2 * pi * y) / 2;
+
+        // val[0] = pi * exp(-4 * pi * pi * nu * t) * sin(2 * pi * x) / 2;
+        // val[1] = pi * exp(-4 * pi * pi * nu * t) * sin(2 * pi * y) / 2;
+        t = 0;
+
+        val[0] = -delta * exp(-2 * pi * pi * nu * t) * sin(pi * y) *
+                 cos(pi * x) -
+                 2 * pi * pi * nu * tau * exp(-2 * pi * pi * nu * t) *
+                 sin(pi * y) * cos(pi * x) +
+                 pi * tau * exp(-4 * pi * pi * nu * t) * sin(2 * pi * x) / 2;
+        val[1] =
+                delta * exp(-2 * pi * pi * nu * t) * sin(pi * x) * cos(pi * y) +
+                2 * pi * pi * nu * tau * exp(-2 * pi * pi * nu * t) *
+                sin(pi * x) * cos(pi * y) +
+                pi * tau * exp(-4 * pi * pi * nu * t) * sin(2 * pi * y) / 2;
+
+
         return val;
     }
 
@@ -42,6 +58,10 @@ namespace TimeDependentStokesIE {
         double x = p[0];
         double y = p[1];
         double t = this->get_time();
+
+        // set fixed time to zero, since we are just solving the _stationary_
+        // generalized Stokes problem
+        t = 0;
 
         Tensor<1, dim> val;
         val[0] = -exp(-2 * pi * pi * nu * t) * sin(pi * y) * cos(pi * x);
@@ -60,6 +80,7 @@ namespace TimeDependentStokesIE {
         double x = p[0];
         double y = p[1];
         double t = this->get_time();
+        t = 0;
 
         Tensor<1, dim> val;
         val[0] = -exp(-2 * pi * pi * nu * t) * sin(pi * y) * cos(pi * x);
@@ -73,6 +94,7 @@ namespace TimeDependentStokesIE {
         double x = p[0];
         double y = p[1];
         double t = this->get_time();
+        t = 0;
 
         Tensor<2, dim> value;
         value[0][0] = pi * exp(-2 * pi * pi * nu * t) *
@@ -98,6 +120,7 @@ namespace TimeDependentStokesIE {
         double x = p[0];
         double y = p[1];
         double t = this->get_time();
+        t = 0;
 
         return (-cos(2 * pi * x) / 4 - cos(2 * pi * y) / 4) *
                exp(-4 * pi * pi * nu * t);
@@ -110,6 +133,7 @@ namespace TimeDependentStokesIE {
         double x = p[0];
         double y = p[1];
         double t = this->get_time();
+        t = 0;
 
         Tensor<1, dim> value;
         value[0] = pi * exp(-4 * pi * pi * nu * t) * sin(2 * pi * x) / 2;

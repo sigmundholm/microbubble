@@ -14,6 +14,7 @@ int main() {
     double radius = 0.205;
     double half_length = 0.41;
 
+    double delta = 0.4;
     double nu = 1;
     double tau = 0.01;
     unsigned int n_steps = 5;
@@ -23,7 +24,7 @@ int main() {
 
     const int dim = 2;
 
-    RightHandSide<dim> rhs(nu, tau);
+    RightHandSide<dim> rhs(delta, nu, tau);
     BoundaryValues<dim> boundary(nu);
     AnalyticalVelocity<dim> analytical_velocity(nu);
     AnalyticalPressure<dim> analytical_pressure(nu);
