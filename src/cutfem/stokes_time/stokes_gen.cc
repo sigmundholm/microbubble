@@ -566,7 +566,7 @@ namespace TimeDependentStokesIE {
             for (const unsigned int i : fe_v.dof_indices()) {
                 // RHS
                 phi_u = fe_v[v].value(i, q);
-                local_rhs(i) += (rhs_values[q] * phi_u // τ(f, v) // TODO fix
+                local_rhs(i) += (tau * rhs_values[q] * phi_u // τ(f, v)
                                         //+ u_solution_values[q] * phi_u // (u_n, v)
                                 ) * fe_v.JxW(q);      // dx
             }
