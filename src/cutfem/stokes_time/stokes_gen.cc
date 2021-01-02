@@ -558,7 +558,8 @@ namespace TimeDependentStokesIE {
 
         // Get the values from the solution in the last time step.
         const FEValuesExtractors::Vector v(0);
-        std::vector<Tensor<1, dim>> u_solution_values(fe_v.n_quadrature_points);
+        std::vector<Tensor<1, dim>> u_solution_values(
+                fe_v.n_quadrature_points);
         fe_v[v].get_function_values(old_solution, u_solution_values);
         Tensor<1, dim> phi_u;
 
@@ -566,8 +567,8 @@ namespace TimeDependentStokesIE {
             for (const unsigned int i : fe_v.dof_indices()) {
                 // RHS
                 phi_u = fe_v[v].value(i, q);
-                local_rhs(i) += (tau * rhs_values[q] * phi_u // τ(f, v)
-                                        //+ u_solution_values[q] * phi_u // (u_n, v)
+                local_rhs(i) += (tau * rhs_values[q] * phi_u    // τ(f, v)
+                                 + u_solution_values[q] * phi_u // (u_n, v)
                                 ) * fe_v.JxW(q);      // dx
             }
         }

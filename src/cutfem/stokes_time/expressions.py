@@ -12,8 +12,8 @@ def get_f(u, p):
 def get_f_stokes_gen(u, p):
     u1, u2 = u
     p_x, p_y = grad(p)
-    f1 = (delta * u1 - tau * nu * laplace(u1) + tau * p_x) / tau  # - u1
-    f2 = (delta * u2 - tau * nu * laplace(u2) + tau * p_y) / tau  # - u1
+    f1 = (delta * u1 - tau * nu * laplace(u1) + tau * p_x - u1) / tau
+    f2 = (delta * u2 - tau * nu * laplace(u2) + tau * p_y - u2) / tau
     return f1, f2
 
 

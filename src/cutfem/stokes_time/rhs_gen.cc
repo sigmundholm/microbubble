@@ -36,15 +36,14 @@ namespace TimeDependentStokesIE {
                   cos(pi * x) -
                   2 * pi * pi * nu * tau * exp(-2 * pi * pi * nu * t) *
                   sin(pi * y) * cos(pi * x) +
-                  pi * tau * exp(-4 * pi * pi * nu * t) * sin(2 * pi * x) / 2) /
-                 tau;
+                  pi * tau * exp(-4 * pi * pi * nu * t) * sin(2 * pi * x) / 2 +
+                  exp(-2 * pi * pi * nu * t) * sin(pi * y) * cos(pi * x)) / tau;
         val[1] = (delta * exp(-2 * pi * pi * nu * t) * sin(pi * x) *
                   cos(pi * y) +
                   2 * pi * pi * nu * tau * exp(-2 * pi * pi * nu * t) *
                   sin(pi * x) * cos(pi * y) +
-                  pi * tau * exp(-4 * pi * pi * nu * t) * sin(2 * pi * y) / 2) /
-                 tau;
-
+                  pi * tau * exp(-4 * pi * pi * nu * t) * sin(2 * pi * y) / 2 -
+                  exp(-2 * pi * pi * nu * t) * sin(pi * x) * cos(pi * y)) / tau;
 
         return val;
     }
