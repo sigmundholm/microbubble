@@ -57,7 +57,8 @@ namespace TimeDependentStokesIE {
                        TensorFunction<1, dim> &analytic_vel,
                        Function<dim> &analytic_pressure,
                        const double sphere_radius,
-                       const double sphere_x_coord);
+                       const double sphere_x_coord,
+                       const int do_nothing_id=10);
 
         virtual Error
         run(unsigned int steps);
@@ -151,7 +152,8 @@ namespace TimeDependentStokesIE {
         double h;
         const unsigned int element_order;
 
-        unsigned int do_nothing_id = 2;
+        // Dirichlet everywhere by default (see constructor definition)
+        unsigned int do_nothing_id = 10;
 
         Triangulation<dim> triangulation;
         FESystem<dim> stokes_fe;

@@ -52,12 +52,14 @@ namespace TimeDependentStokesIE {
                                         TensorFunction<1, dim> &analytic_vel,
                                         Function<dim> &analytic_pressure,
                                         const double sphere_radius,
-                                        const double sphere_x_coord)
+                                        const double sphere_x_coord,
+                                        const int do_nothing_id)
             : radius(radius), half_length(half_length), n_refines(n_refines),
               nu(nu), tau(tau),
               write_output(write_output), sphere_radius(sphere_radius),
               sphere_x_coord(sphere_x_coord),
               element_order(element_order),
+              do_nothing_id(do_nothing_id),
               stokes_fe(FESystem<dim>(FE_Q<dim>(element_order + 1), dim),
                         1,
                         FE_Q<dim>(element_order),
@@ -68,9 +70,6 @@ namespace TimeDependentStokesIE {
         h = 0;
         // Use no constraints when projecting.
         constraints.close();
-
-        // Use Dirichlet boundary conditions everywhere.
-        do_nothing_id = 10;
 
         rhs_function = &rhs;
         boundary_values = &bdd_values;

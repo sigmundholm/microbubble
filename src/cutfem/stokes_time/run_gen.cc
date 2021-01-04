@@ -32,7 +32,7 @@ int main() {
     StokesCylinder<dim> stokes(radius, half_length, n_refines, nu, tau,
                                elementOrder, write_vtk, rhs, boundary,
                                analytical_velocity, analytical_pressure,
-                               sphere_radius, sphere_x_coord);
+                               sphere_radius, sphere_x_coord, 2);
     Error error = stokes.run(n_steps);
     std::cout << "Mesh size: " << error.mesh_size << std::endl;
     std::cout << "|| u - u_h ||_L2 = " << error.l2_error_u << std::endl;

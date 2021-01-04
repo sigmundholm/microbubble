@@ -45,9 +45,13 @@ namespace TimeDependentStokesIE {
         double x = p[0];
         double y = p[1];
         double t = this->get_time();
-        // TODO hva med natural outflow conditions?
+
         Tensor<1, dim> val;
-        val[0] = (r - y) * (r + y) * sin(t);
+        if (x == -2 * r) {
+            val[0] = (r - y) * (r + y) * sin(t);
+        } else {
+            val[0] = 0;
+        }
         val[1] = 0;
         return val;
     }
