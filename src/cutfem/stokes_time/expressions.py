@@ -17,6 +17,20 @@ def get_f_stokes_gen(u, p):
     return f1, f2
 
 
+def u_parabolic(r, t):
+    """
+    Equation for parabolic flow in pipe, weighted by sin(t)
+
+    :param r: radius of pipe
+    :param t:
+    :return:
+    """
+
+    x, y = sp.var("x y")
+    p = -(y - r) * (y + r)
+    return p * sp.sin(t), 0
+
+
 if __name__ == '__main__':
     """
     Here we want to solve the equations
@@ -24,11 +38,12 @@ if __name__ == '__main__':
         ∂_t u - νΔu + ∇p = f
     """
     t, nu, tau = sp.var("t nu tau")
-    delta = sp.var("delta")
+    delta = sp.var('delta')
+    r = sp.var('r')
 
-    u1, u2 = get_u(t)
-    p = get_p(t)
-    f1, f2 = get_f((u1, u2), p)
+    u1, u2 = u_parabolic(r, t)
+    p = get_p(t)  # TODO må regnes ut ved å bruke ligningen og løse for p
+    f1, f2 = 0, 0  # For parabolsk strøm
 
     print("u_1 =", u1)
     print("u_2 =", u2)

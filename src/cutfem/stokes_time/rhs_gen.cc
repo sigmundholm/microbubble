@@ -28,16 +28,16 @@ namespace TimeDependentStokesIE {
 
         Tensor<1, dim> val;
 
-        val[0] = pi * exp(-4 * pi * pi * nu * t) * sin(2 * pi * x) / 2;
-        val[1] = pi * exp(-4 * pi * pi * nu * t) * sin(2 * pi * y) / 2;
+        val[0] = 0;
+        val[1] = 0;
 
         return val;
     }
 
 
     template<int dim>
-    BoundaryValues<dim>::BoundaryValues(const double nu)
-            : TensorFunction<1, dim>(), nu(nu) {}
+    BoundaryValues<dim>::BoundaryValues(const double nu, const double r)
+            : TensorFunction<1, dim>(), nu(nu), r(r) {}
 
     template<int dim>
     Tensor<1, dim> BoundaryValues<dim>::
@@ -45,17 +45,17 @@ namespace TimeDependentStokesIE {
         double x = p[0];
         double y = p[1];
         double t = this->get_time();
-
+        // TODO hva med natural outflow conditions?
         Tensor<1, dim> val;
-        val[0] = -exp(-2 * pi * pi * nu * t) * sin(pi * y) * cos(pi * x);
-        val[1] = exp(-2 * pi * pi * nu * t) * sin(pi * x) * cos(pi * y);
+        val[0] = (r - y) * (r + y) * sin(t);
+        val[1] = 0;
         return val;
     }
 
 
     template<int dim>
-    AnalyticalVelocity<dim>::AnalyticalVelocity(const double nu)
-            : TensorFunction<1, dim>(), nu(nu) {}
+    AnalyticalVelocity<dim>::AnalyticalVelocity(const double nu, const double r)
+            : TensorFunction<1, dim>(), nu(nu), r(r) {}
 
     template<int dim>
     Tensor<1, dim> AnalyticalVelocity<dim>::
@@ -65,8 +65,8 @@ namespace TimeDependentStokesIE {
         double t = this->get_time();
 
         Tensor<1, dim> val;
-        val[0] = -exp(-2 * pi * pi * nu * t) * sin(pi * y) * cos(pi * x);
-        val[1] = exp(-2 * pi * pi * nu * t) * sin(pi * x) * cos(pi * y);
+        val[0] = (r - y) * (r + y) * sin(t);
+        val[1] = 0;
         return val;
     }
 
@@ -78,14 +78,10 @@ namespace TimeDependentStokesIE {
         double t = this->get_time();
 
         Tensor<2, dim> value;
-        value[0][0] = pi * exp(-2 * pi * pi * nu * t) *
-                      sin(pi * x) * sin(pi * y);
-        value[0][1] = -pi * exp(-2 * pi * pi * nu * t) *
-                      cos(pi * x) * cos(pi * y);
-        value[1][0] = pi * exp(-2 * pi * pi * nu * t) *
-                      cos(pi * x) * cos(pi * y);
-        value[1][1] = -pi * exp(-2 * pi * pi * nu * t) *
-                      sin(pi * x) * sin(pi * y);
+        value[0][0] = 0;
+        value[0][1] = (-r - y) * sin(t) + (r - y) * sin(t);
+        value[1][0] = 0;
+        value[1][1] = 0;
         return value;
     }
 

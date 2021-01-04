@@ -37,19 +37,20 @@ namespace TimeDependentStokesIE {
     template<int dim>
     class BoundaryValues : public TensorFunction<1, dim> {
     public:
-        BoundaryValues(const double nu);
+        BoundaryValues(const double nu, const double r);
 
         Tensor<1, dim>
         value(const Point<dim> &p) const override;
 
         const double nu;
+        const double r;
     };
 
 
     template<int dim>
     class AnalyticalVelocity : public TensorFunction<1, dim> {
     public:
-        AnalyticalVelocity(const double nu);
+        AnalyticalVelocity(const double nu, const double r);
 
         Tensor<1, dim>
         value(const Point<dim> &p) const override;
@@ -58,6 +59,7 @@ namespace TimeDependentStokesIE {
         gradient(const Point<dim> &p) const override;
 
         const double nu;
+        const double r;
     };
 
 

@@ -24,8 +24,8 @@ void solve_for_element_order(int element_order, int max_refinement,
                        + "o" + std::to_string(element_order) + ".csv");
     StokesCylinder<dim>::write_header_to_file(file);
 
-    BoundaryValues<dim> boundary_values(nu);
-    AnalyticalVelocity<dim> analytical_velocity(nu);
+    BoundaryValues<dim> boundary_values(nu, radius);
+    AnalyticalVelocity<dim> analytical_velocity(nu, radius);
     AnalyticalPressure<dim> analytical_pressure(nu);
 
     for (int n_refines = 1; n_refines < max_refinement + 1; ++n_refines) {

@@ -14,10 +14,10 @@ int main() {
     double radius = 0.205;
     double half_length = 0.41;
 
-    double delta = 0.4;
+    double delta = 1;
     double nu = 1;
-    double tau = 0.01;
-    unsigned int n_steps = 5;
+    double tau = 0.1;
+    unsigned int n_steps = 31;
 
     double sphere_radius = radius / 4;
     double sphere_x_coord = -half_length / 2;
@@ -25,8 +25,8 @@ int main() {
     const int dim = 2;
 
     RightHandSide<dim> rhs(delta, nu, tau);
-    BoundaryValues<dim> boundary(nu);
-    AnalyticalVelocity<dim> analytical_velocity(nu);
+    BoundaryValues<dim> boundary(nu, radius);
+    AnalyticalVelocity<dim> analytical_velocity(nu, radius);
     AnalyticalPressure<dim> analytical_pressure(nu);
 
     StokesCylinder<dim> stokes(radius, half_length, n_refines, nu, tau,
