@@ -28,7 +28,7 @@ if __name__ == '__main__':
 
     u1, u2 = get_u(t)
     p = get_p(t)
-    f1, f2 = get_f_stokes_gen((u1, u2), p)
+    f1, f2 = get_f((u1, u2), p)
 
     print("u_1 =", u1)
     print("u_2 =", u2)
