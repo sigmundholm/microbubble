@@ -14,8 +14,10 @@ void solve_for_element_order(int element_order, int max_refinement,
 
     double delta = 1;
     double nu = 0.4;
-    double tau = 0.1;
-    double n_steps = 1;
+
+    double end_time = 0.01;
+    double tau_init = end_time;
+    double tau = tau_init;
 
     double sphere_radius = radius / 4;
     double sphere_x_coord = 0;
@@ -30,7 +32,7 @@ void solve_for_element_order(int element_order, int max_refinement,
 
     for (int n_refines = 1; n_refines < max_refinement + 1; ++n_refines) {
         std::cout << "\nn_refines=" << n_refines << std::endl;
-        tau /= 2;
+        tau = tau_init / pow(2, n_refines - 1);
         RightHandSide<dim> rhs(delta, nu, tau);
 
         StokesCylinder<dim> stokes(radius, half_length, n_refines, nu,
@@ -39,8 +41,10 @@ void solve_for_element_order(int element_order, int max_refinement,
                                    analytical_pressure,
                                    sphere_radius, sphere_x_coord);
 
-        // NB: antar (??) konvergensen er litt høy pga feilen regnes ut som om
-        // problemet er tidsavhenging, mens det nå bare løses som et stasjonært problem.
+        double n_steps = end_time / tau;
+        std::cout << "T = " << end_time << ", tau = " << tau
+                  << ", steps = " << n_steps << std::endl;
+
         Error error = stokes.run(n_steps);
 
         std::cout << "|| u - u_h ||_L2 = " << error.l2_error_u << std::endl;

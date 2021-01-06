@@ -24,7 +24,7 @@ if __name__ == '__main__':
         eoc_plot(data, head,
                  title=r"\textrm{Time dep. Stokes  (impl. Euler) EOC, element order: (" + str(poly_order + 1) + ", " + str(
                      poly_order) + ")}",
-                 domain_lenght=0.41, lines_at=np.array([0, 1, 2]) + poly_order)
+                 domain_lenght=0.41, lines_at=np.array([0]) + poly_order)
         # plt.savefig(f"eoc-o{poly_order}.pdf")
 
     plt.show()
