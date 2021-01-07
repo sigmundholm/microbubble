@@ -32,6 +32,8 @@ void solve_for_element_order(int element_order, int max_refinement,
 
     for (int n_refines = 1; n_refines < max_refinement + 1; ++n_refines) {
         std::cout << "\nn_refines=" << n_refines << std::endl;
+        // Se feilen for tidsdiskretiseringen dominere hvis n_refines starter på
+        // feks 3, og regn ut tau fra tau_init/2^(n_refines -3)
         tau = tau_init / pow(2, n_refines - 1);
         RightHandSide<dim> rhs(delta, nu, tau);
 

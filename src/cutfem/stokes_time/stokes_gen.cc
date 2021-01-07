@@ -116,13 +116,11 @@ namespace TimeDependentStokesIE {
             std::cout << "\nTime Step = " << k
                       << ", time = " << time << std::endl;
 
-            // TODO use advance_time instead?
-            rhs_function->set_time(time);
-            boundary_values->set_time(time);
-            analytical_velocity->set_time(time);
-            analytical_pressure->set_time(time);
-
             if (k == 1) {
+                // Important that the boundary_values function uses t=0, when
+                // we interpolate the initial value from it.
+                boundary_values->set_time(0);
+
                 // Use the boundary_values as initial values. Interpolate the
                 // boundary_values function into the finite element space.
                 const unsigned int n_components_on_element = dim + 1;
@@ -140,6 +138,12 @@ namespace TimeDependentStokesIE {
                 output_results(0);
                 old_solution = solution;
             }
+
+            // TODO use advance_time instead?
+            rhs_function->set_time(time);
+            boundary_values->set_time(time);
+            analytical_velocity->set_time(time);
+            analytical_pressure->set_time(time);
 
             // TODO nødvendig??
             solution.reinit(solution.size());
