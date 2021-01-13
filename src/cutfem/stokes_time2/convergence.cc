@@ -2,12 +2,12 @@
 #include <iostream>
 #include <vector>
 
-#include "stokes_gen.h"
+#include "stokes.h"
 
 template<int dim>
 void solve_for_element_order(int element_order, int max_refinement,
                              bool write_output) {
-    using namespace TimeDependentStokesIE;
+    using namespace TimeDependentStokesBDF2;
 
     double radius = 0.205;
     double half_length = 0.205;

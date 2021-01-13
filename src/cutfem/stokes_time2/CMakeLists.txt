@@ -1,9 +1,9 @@
-add_library(stokes-time2 stokes_gen.cc rhs_gen.cc)
+add_library(stokes-time2 stokes.cc rhs.cc)
 deal_ii_setup_target(stokes-time2)
 target_link_libraries(stokes-time2 cutfem)
 
 # Executables
-add_executable(run-time2 run_gen.cc stokes_gen.cc rhs_gen.cc)
+add_executable(run-time2 run.cc stokes.cc rhs.cc)
 deal_ii_setup_target(run-time2)
 target_link_libraries(run-time2 stokes-time2 cutfem)
 

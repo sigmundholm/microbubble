@@ -32,12 +32,12 @@
 
 #include "../../utils/integration.h"
 #include "../../utils/output.h"
-#include "stokes_gen.h"
+#include "stokes.h"
 
 
 using namespace cutfem;
 
-namespace TimeDependentStokesIE {
+namespace TimeDependentStokesBDF2 {
 
     template<int dim>
     StokesCylinder<dim>::StokesCylinder(const double radius,
@@ -870,4 +870,4 @@ namespace TimeDependentStokesIE {
     template
     class StokesCylinder<3>;
 
-} // namespace GeneralizedStokes
+} // namespace TimeDependentStokesBDF2

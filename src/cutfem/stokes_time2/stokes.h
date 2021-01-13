@@ -32,13 +32,13 @@
 
 #include "cutfem/errors/error_calculator.h"
 
-#include "rhs_gen.h"
+#include "rhs.h"
 
 
 using namespace dealii;
 using namespace cutfem;
 
-namespace TimeDependentStokesIE {
+namespace TimeDependentStokesBDF2 {
 
     using NonMatching::LocationToLevelSet;
 
@@ -181,7 +181,7 @@ namespace TimeDependentStokesIE {
         AffineConstraints<double> constraints;
     };
 
-} // namespace GeneralizedStokes
+} // namespace TimeDependentStokesBDF2
 
 
 #endif // MICROBUBBLE_STOKES_GEN_H

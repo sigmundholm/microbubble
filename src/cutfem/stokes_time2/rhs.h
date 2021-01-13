@@ -7,7 +7,7 @@
 
 using namespace dealii;
 
-namespace TimeDependentStokesIE {
+namespace TimeDependentStokesBDF2 {
 
     struct Error {
         double mesh_size = 0;
@@ -76,7 +76,7 @@ namespace TimeDependentStokesIE {
         const double nu;
     };
 
-} // namespace TimeDependentStokesIE
+} // namespace TimeDependentStokesBDF2
 
 
 #endif // MICROBUBBLE_RHS_GEN_H

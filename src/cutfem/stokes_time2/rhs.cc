@@ -5,12 +5,12 @@
 
 #include <iostream>
 
-#include "rhs_gen.h"
+#include "rhs.h"
 
 #define pi 3.141592653589793
 
 
-namespace TimeDependentStokesIE {
+namespace TimeDependentStokesBDF2 {
 
 
     template<int dim>
@@ -132,4 +132,4 @@ namespace TimeDependentStokesIE {
     template
     class AnalyticalPressure<2>;
 
-} // namespace TimeDependentStokesIE
+} // namespace TimeDependentStokesBDF2
