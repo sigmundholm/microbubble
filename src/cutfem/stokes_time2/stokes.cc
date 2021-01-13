@@ -101,7 +101,10 @@ namespace TimeDependentStokesBDF2 {
         cut_mesh_classifier.reclassify();
         distribute_dofs();
         initialize_matrices();
+
         old_solution.reinit(solution.size());
+        older_solution.reinit(solution.size());
+
         assemble_system();
 
         double k = 0; // the time step index
@@ -137,7 +140,16 @@ namespace TimeDependentStokesBDF2 {
 
                 output_results(0);
                 old_solution = solution;
+            } else if (k == 2) {
+                // For k >= 2, we will take a time step using BDF-2, instead
+                // of implicit Euler.
+                delta = 1; // 3.0 / 2;
+                eta = -1; //-2;
+                lambda = 0; // 1.0 / 2;
             }
+
+            std::cout << "delta = " << delta << ", eta = " << eta
+                      << ", lambda = " << lambda << std::endl;
 
             // TODO use advance_time instead?
             rhs_function->set_time(time);
@@ -154,7 +166,12 @@ namespace TimeDependentStokesBDF2 {
             if (write_output) {
                 output_results(k);
             }
+
+            // Set u^n and u^(n-1)
+            // older_solution = old_solution;
+            older_solution = solution; // TODO fix
             old_solution = solution;
+
             errors[k - 1] = compute_error();
         }
 
@@ -560,11 +577,18 @@ namespace TimeDependentStokesBDF2 {
                                                Tensor<1, dim>());
         rhs_function->value_list(fe_v.get_quadrature_points(), rhs_values);
 
-        // Get the values from the solution in the last time step.
         const FEValuesExtractors::Vector v(0);
-        std::vector<Tensor<1, dim>> u_solution_values(
+
+        // Get the values from the solution in the last time step.
+        std::vector<Tensor<1, dim>> old_solution_values(
                 fe_v.n_quadrature_points);
-        fe_v[v].get_function_values(old_solution, u_solution_values);
+        fe_v[v].get_function_values(old_solution, old_solution_values);
+
+        // Get the values from the solution in the timestep before that.
+        std::vector<Tensor<1, dim>> older_solution_values(
+                fe_v.n_quadrature_points);
+        fe_v[v].get_function_values(older_solution, older_solution_values);
+
         Tensor<1, dim> phi_u;
 
         for (unsigned int q = 0; q < fe_v.n_quadrature_points; ++q) {
@@ -572,7 +596,12 @@ namespace TimeDependentStokesBDF2 {
                 // RHS
                 phi_u = fe_v[v].value(i, q);
                 local_rhs(i) += (tau * rhs_values[q] * phi_u    // τ(f, v)
-                                 + u_solution_values[q] * phi_u // (u_n, v)
+                                 -
+                                 eta * old_solution_values[q] *
+                                 phi_u // (u_n, v)
+                                 -
+                                 lambda * older_solution_values[q] *
+                                 phi_u // (u_n-1, v)
                                 ) * fe_v.JxW(q);      // dx
             }
         }

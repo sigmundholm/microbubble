@@ -132,7 +132,14 @@ namespace TimeDependentStokesBDF2 {
         const double half_length;
         const unsigned int n_refines;
 
-        const double delta = 1;
+        // Constants used for the time discretization, defined as:
+        //   u_t = (δu^(n+1) + ηu^n + λu^(n-1))/τ
+        // Initially set for implicit Euler. Then reset to BDF-2 for the
+        // next iterations.
+        double delta = 1.0;
+        double eta = -1.0;
+        double lambda = 0;
+
         const double nu;
         const double tau;
 
@@ -174,9 +181,10 @@ namespace TimeDependentStokesBDF2 {
         SparsityPattern sparsity_pattern;
         SparseMatrix<double> stiffness_matrix;
 
-        Vector<double> rhs;
-        Vector<double> solution;
-        Vector<double> old_solution;
+        Vector<double> rhs;            // f
+        Vector<double> solution;       // u = u^(n+1)
+        Vector<double> old_solution;   // u^n
+        Vector<double> older_solution; // u^(n-1)
 
         AffineConstraints<double> constraints;
     };
