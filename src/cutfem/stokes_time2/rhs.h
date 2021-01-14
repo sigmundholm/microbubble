@@ -23,12 +23,16 @@ namespace TimeDependentStokesBDF2 {
     template<int dim>
     class RightHandSide : public TensorFunction<1, dim> {
     public:
-        RightHandSide(const double delta, const double nu, const double tau);
+        RightHandSide(const double delta, const double eta, const double lambda,
+                      const double nu, const double tau);
 
         Tensor<1, dim>
         value(const Point<dim> &p) const override;
 
         const double delta = 1;
+        const double eta = 1;
+        const double lambda = 1;
+
         const double nu;
         const double tau;
     };

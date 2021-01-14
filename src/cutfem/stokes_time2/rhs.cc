@@ -15,9 +15,12 @@ namespace TimeDependentStokesBDF2 {
 
     template<int dim>
     RightHandSide<dim>::RightHandSide(const double delta,
+                                      const double eta,
+                                      const double lambda,
                                       const double nu,
                                       const double tau)
-            : TensorFunction<1, dim>(), delta(delta), nu(nu), tau(tau) {}
+            : TensorFunction<1, dim>(), delta(delta), eta(eta), lambda(lambda),
+              nu(nu), tau(tau) {}
 
     template<int dim>
     Tensor<1, dim> RightHandSide<dim>::
@@ -28,8 +31,16 @@ namespace TimeDependentStokesBDF2 {
 
         Tensor<1, dim> val;
 
-        val[0] = pi * exp(-4 * pi * pi * nu * t) * sin(2 * pi * x) / 2;
-        val[1] = pi * exp(-4 * pi * pi * nu * t) * sin(2 * pi * y) / 2;
+        val[0] = -2 * pi * pi * nu * sin(pi * y) * cos(pi * x) +
+                 pi * sin(2 * pi * x) / 2 +
+                 (-delta * sin(pi * y) * cos(pi * x) -
+                  eta * sin(pi * y) * cos(pi * x) -
+                  lambda * sin(pi * y) * cos(pi * x)) / tau;
+        val[1] = 2 * pi * pi * nu * sin(pi * x) * cos(pi * y) +
+                 pi * sin(2 * pi * y) / 2 +
+                 (delta * sin(pi * x) * cos(pi * y) +
+                  eta * sin(pi * x) * cos(pi * y) +
+                  lambda * sin(pi * x) * cos(pi * y)) / tau;
 
         return val;
     }

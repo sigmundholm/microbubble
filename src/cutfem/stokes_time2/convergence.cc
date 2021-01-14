@@ -12,7 +12,10 @@ void solve_for_element_order(int element_order, int max_refinement,
     double radius = 0.205;
     double half_length = 0.205;
 
-    double delta = 1;
+    double delta = 0.5;
+    double eta = 1.4;
+    double lambda = 2;
+
     double nu = 0.4;
 
     double end_time = 0.01;
@@ -35,15 +38,17 @@ void solve_for_element_order(int element_order, int max_refinement,
         // Se feilen for tidsdiskretiseringen dominere hvis n_refines starter på
         // feks 3, og regn ut tau fra tau_init/2^(n_refines -3)
         tau = tau_init / pow(2, n_refines - 1);
-        RightHandSide<dim> rhs(delta, nu, tau);
+        RightHandSide<dim> rhs(delta, eta, lambda, nu, tau);
 
-        StokesCylinder<dim> stokes(radius, half_length, n_refines, nu,
-                                   tau, element_order, write_output, rhs,
+        StokesCylinder<dim> stokes(radius, half_length, n_refines,
+                                   delta, eta, lambda,
+                                   nu, tau, element_order, write_output, rhs,
                                    boundary_values, analytical_velocity,
                                    analytical_pressure,
                                    sphere_radius, sphere_x_coord);
 
-        double n_steps = end_time / tau;
+        // double n_steps = end_time / tau;
+        double n_steps = 1; // TODO fix for time dep
         std::cout << "T = " << end_time << ", tau = " << tau
                   << ", steps = " << n_steps << std::endl;
 

@@ -43,6 +43,9 @@ namespace TimeDependentStokesBDF2 {
     StokesCylinder<dim>::StokesCylinder(const double radius,
                                         const double half_length,
                                         const unsigned int n_refines,
+                                        const double delta,
+                                        const double eta,
+                                        const double lambda,
                                         const double nu,
                                         const double tau,
                                         const int element_order,
@@ -54,6 +57,7 @@ namespace TimeDependentStokesBDF2 {
                                         const double sphere_radius,
                                         const double sphere_x_coord)
             : radius(radius), half_length(half_length), n_refines(n_refines),
+              delta(delta), eta(eta), lambda(lambda),
               nu(nu), tau(tau),
               write_output(write_output), sphere_radius(sphere_radius),
               sphere_x_coord(sphere_x_coord),
@@ -122,7 +126,7 @@ namespace TimeDependentStokesBDF2 {
             if (k == 1) {
                 // Important that the boundary_values function uses t=0, when
                 // we interpolate the initial value from it.
-                boundary_values->set_time(0);
+                // boundary_values->set_time(0);  // TODO NB!!: set to 0 for time dep problem
 
                 // Use the boundary_values as initial values. Interpolate the
                 // boundary_values function into the finite element space.
@@ -140,22 +144,26 @@ namespace TimeDependentStokesBDF2 {
 
                 output_results(0);
                 old_solution = solution;
-            } else if (k == 2) {
+                older_solution = solution; // TODO remove for time dep
+            } else if (k == -1) {
+                // TODO ignore for now, fix
                 // For k >= 2, we will take a time step using BDF-2, instead
                 // of implicit Euler.
-                delta = 1; // 3.0 / 2;
-                eta = -1; //-2;
-                lambda = 0; // 1.0 / 2;
+                delta = 3.0 / 2;
+                eta = -2;
+                lambda = 1.0 / 2;
+                assemble_system();
             }
 
-            std::cout << "delta = " << delta << ", eta = " << eta
+            std::cout << "run: delta = " << delta << ", eta = " << eta
                       << ", lambda = " << lambda << std::endl;
 
             // TODO use advance_time instead?
-            rhs_function->set_time(time);
-            boundary_values->set_time(time);
-            analytical_velocity->set_time(time);
-            analytical_pressure->set_time(time);
+            // TODO fix for time dep
+            // rhs_function->set_time(time);
+            // boundary_values->set_time(time);
+            // analytical_velocity->set_time(time);
+            // analytical_pressure->set_time(time);
 
             // TODO nødvendig??
             solution.reinit(solution.size());
@@ -169,7 +177,7 @@ namespace TimeDependentStokesBDF2 {
 
             // Set u^n and u^(n-1)
             // older_solution = old_solution;
-            older_solution = solution; // TODO fix
+            older_solution = old_solution; // TODO fix
             old_solution = solution;
 
             errors[k - 1] = compute_error();
