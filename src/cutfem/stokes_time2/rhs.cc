@@ -31,16 +31,8 @@ namespace TimeDependentStokesBDF2 {
 
         Tensor<1, dim> val;
 
-        val[0] = -2 * pi * pi * nu * sin(pi * y) * cos(pi * x) +
-                 pi * sin(2 * pi * x) / 2 +
-                 (-delta * sin(pi * y) * cos(pi * x) -
-                  eta * sin(pi * y) * cos(pi * x) -
-                  lambda * sin(pi * y) * cos(pi * x)) / tau;
-        val[1] = 2 * pi * pi * nu * sin(pi * x) * cos(pi * y) +
-                 pi * sin(2 * pi * y) / 2 +
-                 (delta * sin(pi * x) * cos(pi * y) +
-                  eta * sin(pi * x) * cos(pi * y) +
-                  lambda * sin(pi * x) * cos(pi * y)) / tau;
+        val[0] = pi * exp(-4 * pi * pi * nu * t) * sin(2 * pi * x) / 2;
+        val[1] = pi * exp(-4 * pi * pi * nu * t) * sin(2 * pi * y) / 2;
 
         return val;
     }

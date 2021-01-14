@@ -12,9 +12,10 @@ void solve_for_element_order(int element_order, int max_refinement,
     double radius = 0.205;
     double half_length = 0.205;
 
-    double delta = 0.5;
-    double eta = 1.4;
-    double lambda = 2;
+    // TODO remove these arguments from constructor.
+    double delta = 1;
+    double eta = -1;
+    double lambda = 0;
 
     double nu = 0.4;
 
@@ -47,8 +48,7 @@ void solve_for_element_order(int element_order, int max_refinement,
                                    analytical_pressure,
                                    sphere_radius, sphere_x_coord);
 
-        // double n_steps = end_time / tau;
-        double n_steps = 1; // TODO fix for time dep
+        double n_steps = end_time / tau;
         std::cout << "T = " << end_time << ", tau = " << tau
                   << ", steps = " << n_steps << std::endl;
 

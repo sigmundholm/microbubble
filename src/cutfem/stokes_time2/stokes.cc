@@ -126,13 +126,13 @@ namespace TimeDependentStokesBDF2 {
             if (k == 1) {
                 // Important that the boundary_values function uses t=0, when
                 // we interpolate the initial value from it.
-                // boundary_values->set_time(0);  // TODO NB!!: set to 0 for time dep problem
+                boundary_values->set_time(0);
 
                 // Use the boundary_values as initial values. Interpolate the
                 // boundary_values function into the finite element space.
                 const unsigned int n_components_on_element = dim + 1;
                 FEValuesExtractors::Vector velocities(0);
-                VectorFunctionFromTensorFunction<dim> adapter(
+                VectorFunctionFromTensorFunction <dim> adapter(
                         *boundary_values,
                         velocities.first_vector_component,
                         n_components_on_element);
@@ -144,14 +144,14 @@ namespace TimeDependentStokesBDF2 {
 
                 output_results(0);
                 old_solution = solution;
-                older_solution = solution; // TODO remove for time dep
-            } else if (k == -1) {
-                // TODO ignore for now, fix
+            } else if (k == 2) {
                 // For k >= 2, we will take a time step using BDF-2, instead
                 // of implicit Euler.
-                delta = 3.0 / 2;
+                delta = 1.5;
                 eta = -2;
-                lambda = 1.0 / 2;
+                lambda = 0.5;
+
+                initialize_matrices();
                 assemble_system();
             }
 
@@ -159,11 +159,10 @@ namespace TimeDependentStokesBDF2 {
                       << ", lambda = " << lambda << std::endl;
 
             // TODO use advance_time instead?
-            // TODO fix for time dep
-            // rhs_function->set_time(time);
-            // boundary_values->set_time(time);
-            // analytical_velocity->set_time(time);
-            // analytical_pressure->set_time(time);
+            rhs_function->set_time(time);
+            boundary_values->set_time(time);
+            analytical_velocity->set_time(time);
+            analytical_pressure->set_time(time);
 
             // TODO nødvendig??
             solution.reinit(solution.size());
