@@ -866,7 +866,7 @@ namespace TimeDependentStokesBDF2 {
         }
 
         Error error;
-        error.mesh_size = errors[0].mesh_size;
+        error.mesh_size = h;
         error.time_step = tau;
 
         error.l2_error_u = pow(l2_error_integral_u, 0.5);
@@ -882,15 +882,16 @@ namespace TimeDependentStokesBDF2 {
     template<int dim>
     void StokesCylinder<dim>::
     write_header_to_file(std::ofstream &file) {
-        file << "h, \\|u\\|_{L^2}, \\|u\\|_{H^1}, |u|_{H^1}, "
-                "\\|p\\|_{L^2}, \\|p\\|_{H^1}, |p|_{H^1}" << std::endl;
+        file << "\\tau, h, \\|u\\|_{L^2L^2}, \\|u\\|_{L^2H^1}, |u|_{L^2H^1}, "
+                "\\|p\\|_{L^2L^2}, \\|p\\|_{L^2H^1}, |p|_{L^2H^1}" << std::endl;
     }
 
 
     template<int dim>
     void StokesCylinder<dim>::
     write_error_to_file(Error &error, std::ofstream &file) {
-        file << error.mesh_size << ","
+        file << error.time_step << ","
+             << error.mesh_size << ","
              << error.l2_error_u << ","
              << error.h1_error_u << ","
              << error.h1_semi_u << ","
