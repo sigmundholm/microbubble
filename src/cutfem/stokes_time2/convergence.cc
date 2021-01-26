@@ -35,11 +35,16 @@ void solve_for_element_order(int element_order, int max_refinement,
     AnalyticalPressure<dim> analytical_pressure(nu);
 
     for (int n_refines = 1; n_refines < max_refinement + 1; ++n_refines) {
-        std::cout << "\nn_refines=" << n_refines << std::endl;
+        std::cout << "\nn_refines=" << n_refines << std::endl
+                  << "===========" << std::endl;
         // Se feilen for tidsdiskretiseringen dominere hvis n_refines starter på
         // feks 3, og regn ut tau fra tau_init/2^(n_refines -3)
         tau = tau_init / pow(2, n_refines - 1);
         RightHandSide<dim> rhs(delta, eta, lambda, nu, tau);
+
+        double n_steps = end_time / tau;
+        std::cout << "T = " << end_time << ", tau = " << tau
+                  << ", steps = " << n_steps << std::endl << std::endl;
 
         StokesCylinder<dim> stokes(radius, half_length, n_refines,
                                    delta, eta, lambda,
@@ -48,12 +53,9 @@ void solve_for_element_order(int element_order, int max_refinement,
                                    analytical_pressure,
                                    sphere_radius, sphere_x_coord);
 
-        double n_steps = end_time / tau;
-        std::cout << "T = " << end_time << ", tau = " << tau
-                  << ", steps = " << n_steps << std::endl;
-
         Error error = stokes.run(n_steps);
 
+        std::cout << std::endl;
         std::cout << "|| u - u_h ||_L2 = " << error.l2_error_u << std::endl;
         std::cout << "|| u - u_h ||_H1 = " << error.h1_error_u << std::endl;
         std::cout << "|| p - p_h ||_L2 = " << error.l2_error_p << std::endl;

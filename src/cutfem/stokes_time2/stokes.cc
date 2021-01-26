@@ -185,6 +185,7 @@ namespace TimeDependentStokesBDF2 {
         // TODO merk at det virker som om feilen er størst i starten for så å
         //  bli veldig mye mindre etter som t vokser. Er dette feil, eller er
         //  det fordi løsningen faktisk blir så mye mindre? (i p-L2 feil)
+        std::cout << std::endl;
         for (Error err : errors) {
             std::cout << "u-l2= " << err.l2_error_u
                       << "    u-h1= " << err.h1_error_u
