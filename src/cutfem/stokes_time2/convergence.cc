@@ -34,7 +34,7 @@ void solve_for_element_order(int element_order, int max_refinement,
     AnalyticalVelocity<dim> analytical_velocity(nu);
     AnalyticalPressure<dim> analytical_pressure(nu);
 
-    for (int n_refines = 2; n_refines < max_refinement + 1; ++n_refines) {
+    for (int n_refines = 1; n_refines < max_refinement + 1; ++n_refines) {
         std::cout << "\nn_refines=" << n_refines << std::endl
                   << "===========" << std::endl;
         // Se feilen for tidsdiskretiseringen dominere hvis n_refines starter på
