@@ -16,13 +16,13 @@ if __name__ == '__main__':
         data = np.genfromtxt(full_path, delimiter=",", skip_header=True)
         data = data[skip:, 1:]
 
-        conv_plots(data, head, title=r"$\textrm{Time dep. Stokes (BDF-2 + impl. Euler), element order: (" + str(
+        conv_plots(data, head, title=r"$\textrm{Time dep. Stokes (BDF-2), element order: (" + str(
             poly_order + 1) + ", " + str(poly_order) + ")}$", domain_length=0.205 * 2)
         plt.savefig(f"bdf2-error-o{poly_order}.pdf")
 
         # Create a EOC-plot
         eoc_plot(data, head,
-                 title=r"\textrm{Time dep. Stokes  (BDF-2 + impl. Euler) EOC, element order: (" + str(poly_order + 1) + ", " + str(
+                 title=r"\textrm{Time dep. Stokes (BDF-2) EOC, element order: (" + str(poly_order + 1) + ", " + str(
                      poly_order) + ")}",
                  domain_lenght=0.205 * 2, lines_at=np.array([0, 1, 2]) + poly_order)
         plt.savefig(f"bdf2-eoc-o{poly_order}.pdf")

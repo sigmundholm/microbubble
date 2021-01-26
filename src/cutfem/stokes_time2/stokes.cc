@@ -143,8 +143,30 @@ namespace TimeDependentStokesBDF2 {
                         fe_collection.component_mask(velocities));
 
                 output_results(0);
-                old_solution = solution;
+
+                // TODO Since we will use the analytic solution for both u_0 and u_1
+                older_solution = solution;
+                continue;
             } else if (k == 2) {
+
+                // Interpolate the analytical solution u_1 (i.e. at t=τ)
+                boundary_values->set_time(tau);
+
+                const unsigned int n_components_on_element = dim + 1;
+                FEValuesExtractors::Vector velocities(0);
+                VectorFunctionFromTensorFunction <dim> adapter(
+                        *boundary_values,
+                        velocities.first_vector_component,
+                        n_components_on_element);
+                VectorTools::interpolate(
+                        dof_handler,
+                        adapter,
+                        solution,
+                        fe_collection.component_mask(velocities));
+
+                output_results(1);
+                old_solution = solution;
+
                 // For k >= 2, we will take a time step using BDF-2, instead
                 // of implicit Euler.
                 delta = 1.5;
