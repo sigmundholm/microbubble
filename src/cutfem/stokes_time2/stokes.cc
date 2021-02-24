@@ -43,9 +43,6 @@ namespace TimeDependentStokesBDF2 {
     StokesCylinder<dim>::StokesCylinder(const double radius,
                                         const double half_length,
                                         const unsigned int n_refines,
-                                        const double delta,
-                                        const double eta,
-                                        const double lambda,
                                         const double nu,
                                         const double tau,
                                         const int element_order,
@@ -57,7 +54,6 @@ namespace TimeDependentStokesBDF2 {
                                         const double sphere_radius,
                                         const double sphere_x_coord)
             : radius(radius), half_length(half_length), n_refines(n_refines),
-              delta(delta), eta(eta), lambda(lambda),
               nu(nu), tau(tau),
               write_output(write_output), sphere_radius(sphere_radius),
               sphere_x_coord(sphere_x_coord),

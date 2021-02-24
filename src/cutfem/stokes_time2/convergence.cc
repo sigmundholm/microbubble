@@ -14,11 +14,6 @@ void solve_for_element_order(int element_order, int max_refinement,
     double radius = 0.205;
     double half_length = 0.205;
 
-    // TODO remove these arguments from constructor.
-    double delta = 1;
-    double eta = -1;
-    double lambda = 0;
-
     double nu = 0.4;
 
     double end_time = radius;
@@ -42,7 +37,7 @@ void solve_for_element_order(int element_order, int max_refinement,
         // Se feilen for tidsdiskretiseringen dominere hvis n_refines starter på
         // feks 3, og regn ut tau fra tau_init/2^(n_refines -3)
         tau = tau_init / pow(2, n_refines - 1);
-        RightHandSide<dim> rhs(delta, eta, lambda, nu, tau);
+        RightHandSide<dim> rhs(nu);
 
         double n_steps = end_time / tau;
         std::cout << "T = " << end_time << ", tau = " << tau
@@ -64,7 +59,6 @@ void solve_for_element_order(int element_order, int max_refinement,
         std::cout << std::endl << "BDF-2" << std::endl << std::endl;
         StokesCylinder<dim> stokes_bdf2(
                 radius, half_length, n_refines,
-                delta, eta, lambda,
                 nu, tau, element_order, write_output,
                 rhs,
                 boundary_values, analytical_velocity,

@@ -14,13 +14,8 @@ namespace TimeDependentStokesBDF2 {
 
 
     template<int dim>
-    RightHandSide<dim>::RightHandSide(const double delta,
-                                      const double eta,
-                                      const double lambda,
-                                      const double nu,
-                                      const double tau)
-            : TensorFunction<1, dim>(), delta(delta), eta(eta), lambda(lambda),
-              nu(nu), tau(tau) {}
+    RightHandSide<dim>::RightHandSide(const double nu)
+            : TensorFunction<1, dim>(), nu(nu) {}
 
     template<int dim>
     Tensor<1, dim> RightHandSide<dim>::
