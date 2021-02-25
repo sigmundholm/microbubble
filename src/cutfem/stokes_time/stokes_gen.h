@@ -68,6 +68,10 @@ namespace TimeDependentStokesIE {
         static void
         write_error_to_file(Error &error, std::ofstream &file);
 
+        // Let the soulution be rachable from outside, i.e. when implicit Euler
+        // is used to find the first step of BDF-2.
+        Vector<double> solution;
+
     protected:
         void
         make_grid();
@@ -175,7 +179,6 @@ namespace TimeDependentStokesIE {
         SparseMatrix<double> stiffness_matrix;
 
         Vector<double> rhs;
-        Vector<double> solution;
         Vector<double> old_solution;
 
         AffineConstraints<double> constraints;

@@ -4,6 +4,8 @@
 
 #include "stokes.h"
 
+#include "../stokes_time/stokes_gen.h"
+
 template<int dim>
 void solve_for_element_order(int element_order, int max_refinement,
                              bool write_output) {
@@ -46,23 +48,41 @@ void solve_for_element_order(int element_order, int max_refinement,
         std::cout << "T = " << end_time << ", tau = " << tau
                   << ", steps = " << n_steps << std::endl << std::endl;
 
-        StokesCylinder<dim> stokes(radius, half_length, n_refines,
-                                   delta, eta, lambda,
-                                   nu, tau, element_order, write_output, rhs,
-                                   boundary_values, analytical_velocity,
-                                   analytical_pressure,
-                                   sphere_radius, sphere_x_coord);
+        std::cout << std::endl << "Implicit Euler step" << std::endl << std::endl;
+        TimeDependentStokesIE::StokesCylinder<dim> stokes_bdf1(
+                radius, half_length,
+                n_refines, nu, tau,
+                element_order,
+                write_output, rhs,
+                boundary_values,
+                analytical_velocity,
+                analytical_pressure,
+                sphere_radius,
+                sphere_x_coord);
+        TimeDependentStokesIE::Error error_bdf1 = stokes_bdf1.run(1);
 
-        Vector<double> u1;
-        u1.reinit(1);
-        Error error = stokes.run(u1, n_steps);
+        std::cout << std::endl << "BDF-2" << std::endl << std::endl;
+        StokesCylinder<dim> stokes_bdf2(
+                radius, half_length, n_refines,
+                delta, eta, lambda,
+                nu, tau, element_order, write_output,
+                rhs,
+                boundary_values, analytical_velocity,
+                analytical_pressure,
+                sphere_radius, sphere_x_coord);
+
+        // Vector<double> u1;
+        // u1.reinit(1);
+        TimeDependentStokesBDF2::Error error = stokes_bdf2.run(
+                stokes_bdf1.solution, n_steps);
 
         std::cout << std::endl;
         std::cout << "|| u - u_h ||_L2 = " << error.l2_error_u << std::endl;
         std::cout << "|| u - u_h ||_H1 = " << error.h1_error_u << std::endl;
         std::cout << "|| p - p_h ||_L2 = " << error.l2_error_p << std::endl;
         std::cout << "|| p - p_h ||_H1 = " << error.h1_error_p << std::endl;
-        StokesCylinder<dim>::write_error_to_file(error, file);
+        TimeDependentStokesBDF2::StokesCylinder<dim>::write_error_to_file(error,
+                                                                          file);
     }
 }
 

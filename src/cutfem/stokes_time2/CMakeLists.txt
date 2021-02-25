@@ -9,4 +9,4 @@ target_link_libraries(run-time2 stokes-time2 cutfem)
 
 add_executable(convergence-time2 convergence.cc)
 deal_ii_setup_target(convergence-time2)
-target_link_libraries(convergence-time2 stokes-time2 cutfem)
+target_link_libraries(convergence-time2 stokes-time2 stokes-time cutfem)

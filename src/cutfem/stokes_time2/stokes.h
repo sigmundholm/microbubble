@@ -1,5 +1,5 @@
-#ifndef MICROBUBBLE_STOKES_GEN_H
-#define MICROBUBBLE_STOKES_GEN_H
+#ifndef MICROBUBBLE_STOKES_BDF2_H
+#define MICROBUBBLE_STOKES_BDF2_H
 
 #include <deal.II/base/function.h>
 #include <deal.II/base/tensor_function.h>
@@ -195,4 +195,4 @@ namespace TimeDependentStokesBDF2 {
 } // namespace TimeDependentStokesBDF2
 
 
-#endif // MICROBUBBLE_STOKES_GEN_H
+#endif // MICROBUBBLE_STOKES_BDF2_H
