@@ -59,6 +59,18 @@ namespace TimeDependentStokesBDF2 {
                        const double sphere_radius,
                        const double sphere_x_coord);
 
+        /**
+         * Run BDF-2.
+         *
+         * The initial step u_0 is interpolated from the object boundary_values
+         * passes as the argument bdd_values in the constructor. If u1 is a
+         * vector of length exactly 1, then u1 is also interpolated. Else, the
+         * argument u1 is ´used as the start up step u1 for BDF-2.
+         *
+         * @param u1: is the u1 start up step.
+         * @param steps: the number of steps to run.
+         * @return an Error object.
+         */
         virtual Error
         run(Vector<double> &u1, unsigned int steps);
 
@@ -69,6 +81,9 @@ namespace TimeDependentStokesBDF2 {
         write_error_to_file(Error &error, std::ofstream &file);
 
     protected:
+        void
+        interpolate_first_steps(Vector<double> &u1);
+
         void
         make_grid();
 

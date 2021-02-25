@@ -40,19 +40,20 @@ using namespace cutfem;
 namespace TimeDependentStokesBDF2 {
 
     template<int dim>
-    StokesCylinder<dim>::StokesCylinder(const double radius,
-                                        const double half_length,
-                                        const unsigned int n_refines,
-                                        const double nu,
-                                        const double tau,
-                                        const int element_order,
-                                        const bool write_output,
-                                        TensorFunction<1, dim> &rhs,
-                                        TensorFunction<1, dim> &bdd_values,
-                                        TensorFunction<1, dim> &analytic_vel,
-                                        Function<dim> &analytic_pressure,
-                                        const double sphere_radius,
-                                        const double sphere_x_coord)
+    StokesCylinder<dim>::
+    StokesCylinder(const double radius,
+                   const double half_length,
+                   const unsigned int n_refines,
+                   const double nu,
+                   const double tau,
+                   const int element_order,
+                   const bool write_output,
+                   TensorFunction<1, dim> &rhs,
+                   TensorFunction<1, dim> &bdd_values,
+                   TensorFunction<1, dim> &analytic_vel,
+                   Function<dim> &analytic_pressure,
+                   const double sphere_radius,
+                   const double sphere_x_coord)
             : radius(radius), half_length(half_length), n_refines(n_refines),
               nu(nu), tau(tau),
               write_output(write_output), sphere_radius(sphere_radius),
@@ -85,19 +86,10 @@ namespace TimeDependentStokesBDF2 {
     }
 
     template<int dim>
-    void
-    StokesCylinder<dim>::setup_quadrature() {
-        const unsigned int quadOrder = 2 * element_order + 1;
-        q_collection.push_back(QGauss<dim>(quadOrder));
-        q_collection1D.push_back(QGauss<1>(quadOrder));
-    }
+    Error StokesCylinder<dim>::
+    run(Vector<double> &u1, unsigned int steps) {
 
-    template<int dim>
-    Error
-    StokesCylinder<dim>::run(Vector<double> &u1, unsigned int steps) {
-
-        // For k >= 2, we will take a time step using BDF-2, instead
-        // of implicit Euler.
+        // Set the variables for BDF-2.
         delta = 1.5;
         eta = -2;
         lambda = 0.5;
@@ -117,57 +109,9 @@ namespace TimeDependentStokesBDF2 {
         // Vector for the computed error for each time step.
         std::vector<Error> errors(steps);
 
-        {
-            // Important that the boundary_values function uses t=0, when
-            // we interpolate the initial value from it.
-            boundary_values->set_time(0);
-
-            // Use the boundary_values as initial values. Interpolate the
-            // boundary_values function into the finite element space.
-            const unsigned int n_components_on_element = dim + 1;
-            FEValuesExtractors::Vector velocities(0);
-            VectorFunctionFromTensorFunction<dim> adapter(
-                    *boundary_values,
-                    velocities.first_vector_component,
-                    n_components_on_element);
-            VectorTools::interpolate(
-                    dof_handler,
-                    adapter,
-                    solution,
-                    fe_collection.component_mask(velocities));
-
-            output_results(0);
-            older_solution = solution;
-        }
-
-        if (u1.size() == 1) { // TODO find smoother check?
-            // Interpolate the analytical solution u_1 (i.e. at t=τ)
-            boundary_values->set_time(tau);
-
-            const unsigned int n_components_on_element = dim + 1;
-            FEValuesExtractors::Vector velocities(0);
-            VectorFunctionFromTensorFunction<dim> adapter(
-                    *boundary_values,
-                    velocities.first_vector_component,
-                    n_components_on_element);
-            VectorTools::interpolate(
-                    dof_handler,
-                    adapter,
-                    solution,
-                    fe_collection.component_mask(velocities));
-
-            output_results(1);
-            compute_error();
-
-            old_solution = solution;
-        }
-        else {
-            solution = u1;
-            output_results(1);
-            compute_error();
-
-            old_solution = solution;
-        }
+        // If u1 is a vector of length 1, then u1 is interpolated from
+        // boundary_values too.
+        interpolate_first_steps(u1);
 
         double time = tau;
         for (unsigned int k = 2; k <= steps; ++k) {
@@ -201,9 +145,6 @@ namespace TimeDependentStokesBDF2 {
             errors[k - 1] = compute_error();
         }
 
-        // TODO merk at det virker som om feilen er størst i starten for så å
-        //  bli veldig mye mindre etter som t vokser. Er dette feil, eller er
-        //  det fordi løsningen faktisk blir så mye mindre? (i p-L2 feil)
         std::cout << std::endl;
         for (Error err : errors) {
             std::cout << "u-l2= " << err.l2_error_u
@@ -216,8 +157,62 @@ namespace TimeDependentStokesBDF2 {
     }
 
     template<int dim>
-    void
-    StokesCylinder<dim>::make_grid() {
+    void StokesCylinder<dim>::
+    interpolate_first_steps(Vector<double> &u1) {
+
+        // Important that the boundary_values function uses t=0, when
+        // we interpolate the initial value from it.
+        boundary_values->set_time(0);
+
+        // Use the boundary_values as initial values. Interpolate the
+        // boundary_values function into the finite element space.
+        const unsigned int n_components_on_element = dim + 1;
+        FEValuesExtractors::Vector velocities(0);
+        VectorFunctionFromTensorFunction<dim> adapter(
+                *boundary_values,
+                velocities.first_vector_component,
+                n_components_on_element);
+        VectorTools::interpolate(
+                dof_handler,
+                adapter,
+                solution,
+                fe_collection.component_mask(velocities));
+
+        output_results(0);
+        older_solution = solution;
+
+        if (u1.size() == 1) { // TODO find smoother check?
+            // Interpolate the analytical solution u_1 (i.e. interpolate
+            // boundary_values at t=τ)
+            boundary_values->set_time(tau);
+            VectorTools::interpolate(
+                    dof_handler,
+                    adapter,
+                    solution,
+                    fe_collection.component_mask(velocities));
+
+            output_results(1);
+            compute_error();
+            old_solution = solution;
+        } else {
+            solution = u1;
+            output_results(1);
+            compute_error();
+            old_solution = solution;
+        }
+    }
+
+    template<int dim>
+    void StokesCylinder<dim>::
+    setup_quadrature() {
+        const unsigned int quadOrder = 2 * element_order + 1;
+        q_collection.push_back(QGauss<dim>(quadOrder));
+        q_collection1D.push_back(QGauss<1>(quadOrder));
+    }
+
+    template<int dim>
+    void StokesCylinder<dim>::
+    make_grid() {
         std::cout << "Creating triangulation" << std::endl;
 
         GridGenerator::cylinder(triangulation, radius, half_length);
@@ -233,8 +228,8 @@ namespace TimeDependentStokesBDF2 {
     }
 
     template<int dim>
-    void
-    StokesCylinder<dim>::setup_level_set() {
+    void StokesCylinder<dim>::
+    setup_level_set() {
         std::cout << "Setting up level set" << std::endl;
 
         // The level set function lives on the whole background mesh.
@@ -253,8 +248,8 @@ namespace TimeDependentStokesBDF2 {
     }
 
     template<int dim>
-    void
-    StokesCylinder<dim>::distribute_dofs() {
+    void StokesCylinder<dim>::
+    distribute_dofs() {
         std::cout << "Distributing dofs" << std::endl;
 
         // We want to types of elements on the mesh
@@ -279,8 +274,8 @@ namespace TimeDependentStokesBDF2 {
     }
 
     template<int dim>
-    void
-    StokesCylinder<dim>::initialize_matrices() {
+    void StokesCylinder<dim>::
+    initialize_matrices() {
         std::cout << "Initialize marices" << std::endl;
         solution.reinit(dof_handler.n_dofs());
         rhs.reinit(dof_handler.n_dofs());
@@ -291,8 +286,8 @@ namespace TimeDependentStokesBDF2 {
     }
 
     template<int dim>
-    void
-    StokesCylinder<dim>::assemble_system() {
+    void StokesCylinder<dim>::
+    assemble_system() {
         std::cout << "Assembling" << std::endl;
 
         // Use a helper object to compute the stabilisation for both the velocity
@@ -399,8 +394,8 @@ namespace TimeDependentStokesBDF2 {
     }
 
     template<int dim>
-    void
-    StokesCylinder<dim>::assemble_local_over_cell(
+    void StokesCylinder<dim>::
+    assemble_local_over_cell(
             const FEValues<dim> &fe_values,
             const std::vector<types::global_dof_index> &loc2glb) {
 
@@ -451,8 +446,8 @@ namespace TimeDependentStokesBDF2 {
 
 
     template<int dim>
-    void
-    StokesCylinder<dim>::assemble_local_over_surface(
+    void StokesCylinder<dim>::
+    assemble_local_over_surface(
             const FEValuesBase<dim> &fe_values,
             const std::vector<types::global_dof_index> &loc2glb) {
         // Matrix and vector for the contribution of each cell
@@ -678,8 +673,8 @@ namespace TimeDependentStokesBDF2 {
     }
 
     template<int dim>
-    void
-    StokesCylinder<dim>::solve() {
+    void StokesCylinder<dim>::
+    solve() {
         std::cout << "Solving system" << std::endl;
         SparseDirectUMFPACK inverse;
         inverse.initialize(stiffness_matrix);
