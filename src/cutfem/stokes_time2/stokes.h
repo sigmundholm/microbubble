@@ -63,7 +63,7 @@ namespace TimeDependentStokesBDF2 {
                        const double sphere_x_coord);
 
         virtual Error
-        run(unsigned int steps);
+        run(Vector<double> &u1, unsigned int steps);
 
         static void
         write_header_to_file(std::ofstream &file);

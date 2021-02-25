@@ -98,7 +98,14 @@ namespace TimeDependentStokesBDF2 {
 
     template<int dim>
     Error
-    StokesCylinder<dim>::run(unsigned int steps) {
+    StokesCylinder<dim>::run(Vector<double> &u1, unsigned int steps) {
+
+        // For k >= 2, we will take a time step using BDF-2, instead
+        // of implicit Euler.
+        delta = 1.5;
+        eta = -2;
+        lambda = 0.5;
+
         make_grid();
         setup_quadrature();
         setup_level_set();
@@ -111,71 +118,66 @@ namespace TimeDependentStokesBDF2 {
 
         assemble_system();
 
-        double k = 0; // the time step index
-        double time = 0;
-
         // Vector for the computed error for each time step.
         std::vector<Error> errors(steps);
 
-        while (k < steps) {
-            ++k;
+        {
+            // Important that the boundary_values function uses t=0, when
+            // we interpolate the initial value from it.
+            boundary_values->set_time(0);
+
+            // Use the boundary_values as initial values. Interpolate the
+            // boundary_values function into the finite element space.
+            const unsigned int n_components_on_element = dim + 1;
+            FEValuesExtractors::Vector velocities(0);
+            VectorFunctionFromTensorFunction<dim> adapter(
+                    *boundary_values,
+                    velocities.first_vector_component,
+                    n_components_on_element);
+            VectorTools::interpolate(
+                    dof_handler,
+                    adapter,
+                    solution,
+                    fe_collection.component_mask(velocities));
+
+            output_results(0);
+            older_solution = solution;
+        }
+
+        if (u1.size() == 1) { // TODO find smoother check?
+            // Interpolate the analytical solution u_1 (i.e. at t=τ)
+            boundary_values->set_time(tau);
+
+            const unsigned int n_components_on_element = dim + 1;
+            FEValuesExtractors::Vector velocities(0);
+            VectorFunctionFromTensorFunction<dim> adapter(
+                    *boundary_values,
+                    velocities.first_vector_component,
+                    n_components_on_element);
+            VectorTools::interpolate(
+                    dof_handler,
+                    adapter,
+                    solution,
+                    fe_collection.component_mask(velocities));
+
+            output_results(1);
+            compute_error();
+
+            old_solution = solution;
+        }
+        else {
+            solution = u1;
+            output_results(1);
+            compute_error();
+
+            old_solution = solution;
+        }
+
+        double time = tau;
+        for (unsigned int k = 2; k <= steps; ++k) {
             time += tau;
             std::cout << "\nTime Step = " << k
                       << ", time = " << time << std::endl;
-
-            if (k == 1) {
-                // Important that the boundary_values function uses t=0, when
-                // we interpolate the initial value from it.
-                boundary_values->set_time(0);
-
-                // Use the boundary_values as initial values. Interpolate the
-                // boundary_values function into the finite element space.
-                const unsigned int n_components_on_element = dim + 1;
-                FEValuesExtractors::Vector velocities(0);
-                VectorFunctionFromTensorFunction <dim> adapter(
-                        *boundary_values,
-                        velocities.first_vector_component,
-                        n_components_on_element);
-                VectorTools::interpolate(
-                        dof_handler,
-                        adapter,
-                        solution,
-                        fe_collection.component_mask(velocities));
-
-                output_results(0);
-
-                // TODO Since we will use the analytic solution for both u_0 and u_1
-                older_solution = solution;
-                continue;
-            } else if (k == 2) {
-
-                // Interpolate the analytical solution u_1 (i.e. at t=τ)
-                boundary_values->set_time(tau);
-
-                const unsigned int n_components_on_element = dim + 1;
-                FEValuesExtractors::Vector velocities(0);
-                VectorFunctionFromTensorFunction <dim> adapter(
-                        *boundary_values,
-                        velocities.first_vector_component,
-                        n_components_on_element);
-                VectorTools::interpolate(
-                        dof_handler,
-                        adapter,
-                        solution,
-                        fe_collection.component_mask(velocities));
-
-                output_results(1);
-                old_solution = solution;
-
-                // For k >= 2, we will take a time step using BDF-2, instead
-                // of implicit Euler.
-                delta = 1.5;
-                eta = -2;
-                lambda = 0.5;
-
-                initialize_matrices();
-                assemble_system();
-            }
 
             std::cout << "run: delta = " << delta << ", eta = " << eta
                       << ", lambda = " << lambda << std::endl;
@@ -197,8 +199,7 @@ namespace TimeDependentStokesBDF2 {
             }
 
             // Set u^n and u^(n-1)
-            // older_solution = old_solution;
-            older_solution = old_solution; // TODO fix
+            older_solution = old_solution;
             old_solution = solution;
 
             errors[k - 1] = compute_error();
