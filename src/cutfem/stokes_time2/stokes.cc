@@ -94,7 +94,12 @@ namespace TimeDependentStokesBDF2 {
 
     template<int dim>
     Error
-    StokesCylinder<dim>::run(unsigned int steps) {
+    StokesCylinder<dim>::run(Vector<double> &u_1, unsigned int steps) {
+        // Set the variables for BDF-2
+        delta = 1.5;
+        eta = -2;
+        lambda = 0.5;
+
         make_grid();
         setup_quadrature();
         setup_level_set();
@@ -107,53 +112,62 @@ namespace TimeDependentStokesBDF2 {
 
         assemble_system();
 
-        double k = 0; // the time step index
-        double time = 0;
-
         // Vector for the computed error for each time step.
         std::vector<Error> errors(steps);
 
-        while (k < steps) {
-            ++k;
+        // Interpolate the boundary_values to get u_0
+        // Set t=0 before we interpolate the initial value from boundary_values.
+        boundary_values->set_time(0);
+        // Interpolate the boundary_values function into the FE space.
+        const unsigned int n_components_on_element = dim + 1;
+        FEValuesExtractors::Vector velocities(0);
+        VectorFunctionFromTensorFunction<dim> adapter(
+                *boundary_values,
+                velocities.first_vector_component,
+                n_components_on_element);
+        VectorTools::interpolate(
+                dof_handler,
+                adapter,
+                solution,
+                fe_collection.component_mask(velocities));
+
+        output_results(0);
+        older_solution = solution;
+
+        // Interpolate u_1 too, if its not given as argument.
+        if (u_1.size() == 1) { // TODO fix this ugly test
+            std::cout << "Interpolate u_1 from boundary_values." << std::endl;
+            boundary_values->set_time(tau);
+            // Interpolate the boundary_values function into the FE space.
+            VectorTools::interpolate(
+                    dof_handler,
+                    adapter,
+                    solution,
+                    fe_collection.component_mask(velocities));
+
+            output_results(1);
+
+            // Compute the error TODO Should be zero!!!
+            errors[0] = compute_error();
+            old_solution = solution;
+        } else {
+            // u_1 was given as argument. Compute the error.
+            solution = u_1;
+            output_results(1);
+            errors[0] = compute_error();
+
+            old_solution = solution;
+        }
+
+        double time = tau;
+
+        std::cout << "run: delta = " << delta << ", eta = " << eta
+                  << ", lambda = " << lambda << std::endl;
+
+        for (unsigned int k = 2; k <= steps; ++k) {
             time += tau;
             std::cout << "\nTime Step = " << k
                       << ", time = " << time << std::endl;
-
-            if (k == 1) {
-                // Important that the boundary_values function uses t=0, when
-                // we interpolate the initial value from it.
-                boundary_values->set_time(0);
-
-                // Use the boundary_values as initial values. Interpolate the
-                // boundary_values function into the finite element space.
-                const unsigned int n_components_on_element = dim + 1;
-                FEValuesExtractors::Vector velocities(0);
-                VectorFunctionFromTensorFunction<dim> adapter(
-                        *boundary_values,
-                        velocities.first_vector_component,
-                        n_components_on_element);
-                VectorTools::interpolate(
-                        dof_handler,
-                        adapter,
-                        solution,
-                        fe_collection.component_mask(velocities));
-
-                output_results(0);
-
-                old_solution = solution;
-            } else if (k == 2) {
-                // For k >= 2, we will take a time step using BDF-2, instead
-                // of implicit Euler.
-                delta = 1.5;
-                eta = -2;
-                lambda = 0.5;
-
-                initialize_matrices();
-                assemble_system();
-            }
-
-            std::cout << "run: delta = " << delta << ", eta = " << eta
-                      << ", lambda = " << lambda << std::endl;
 
             // TODO use advance_time instead?
             rhs_function->set_time(time);

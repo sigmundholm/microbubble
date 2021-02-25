@@ -32,7 +32,10 @@ int main() {
                                elementOrder, write_vtk, rhs, boundary,
                                analytical_velocity, analytical_pressure,
                                sphere_radius, sphere_x_coord);
-    Error error = stokes.run(n_steps);
+
+    Vector<double> fake_u1;
+    fake_u1.reinit(1);
+    Error error = stokes.run(fake_u1, n_steps);
     std::cout << "Mesh size: " << error.mesh_size << std::endl;
     std::cout << "|| u - u_h ||_L2 = " << error.l2_error_u << std::endl;
     std::cout << "|| u - u_h ||_H1 = " << error.h1_error_u << std::endl;
