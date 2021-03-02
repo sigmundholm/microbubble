@@ -25,6 +25,7 @@
 
 #include <cmath>
 #include <fstream>
+#include <stdexcept>
 
 #include "cutfem/geometry/SignedDistanceSphere.h"
 #include "cutfem/nla/sparsity_pattern.h"
@@ -87,12 +88,9 @@ namespace TimeDependentStokesBDF2 {
 
     template<int dim>
     Error StokesCylinder<dim>::
-    run(Vector<double> &u1, unsigned int steps) {
+    run(Vector<double> &u1, unsigned int bdf_type, unsigned int steps) {
 
-        // Set the variables for BDF-2.
-        delta = 1.5;
-        eta = -2;
-        lambda = 0.5;
+        set_bdf_constants(bdf_type);
 
         make_grid();
         setup_quadrature();
@@ -101,8 +99,8 @@ namespace TimeDependentStokesBDF2 {
         distribute_dofs();
         initialize_matrices();
 
-        old_solution.reinit(solution.size());
-        older_solution.reinit(solution.size());
+        solution_u1.reinit(solution.size());
+        solution_u0.reinit(solution.size());
 
         assemble_system();
 
@@ -111,11 +109,11 @@ namespace TimeDependentStokesBDF2 {
 
         // If u1 is a vector of length 1, then u1 is interpolated from
         // boundary_values too.
-        interpolate_first_steps(u1);
+        interpolate_first_steps(u1, bdf_type);
 
-        double time = tau;
-        for (unsigned int k = 2; k <= steps; ++k) {
-            time += tau;
+        double time;
+        for (unsigned int k = bdf_type; k <= steps; ++k) {
+            time = k * tau;
             std::cout << "\nTime Step = " << k
                       << ", time = " << time << std::endl;
 
@@ -139,8 +137,8 @@ namespace TimeDependentStokesBDF2 {
             }
 
             // Set u^n and u^(n-1)
-            older_solution = old_solution;
-            old_solution = solution;
+            solution_u0 = solution_u1;
+            solution_u1 = solution;
 
             errors[k - 1] = compute_error();
         }
@@ -158,7 +156,27 @@ namespace TimeDependentStokesBDF2 {
 
     template<int dim>
     void StokesCylinder<dim>::
-    interpolate_first_steps(Vector<double> &u1) {
+    set_bdf_constants(unsigned int bdf_type) {
+        if (bdf_type == 1) {
+            // BDF-1 (implicit Euler).
+            delta = 1;
+            eta = -1;
+            lambda = 0;
+        } else if (bdf_type == 2) {
+            // BDF-2.
+            delta = 1.5;
+            eta = -2;
+            lambda = 0.5;
+        } else {
+            throw std::invalid_argument(
+                    "bdf_type has to be either 1 or 2, not " +
+                    std::to_string(bdf_type) + ".");
+        }
+    }
+
+    template<int dim>
+    void StokesCylinder<dim>::
+    interpolate_first_steps(Vector<double> &u1, unsigned int bdf_type) {
 
         // Important that the boundary_values function uses t=0, when
         // we interpolate the initial value from it.
@@ -179,26 +197,44 @@ namespace TimeDependentStokesBDF2 {
                 fe_collection.component_mask(velocities));
 
         output_results(0);
-        older_solution = solution;
 
-        if (u1.size() == 1) { // TODO find smoother check?
-            // Interpolate the analytical solution u_1 (i.e. interpolate
-            // boundary_values at t=τ)
-            boundary_values->set_time(tau);
-            VectorTools::interpolate(
-                    dof_handler,
-                    adapter,
-                    solution,
-                    fe_collection.component_mask(velocities));
+        if (bdf_type == 1) {
+            // BDF-1 (implicit Euler)
+            // Set the interpolated u0 as u1 (since this is the n-1 step)
+            solution_u1 = solution;
+        } else if (bdf_type == 2) {
+            // BDF-2
+            // Set the interpolated u0 as u0 (since this is the n-2 step)
+            solution_u0 = solution;
 
-            output_results(1);
-            compute_error();
-            old_solution = solution;
+            if (u1.size() == 1) { // TODO find smoother check?
+                // Interpolate the analytical solution u_1 (i.e. interpolate
+                // boundary_values at t=τ)
+                boundary_values->set_time(tau);
+                VectorTools::interpolate(
+                        dof_handler,
+                        adapter,
+                        solution,
+                        fe_collection.component_mask(velocities));
+
+                output_results(1);
+                compute_error();
+                solution_u1 = solution;
+            } else {
+                solution = u1;
+                output_results(1);
+                Error error = compute_error();
+                std::cout << "Error u1 (supplied)" << std::endl;
+                std::cout << "u-l2= " << error.l2_error_u
+                          << "    u-h1= " << error.h1_error_u
+                          << "    p-l2= " << error.l2_error_p
+                          << "    p-h1= " << error.h1_error_p << std::endl;
+                solution_u1 = solution;
+            }
         } else {
-            solution = u1;
-            output_results(1);
-            compute_error();
-            old_solution = solution;
+            throw std::invalid_argument(
+                    "bdf_type has to be either 1 or 2, not " +
+                    std::to_string(bdf_type) + ".");
         }
     }
 
@@ -604,12 +640,12 @@ namespace TimeDependentStokesBDF2 {
         // Get the values from the solution in the last time step.
         std::vector<Tensor<1, dim>> old_solution_values(
                 fe_v.n_quadrature_points);
-        fe_v[v].get_function_values(old_solution, old_solution_values);
+        fe_v[v].get_function_values(solution_u1, old_solution_values);
 
         // Get the values from the solution in the timestep before that.
         std::vector<Tensor<1, dim>> older_solution_values(
                 fe_v.n_quadrature_points);
-        fe_v[v].get_function_values(older_solution, older_solution_values);
+        fe_v[v].get_function_values(solution_u0, older_solution_values);
 
         Tensor<1, dim> phi_u;
 

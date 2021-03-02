@@ -72,7 +72,7 @@ namespace TimeDependentStokesBDF2 {
          * @return an Error object.
          */
         virtual Error
-        run(Vector<double> &u1, unsigned int steps);
+        run(Vector<double> &u1, unsigned int bdf_type, unsigned int steps);
 
         static void
         write_header_to_file(std::ofstream &file);
@@ -80,9 +80,14 @@ namespace TimeDependentStokesBDF2 {
         static void
         write_error_to_file(Error &error, std::ofstream &file);
 
+        Vector<double> solution;    // u = u^(n+1)
+
     protected:
         void
-        interpolate_first_steps(Vector<double> &u1);
+        set_bdf_constants(unsigned int bdf_type);
+
+        void
+        interpolate_first_steps(Vector<double> &u1, unsigned int bdf_type);
 
         void
         make_grid();
@@ -196,10 +201,9 @@ namespace TimeDependentStokesBDF2 {
         SparsityPattern sparsity_pattern;
         SparseMatrix<double> stiffness_matrix;
 
-        Vector<double> rhs;            // f
-        Vector<double> solution;       // u = u^(n+1)
-        Vector<double> old_solution;   // u^n
-        Vector<double> older_solution; // u^(n-1)
+        Vector<double> rhs;         // f
+        Vector<double> solution_u1; // u^n
+        Vector<double> solution_u0; // u^(n-1)
 
         AffineConstraints<double> constraints;
     };
