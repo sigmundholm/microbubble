@@ -45,6 +45,7 @@ void solve_for_element_order(int element_order, int max_refinement,
 
         std::cout << std::endl << "Implicit Euler step" << std::endl
                   << std::endl;
+        /*
         TimeDependentStokesIE::StokesCylinder<dim> stokes_bdf1(
                 radius, half_length,
                 n_refines, nu, tau,
@@ -55,16 +56,15 @@ void solve_for_element_order(int element_order, int max_refinement,
                 analytical_pressure,
                 sphere_radius,
                 sphere_x_coord);
-        // TimeDependentStokesIE::Error error_bdf1 = stokes_bdf1.run(1);
+        TimeDependentStokesIE::Error error_bdf1 = stokes_bdf1.run(1);
+         */
         Vector<double> u1;
         u1.reinit(1);
-        /*
         StokesCylinder<dim> stokes_bdf1(
                 radius, half_length, n_refines, nu, tau, element_order,
                 write_output, rhs, boundary_values, analytical_velocity,
                 analytical_pressure, sphere_radius, sphere_x_coord);
         Error err1 = stokes_bdf1.run(u1, 1, 1);
-         */
 
         std::cout << std::endl << "BDF-2" << std::endl << std::endl;
         StokesCylinder<dim> stokes_bdf2(

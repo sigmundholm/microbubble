@@ -109,7 +109,7 @@ namespace TimeDependentStokesBDF2 {
 
         // If u1 is a vector of length 1, then u1 is interpolated from
         // boundary_values too.
-        interpolate_first_steps(u1, bdf_type);
+        interpolate_first_steps(errors, u1, bdf_type);
 
         double time;
         for (unsigned int k = bdf_type; k <= steps; ++k) {
@@ -174,9 +174,23 @@ namespace TimeDependentStokesBDF2 {
         }
     }
 
+    /**
+     *
+     * @tparam dim
+     * @param errors
+     * @param u1
+     * @param bdf_type
+     *
+     * The initial value u0 is interpolated using the boundary_values object,
+     * while possibly next steps are interpolated using analytical_velocity and
+     * analytical_pressure. This is becuase this is only done when u1 is not
+     * supplied, which must mean we have the analytical solutions.
+     *
+     */
     template<int dim>
     void StokesCylinder<dim>::
-    interpolate_first_steps(Vector<double> &u1, unsigned int bdf_type) {
+    interpolate_first_steps(std::vector<Error> &errors, Vector<double> &u1,
+                            unsigned int bdf_type) {
 
         // Important that the boundary_values function uses t=0, when
         // we interpolate the initial value from it.
@@ -204,31 +218,33 @@ namespace TimeDependentStokesBDF2 {
             solution_u1 = solution;
         } else if (bdf_type == 2) {
             // BDF-2
-            // Set the interpolated u0 as u0 (since this is the n-2 step)
+            // Set the interpolated u0 as u0 (since this is the n-2 step when
+            // using BDF-2)
             solution_u0 = solution;
 
+            // Set the time for the analytical solutions, so that the
+            // error calculation (and interpolation) is done at t=τ.
+            analytical_velocity->set_time(tau);
+            analytical_pressure->set_time(tau);
+
             if (u1.size() == 1) { // TODO find smoother check?
-                // Interpolate the analytical solution u_1 (i.e. interpolate
-                // boundary_values at t=τ)
-                boundary_values->set_time(tau);
-                VectorTools::interpolate(
-                        dof_handler,
-                        adapter,
-                        solution,
-                        fe_collection.component_mask(velocities));
+                // Interpolate the analytical solution for u_1 (step n-1)
+                Utils::AnalyticalSolutionWrapper<dim> wrapper(*analytical_velocity,
+                                                              *analytical_pressure);
+                VectorTools::interpolate(dof_handler, wrapper,solution);
 
                 output_results(1);
-                compute_error();
+                errors[0] = compute_error();
                 solution_u1 = solution;
             } else {
                 solution = u1;
                 output_results(1);
-                Error error = compute_error();
+                errors[0] = compute_error();
                 std::cout << "Error u1 (supplied)" << std::endl;
-                std::cout << "u-l2= " << error.l2_error_u
-                          << "    u-h1= " << error.h1_error_u
-                          << "    p-l2= " << error.l2_error_p
-                          << "    p-h1= " << error.h1_error_p << std::endl;
+                std::cout << "u-l2= " << errors[0].l2_error_u
+                          << "    u-h1= " << errors[0].h1_error_u
+                          << "    p-l2= " << errors[0].l2_error_p
+                          << "    p-h1= " << errors[0].h1_error_p << std::endl;
                 solution_u1 = solution;
             }
         } else {

@@ -87,7 +87,7 @@ namespace TimeDependentStokesBDF2 {
         set_bdf_constants(unsigned int bdf_type);
 
         void
-        interpolate_first_steps(Vector<double> &u1, unsigned int bdf_type);
+        interpolate_first_steps(std::vector<Error> &errors, Vector<double> &u1, unsigned int bdf_type);
 
         void
         make_grid();
