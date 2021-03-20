@@ -18,6 +18,9 @@ namespace TimeDependentStokesBDF2 {
         double l2_error_p = 0;
         double h1_error_p = 0;
         double h1_semi_p = 0;
+
+        double l_inf_l2_error_u = 0;
+        double l_inf_h1_error_u = 0;
     };
 
     template<int dim>

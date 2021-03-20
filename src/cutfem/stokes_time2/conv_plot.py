@@ -24,7 +24,7 @@ if __name__ == '__main__':
         eoc_plot(data, head,
                  title=r"\textrm{Time dep. Stokes (BDF-2) EOC, element order: (" + str(poly_order + 1) + ", " + str(
                      poly_order) + ")}",
-                 domain_lenght=0.205 * 2, lines_at=np.array([0, 1, 2]) + poly_order)
+                 domain_lenght=0.205 * 2, lines_at=np.array([1, 2]))
         plt.savefig(f"bdf2-eoc-o{poly_order}.pdf")
 
     plt.show()

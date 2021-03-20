@@ -90,6 +90,8 @@ namespace TimeDependentStokesBDF2 {
     Error StokesCylinder<dim>::
     run(Vector<double> &u1, unsigned int bdf_type, unsigned int steps) {
 
+        std::cout << "BDF-" << bdf_type << ", steps=" << steps << std::endl;
+
         set_bdf_constants(bdf_type);
 
         make_grid();
@@ -105,7 +107,7 @@ namespace TimeDependentStokesBDF2 {
         assemble_system();
 
         // Vector for the computed error for each time step.
-        std::vector<Error> errors(steps);
+        std::vector<Error> errors(steps + 1);
 
         // If u1 is a vector of length 1, then u1 is interpolated from
         // boundary_values too.
@@ -140,12 +142,13 @@ namespace TimeDependentStokesBDF2 {
             solution_u0 = solution_u1;
             solution_u1 = solution;
 
-            errors[k - 1] = compute_error();
+            errors[k] = compute_error();
         }
 
         std::cout << std::endl;
-        for (Error err : errors) {
-            std::cout << "u-l2= " << err.l2_error_u
+        for (unsigned k = 0; k < errors.size(); ++k) {
+            Error err = errors[k];
+            std::cout << k << " u-l2= " << err.l2_error_u
                       << "    u-h1= " << err.h1_error_u
                       << "    p-l2= " << err.l2_error_p
                       << "    p-h1= " << err.h1_error_p << std::endl;
@@ -204,13 +207,20 @@ namespace TimeDependentStokesBDF2 {
                 *boundary_values,
                 velocities.first_vector_component,
                 n_components_on_element);
+
+        // TODO burde kanskje heller interpolere boundary_values for
+        //  initial verdier?
+        analytical_velocity->set_time(0);
+        analytical_pressure->set_time(0);
+        Utils::AnalyticalSolutionWrapper<dim> wrapper2(*analytical_velocity,
+                                                       *analytical_pressure);
         VectorTools::interpolate(
                 dof_handler,
-                adapter,
-                solution,
-                fe_collection.component_mask(velocities));
+                wrapper2,
+                solution);
 
         output_results(0);
+        errors[0] = compute_error();
 
         if (bdf_type == 1) {
             // BDF-1 (implicit Euler)
@@ -229,17 +239,18 @@ namespace TimeDependentStokesBDF2 {
 
             if (u1.size() == 1) { // TODO find smoother check?
                 // Interpolate the analytical solution for u_1 (step n-1)
-                Utils::AnalyticalSolutionWrapper<dim> wrapper(*analytical_velocity,
-                                                              *analytical_pressure);
-                VectorTools::interpolate(dof_handler, wrapper,solution);
+                Utils::AnalyticalSolutionWrapper<dim> wrapper(
+                        *analytical_velocity,
+                        *analytical_pressure);
+                VectorTools::interpolate(dof_handler, wrapper, solution);
 
                 output_results(1);
-                errors[0] = compute_error();
+                errors[1] = compute_error();
                 solution_u1 = solution;
             } else {
                 solution = u1;
                 output_results(1);
-                errors[0] = compute_error();
+                errors[1] = compute_error();
                 std::cout << "Error u1 (supplied)" << std::endl;
                 std::cout << "u-l2= " << errors[0].l2_error_u
                           << "    u-h1= " << errors[0].h1_error_u
@@ -411,8 +422,9 @@ namespace TimeDependentStokesBDF2 {
             const boost::optional<const FEValues<dim> &> fe_values_bulk =
                     cut_fe_values.get_inside_fe_values();
 
-            if (fe_values_bulk)
+            if (fe_values_bulk) {
                 assemble_local_over_cell(*fe_values_bulk, loc2glb);
+            }
 
             // Loop through all faces that constitutes the outer boundary of the
             // domain.
@@ -925,11 +937,19 @@ namespace TimeDependentStokesBDF2 {
         double l2_error_integral_p = 0;
         double h1_error_integral_p = 0;
 
+        double l_inf_l2_u = 0;
+        double l_inf_h1_u = 0;
+
         for (Error error : errors) {
             l2_error_integral_u += tau * pow(error.l2_error_u, 2);
             h1_error_integral_u += tau * pow(error.h1_semi_u, 2);
             l2_error_integral_p += tau * pow(error.l2_error_p, 2);
             h1_error_integral_p += tau * pow(error.h1_semi_p, 2);
+
+            if (error.l2_error_u > l_inf_l2_u)
+                l_inf_l2_u = error.l2_error_u;
+            if (error.h1_error_u > l_inf_h1_u)
+                l_inf_h1_u = error.h1_error_u;
         }
 
         Error error;
@@ -942,6 +962,9 @@ namespace TimeDependentStokesBDF2 {
         error.l2_error_p = pow(l2_error_integral_p, 0.5);
         error.h1_error_p = pow(l2_error_integral_p + h1_error_integral_p, 0.5);
         error.h1_semi_p = pow(h1_error_integral_p, 0.5);
+
+        error.l_inf_l2_error_u = l_inf_l2_u;
+        error.l_inf_h1_error_u = l_inf_h1_u;
         return error;
     }
 
@@ -950,7 +973,9 @@ namespace TimeDependentStokesBDF2 {
     void StokesCylinder<dim>::
     write_header_to_file(std::ofstream &file) {
         file << "\\tau, h, \\|u\\|_{L^2L^2}, \\|u\\|_{L^2H^1}, |u|_{L^2H^1}, "
-                "\\|p\\|_{L^2L^2}, \\|p\\|_{L^2H^1}, |p|_{L^2H^1}" << std::endl;
+                "\\|p\\|_{L^2L^2}, \\|p\\|_{L^2H^1}, |p|_{L^2H^1}, "
+                "\\|u\\|_{l^{\\infty}L^2}, \\|u\\|_{l^{\\infty}H^1},"
+             << std::endl;
     }
 
 
@@ -964,7 +989,9 @@ namespace TimeDependentStokesBDF2 {
              << error.h1_semi_u << ","
              << error.l2_error_p << ","
              << error.h1_error_p << ","
-             << error.h1_semi_p << std::endl;
+             << error.h1_semi_p << ","
+             << error.l_inf_l2_error_u << ","
+             << error.l_inf_h1_error_u << std::endl;
     }
 
 
