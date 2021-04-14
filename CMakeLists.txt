@@ -10,8 +10,6 @@ project(microbubble)
 find_package(cutfem REQUIRED
         HINTS ${CUTFEM_DIR} $ENV{CUTFEM_DIR})
 
-add_executable(nitsche-poisson src/nitsche_poisson.cpp)
-deal_ii_setup_target(nitsche-poisson)
 
 add_executable(nitsche-stokes src/stokes_channel_cylinder.cpp src/nitsche_stokes.cpp)
 deal_ii_setup_target(nitsche-stokes)
