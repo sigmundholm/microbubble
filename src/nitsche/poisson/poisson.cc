@@ -31,61 +31,8 @@
 #include <fstream>
 #include <iostream>
 
-using namespace dealii;
-
-template<int dim>
-class PoissonNitsche {
-public:
-    PoissonNitsche(const unsigned int degree);
-
-    void run();
-
-private:
-    void make_grid();
-
-    void setup_system();
-
-    void assemble_system();
-
-    void solve();
-
-    void output_results() const;
-
-    Triangulation<dim> triangulation;
-    FE_Q<dim> fe;
-    DoFHandler<dim> dof_handler;
-    SparsityPattern sparsity_pattern;
-    SparseMatrix<double> system_matrix;
-    Vector<double> solution;
-    Vector<double> system_rhs;
-};
-
-// Functions for right hand side and boundary values.
-
-template<int dim>
-class RightHandSide : public Function<dim> {
-public:
-    virtual double value(const Point<dim> &p, const unsigned int component = 0) const override;
-};
-
-template<int dim>
-class BoundaryValues : public Function<dim> {
-public:
-    virtual double value(const Point<dim> &p, const unsigned int component = 0) const override;
-};
-
-
-template<int dim>
-double RightHandSide<dim>::value(const Point<dim> &p, const unsigned int) const {
-    (void) p;
-    return 1;
-}
-
-template<int dim>
-double BoundaryValues<dim>::value(const Point<dim> &p, const unsigned int) const {
-    (void) p;
-    return 0;
-}
+#include "poisson.h"
+#include "rhs.h"
 
 
 template<int dim>
@@ -109,14 +56,16 @@ void PoissonNitsche<dim>::make_grid() {
         std::cout << "Grid written to file as svg." << std::endl;
     }
 
-    std::cout << "  Number of active cells: " << triangulation.n_active_cells() << std::endl;
+    std::cout << "  Number of active cells: " << triangulation.n_active_cells()
+              << std::endl;
 
 }
 
 template<int dim>
 void PoissonNitsche<dim>::setup_system() {
     dof_handler.distribute_dofs(fe);
-    std::cout << "  Number of degrees of freedom: " << dof_handler.n_dofs() << std::endl;
+    std::cout << "  Number of degrees of freedom: " << dof_handler.n_dofs()
+              << std::endl;
 
     DoFRenumbering::Cuthill_McKee(dof_handler);
     DynamicSparsityPattern dsp(dof_handler.n_dofs(), dof_handler.n_dofs());
@@ -144,7 +93,8 @@ void PoissonNitsche<dim>::assemble_system() {
     FEFaceValues<dim> fe_face_values(fe,
                                      face_quadrature_formula,
                                      update_values | update_gradients |
-                                     update_quadrature_points | update_normal_vectors |
+                                     update_quadrature_points |
+                                     update_normal_vectors |
                                      update_JxW_values);
 
     const unsigned int dofs_per_cell = fe.dofs_per_cell;
@@ -161,14 +111,17 @@ void PoissonNitsche<dim>::assemble_system() {
             for (const unsigned int i : fe_values.dof_indices()) {
                 for (const unsigned int j : fe_values.dof_indices()) {
                     cell_matrix(i, j) +=
-                            fe_values.shape_grad(i, q_index) *  // grad phi_i(x_q)
-                            fe_values.shape_grad(j, q_index) *  // grad phi_j(x_q)
+                            fe_values.shape_grad(i, q_index) *
+                            // grad phi_i(x_q)
+                            fe_values.shape_grad(j, q_index) *
+                            // grad phi_j(x_q)
                             fe_values.JxW(q_index);             // dx
                 }
 
                 // RHS
                 const auto x_q = fe_values.quadrature_point(q_index);
-                cell_rhs(i) += (fe_values.shape_value(i, q_index) *  // phi_i(x_q)
+                cell_rhs(i) += (fe_values.shape_value(i, q_index) *
+                                // phi_i(x_q)
                                 right_hand_side.value(x_q) *         // f(x_q)
                                 fe_values.JxW(q_index));             // dx
             }
@@ -189,31 +142,42 @@ void PoissonNitsche<dim>::assemble_system() {
                     const auto x_q = fe_face_values.quadrature_point(q_index);
 
                     for (const unsigned int i : fe_face_values.dof_indices()) {
-                        const double phi_i_val = fe_face_values.shape_value(i, q_index);
+                        const double phi_i_val = fe_face_values.shape_value(i,
+                                                                            q_index);
 
                         for (const unsigned int j : fe_face_values.dof_indices()) {
-                            const double phi_j_val = fe_face_values.shape_value(j, q_index);
+                            const double phi_j_val = fe_face_values.shape_value(
+                                    j, q_index);
 
                             cell_matrix(i, j) +=
-                                    ((mu * phi_i_val * phi_j_val               // mu * phi_i(x_q) * phi_j(x_q)
+                                    ((mu * phi_i_val *
+                                      phi_j_val               // mu * phi_i(x_q) * phi_j(x_q)
                                       -
-                                      fe_face_values.normal_vector(q_index) *  // n
-                                      fe_face_values.shape_grad(i, q_index) *  // grad phi_i(x_q)
+                                      fe_face_values.normal_vector(q_index) *
+                                      // n
+                                      fe_face_values.shape_grad(i, q_index) *
+                                      // grad phi_i(x_q)
                                       phi_j_val                                // phi_j(x_q)
                                       -
-                                      phi_i_val *                              // phi_i(x_q)
-                                      fe_face_values.normal_vector(q_index) *  // n
-                                      fe_face_values.shape_grad(j, q_index)    // grad phi_j(x_q)
+                                      phi_i_val *
+                                      // phi_i(x_q)
+                                      fe_face_values.normal_vector(q_index) *
+                                      // n
+                                      fe_face_values.shape_grad(j,
+                                                                q_index)    // grad phi_j(x_q)
                                      ) * fe_face_values.JxW(q_index));
                         }
 
                         cell_rhs(i) +=
-                                ((mu * boundary_values.value(x_q) *       // mu * g(x_q)
+                                ((mu * boundary_values.value(x_q) *
+                                  // mu * g(x_q)
                                   phi_i_val                               // phi_i(x_q)
                                   -
-                                  boundary_values.value(x_q) *            // g(x_q)
+                                  boundary_values.value(x_q) *
+                                  // g(x_q)
                                   fe_face_values.normal_vector(q_index) * // n
-                                  fe_face_values.shape_grad(i, q_index)   // grad phi_i(x_q)
+                                  fe_face_values.shape_grad(i,
+                                                            q_index)   // grad phi_i(x_q)
                                  ) * fe_face_values.JxW(q_index));        // dx
                     }
                 }
@@ -269,3 +233,9 @@ int main() {
         poissonNitsche.run();
     }
 }
+
+template
+class PoissonNitsche<2>;
+
+template
+class PoissonNitsche<3>;
