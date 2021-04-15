@@ -4,7 +4,7 @@
 int main() {
     std::cout << "PoissonNitsche" << std::endl;
     {
-        PoissonNitsche<2> poisson(1, 3);
+        PoissonNitsche<2> poisson(1, 6);
         poisson.run();
     }
 }

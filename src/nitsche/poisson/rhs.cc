@@ -1,14 +1,14 @@
-#include <math.h>
-#include <iostream>
-
 #include "rhs.h"
+
+#define pi 3.141592653589793
+
 
 template<int dim>
 double
 RightHandSide<dim>::value(const Point<dim> &p, const unsigned int) const {
     double x = p[0];
     double y = p[1];
-    return - 2 * M_PI * M_PI * cos(M_PI * x) * sin(M_PI * y);
+    return 2 * pi * pi * sin(pi * x) * sin(pi * y);
 }
 
 template<int dim>
@@ -16,7 +16,7 @@ double
 BoundaryValues<dim>::value(const Point<dim> &p, const unsigned int) const {
     double x = p[0];
     double y = p[1];
-    return cos(M_PI * x) * sin(M_PI * y);
+    return sin(pi * x) * sin(pi * y);
 }
 
 
@@ -26,7 +26,7 @@ value(const Point<dim> &p, const unsigned int component) const {
     (void) component;
     double x = p[0];
     double y = p[1];
-    return cos(M_PI * x) * sin(M_PI * y);
+    return sin(pi * x) * sin(pi * y);
 }
 
 template<int dim>
@@ -36,8 +36,9 @@ gradient(const Point<dim> &p, const unsigned int component) const {
     double x = p[0];
     double y = p[1];
     Tensor<1, dim> value;
-    value[0] = - M_PI * sin(M_PI * x) * sin(M_PI * y);
-    value[1] = M_PI * cos(M_PI * x) * cos(M_PI * y);
+    value[0] = pi * sin(pi * y) * cos(pi * x);
+    value[1] = pi * sin(pi * x) * cos(pi * y);
+
     return value;
 }
 

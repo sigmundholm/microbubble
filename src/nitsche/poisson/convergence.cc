@@ -25,7 +25,7 @@ void solve_for_element_order(int element_order, int max_refinement,
 
         std::cout << "|| u - u_h ||_L2 = " << error.l2_error << std::endl;
         std::cout << "|| u - u_h ||_H1 = " << error.h1_error << std::endl;
-        std::cout << "|| p - p_h ||_L2 = " << error.h1_semi << std::endl;
+        std::cout << "| u - u_h |_H1 = " << error.h1_semi << std::endl;
         PoissonNitsche<dim>::write_error_to_file(error, file);
     }
 }
@@ -42,5 +42,5 @@ void run_convergence_test(std::vector<int> orders, int max_refinement,
 
 
 int main() {
-    run_convergence_test<2>({1, 2}, 8, true);
+    run_convergence_test<2>({1, 2}, 7, true);
 }
