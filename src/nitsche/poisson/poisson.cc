@@ -36,17 +36,18 @@
 
 
 template<int dim>
-PoissonNitsche<dim>::PoissonNitsche(const unsigned int degree)
-        : fe(degree), dof_handler(triangulation) {}
+PoissonNitsche<dim>::PoissonNitsche(const unsigned int degree,
+                                    const unsigned int n_refines)
+        : degree(degree), n_refines(n_refines), fe(degree),
+          dof_handler(triangulation) {}
 
 
 template<int dim>
 void PoissonNitsche<dim>::make_grid() {
-    GridGenerator::cylinder(triangulation, 5, 10);
+    GridGenerator::cylinder(triangulation, 1, 1);
     GridTools::remove_anisotropy(triangulation, 1.618, 5);
-    triangulation.refine_global(dim == 2 ? 2 : 0);
 
-    triangulation.refine_global(dim == 2 ? 3 : 1);
+    triangulation.refine_global(n_refines);
 
     // Write svg of grid to file.
     if (dim == 2) {
@@ -127,7 +128,7 @@ void PoissonNitsche<dim>::assemble_system() {
             }
         }
 
-        double h;
+        double h_local;
         double mu;
 
         for (const auto &face : cell->face_iterators()) {
@@ -135,8 +136,12 @@ void PoissonNitsche<dim>::assemble_system() {
             if (face->at_boundary()) {
                 fe_face_values.reinit(cell, face);
 
-                h = std::pow(face->measure(), 1.0 / (dim - 1));
-                mu = 5 / h;  // Penalty parameter
+                h_local = std::pow(face->measure(), 1.0 / (dim - 1));
+                mu = 5 / h_local;  // Penalty parameter
+
+                if (h_local > h) {
+                    h = h_local;
+                }
 
                 for (unsigned int q_index : fe_face_values.quadrature_point_indices()) {
                     const auto x_q = fe_face_values.quadrature_point(q_index);
@@ -218,21 +223,83 @@ void PoissonNitsche<dim>::output_results() const {
 }
 
 template<int dim>
-void PoissonNitsche<dim>::run() {
+Error PoissonNitsche<dim>::compute_error() {
+    QGauss<dim> quad(fe.degree + 1);
+
+    FEValues<dim> fe_v(fe, quad,
+                       update_values | update_gradients |
+                       update_quadrature_points | update_JxW_values);
+
+    double l2_error_integral = 0;
+    double h1_semi_error_integral = 0;
+
+    std::vector<double> solution_values(fe_v.n_quadrature_points);
+    std::vector<Tensor<1, dim>> solution_gradients(fe_v.n_quadrature_points);
+
+    std::vector<double> exact_values(fe_v.n_quadrature_points);
+    std::vector<Tensor<1, dim>> exact_gradients(fe_v.n_quadrature_points);
+
+    AnalyticalSolution<dim> analytical_solution;
+
+    double diff_value;
+    Tensor<1, dim> diff_grad;
+
+    for (const auto &cell : dof_handler.active_cell_iterators()) {
+        fe_v.reinit(cell);
+
+        fe_v.get_function_values(solution, solution_values);
+        fe_v.get_function_gradients(solution, solution_gradients);
+
+        analytical_solution.value_list(fe_v.get_quadrature_points(),
+                                       exact_values);
+        analytical_solution.gradient_list(fe_v.get_quadrature_points(),
+                                          exact_gradients);
+
+
+        for (const unsigned int q : fe_v.quadrature_point_indices()) {
+            diff_value = exact_values[q] - solution_values[q];
+            diff_grad = exact_gradients[q] - solution_gradients[q];
+
+            l2_error_integral += diff_value * diff_value * fe_v.JxW(q);
+            h1_semi_error_integral += diff_grad * diff_grad * fe_v.JxW(q);
+        }
+    }
+
+    Error error;
+    error.mesh_size = h;
+    error.l2_error = pow(l2_error_integral, 0.5);
+    error.h1_semi = pow(h1_semi_error_integral, 0.5);
+    error.h1_error = pow(l2_error_integral + h1_semi_error_integral, 0.5);
+    return error;
+}
+
+template<int dim>
+Error PoissonNitsche<dim>::run() {
     make_grid();
     setup_system();
     assemble_system();
     solve();
     output_results();
+    return compute_error();
 }
 
-int main() {
-    std::cout << "PoissonNitsche" << std::endl;
-    {
-        PoissonNitsche<2> poissonNitsche(1);
-        poissonNitsche.run();
-    }
+
+template<int dim>
+void PoissonNitsche<dim>::
+write_header_to_file(std::ofstream &file) {
+    file << "h, \\|u\\|_{L^2}, \\|u\\|_{H^1}, |u|_{H^1}" << std::endl;
 }
+
+
+template<int dim>
+void PoissonNitsche<dim>::
+write_error_to_file(Error &error, std::ofstream &file) {
+    file << error.mesh_size << ","
+         << error.l2_error << ","
+         << error.h1_error << ","
+         << error.h1_semi << std::endl;
+}
+
 
 template
 class PoissonNitsche<2>;

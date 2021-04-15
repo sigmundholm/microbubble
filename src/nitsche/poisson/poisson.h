@@ -8,15 +8,22 @@
 #include <deal.II/lac/sparse_matrix.h>
 #include <deal.II/lac/vector.h>
 
+#include "rhs.h"
+
 using namespace dealii;
 
 
 template<int dim>
 class PoissonNitsche {
 public:
-    PoissonNitsche(const unsigned int degree);
+    PoissonNitsche(const unsigned int degree,
+                   const unsigned int n_refines);
 
-    void run();
+    Error run();
+
+    static void write_header_to_file(std::ofstream &file);
+
+    static void write_error_to_file(Error &error, std::ofstream &file);
 
 private:
     void make_grid();
@@ -29,6 +36,13 @@ private:
 
     void output_results() const;
 
+    Error compute_error();
+
+    const unsigned int degree;
+    const unsigned int n_refines;
+
+    double h = 0;
+
     Triangulation<dim> triangulation;
     FE_Q<dim> fe;
     DoFHandler<dim> dof_handler;
@@ -36,6 +50,7 @@ private:
     SparseMatrix<double> system_matrix;
     Vector<double> solution;
     Vector<double> system_rhs;
+
 };
 
 
