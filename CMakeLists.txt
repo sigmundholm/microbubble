@@ -10,11 +10,4 @@ project(microbubble)
 find_package(cutfem REQUIRED
         HINTS ${CUTFEM_DIR} $ENV{CUTFEM_DIR})
 
-
-add_executable(nitsche-stokes src/stokes_channel_cylinder.cpp src/nitsche_stokes.cpp)
-deal_ii_setup_target(nitsche-stokes)
-
-add_executable(stokes-error src/nitsche_stokes.h src/nitsche_stokes.cpp src/stokes_error.cpp)
-deal_ii_setup_target(stokes-error)
-
 add_subdirectory(src)
