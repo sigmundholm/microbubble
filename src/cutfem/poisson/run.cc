@@ -4,11 +4,11 @@
 int main() {
     const int dim = 2;
     double radius = 1;
-    double half_length = 2;
+    double half_length = 1;
     int n_refines = 5;
     int degree = 1;
     bool write_output = true;
-    double sphere_rad = radius / 2;
+    double sphere_rad = radius * 0.9;
     double sphere_x_coord = 0;
 
     RightHandSide<dim> rhs;

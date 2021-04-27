@@ -15,7 +15,7 @@ void solve_for_element_order(int element_order, int max_refinement,
 
     double radius = 1;
     double half_length = 1;
-    double sphere_rad = radius * 0.8;
+    double sphere_rad = radius * 0.9;
     double sphere_x_coord = 0;
 
     RightHandSide<dim> rhs;

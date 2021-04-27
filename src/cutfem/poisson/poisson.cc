@@ -122,7 +122,7 @@ Poisson<dim>::setup_level_set() {
 
     // Project the geometry onto the mesh.
     cutfem::geometry::SignedDistanceSphere<dim> signed_distance_sphere(
-            sphere_radius, center, -1);
+            sphere_radius, center, 1);
     VectorTools::project(levelset_dof_handler,
                          constraints,
                          QGauss<dim>(2 * element_order + 1),
@@ -233,15 +233,6 @@ Poisson<dim>::assemble_system() {
 
         if (fe_values_bulk) {
             assemble_local_over_bulk(*fe_values_bulk, loc2glb);
-        }
-
-        // Loop through all faces that constitutes the outer boundary of the
-        // domain.
-        for (const auto &face : cell->face_iterators()) {
-            if (face->at_boundary()) {
-                fe_face_values.reinit(cell, face);
-                assemble_local_over_surface(fe_face_values, loc2glb);
-            }
         }
 
         // Retrieve an FEValues object with quadrature points
