@@ -13,10 +13,10 @@ int main() {
 
     RightHandSide<dim> rhs;
     BoundaryValues<dim> bdd;
+    AnalyticalSolution<dim> soln;
 
     Poisson<dim> poisson(radius, half_length, n_refines, degree, write_output,
-                         rhs, bdd, sphere_rad, sphere_x_coord);
+                         rhs, bdd, soln, sphere_rad, sphere_x_coord);
 
     poisson.run();
-
 }

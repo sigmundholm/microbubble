@@ -44,6 +44,7 @@ Poisson<dim>::Poisson(const double radius,
                       const bool write_output,
                       Function<dim> &rhs,
                       Function<dim> &bdd_values,
+                      Function<dim> &analytical_soln,
                       const double sphere_radius,
                       const double sphere_x_coord)
         : radius(radius), half_length(half_length), n_refines(n_refines),
@@ -57,6 +58,7 @@ Poisson<dim>::Poisson(const double radius,
 
     rhs_function = &rhs;
     boundary_values = &bdd_values;
+    analytical_solution = &analytical_soln;
 
     if (dim == 2) {
         this->center = Point<dim>(sphere_x_coord, 0);
@@ -75,7 +77,7 @@ Poisson<dim>::setup_quadrature() {
 }
 
 template<int dim>
-void
+Error
 Poisson<dim>::run() {
     make_grid();
     setup_quadrature();
@@ -88,6 +90,7 @@ Poisson<dim>::run() {
     if (write_output) {
         output_results();
     }
+    return compute_error();
 }
 
 template<int dim>
@@ -235,7 +238,7 @@ Poisson<dim>::assemble_system() {
         // Loop through all faces that constitutes the outer boundary of the
         // domain.
         for (const auto &face : cell->face_iterators()) {
-            if (face->at_boundary() && face->boundary_id() != do_nothing_id) {
+            if (face->at_boundary()) {
                 fe_face_values.reinit(cell, face);
                 assemble_local_over_surface(fe_face_values, loc2glb);
             }
@@ -333,10 +336,10 @@ Poisson<dim>::assemble_local_over_surface(
             for (const unsigned int j : fe_values.dof_indices()) {
                 local_matrix(i, j) +=
                         (mu * phi[j] * phi[i]  // mu (u, v)
-                        -
-                        grad_phi[j] * normal * phi[i] // (∂_n u,v)
-                        -
-                        phi[j] * grad_phi[i] * normal // (u,∂_n v)
+                         -
+                         grad_phi[j] * normal * phi[i] // (∂_n u,v)
+                         -
+                         phi[j] * grad_phi[i] * normal // (u,∂_n v)
                         ) * fe_values.JxW(q); // ds
             }
 
@@ -384,6 +387,99 @@ Poisson<dim>::output_results() const {
                             + "o" + std::to_string(element_order)
                             + "r" + std::to_string(n_refines) + ".vtk");
     data_out_levelset.write_vtk(output_ls);
+}
+
+
+template<int dim>
+Error Poisson<dim>::compute_error() {
+
+    double l2_error_integral;
+    double h1_semi_error_integral;
+
+    NonMatching::RegionUpdateFlags region_update_flags;
+    region_update_flags.inside = update_values | update_JxW_values |
+                                 update_gradients | update_quadrature_points;
+
+    NonMatching::FEValues<dim> cut_fe_values(mapping_collection,
+                                             fe_collection,
+                                             q_collection,
+                                             q_collection1D,
+                                             region_update_flags,
+                                             cut_mesh_classifier,
+                                             levelset_dof_handler,
+                                             levelset);
+
+
+    for (const auto &cell : dof_handler.active_cell_iterators()) {
+        cut_fe_values.reinit(cell);
+
+        // Retrieve an FEValues object with quadrature points
+        // over the full cell.
+        const boost::optional<const FEValues<dim> &> fe_values_bulk =
+                cut_fe_values.get_inside_fe_values();
+
+        if (fe_values_bulk) {
+            integrate_cell(*fe_values_bulk, l2_error_integral,
+                           h1_semi_error_integral);
+        }
+    }
+
+    Error error;
+    error.mesh_size = h;
+    error.l2_error = pow(l2_error_integral, 0.5);
+    error.h1_semi = pow(h1_semi_error_integral, 0.5);
+    error.h1_error = pow(l2_error_integral + h1_semi_error_integral, 0.5);
+    return error;
+}
+
+
+template<int dim>
+void Poisson<dim>::
+integrate_cell(const FEValues<dim> &fe_v,
+               double &l2_error_integral,
+               double &h1_error_integral) const {
+
+    std::vector<double> solution_values(fe_v.n_quadrature_points);
+    std::vector<Tensor<1, dim>> solution_gradients(fe_v.n_quadrature_points);
+    std::vector<double> analytical_values(fe_v.n_quadrature_points);
+    std::vector<Tensor<1, dim>> analytical_gradients(fe_v.n_quadrature_points);
+
+    fe_v.get_function_values(solution, solution_values);
+    fe_v.get_function_gradients(solution, solution_gradients);
+
+
+    analytical_solution->value_list(fe_v.get_quadrature_points(),
+                                    analytical_values);
+    analytical_solution->gradient_list(fe_v.get_quadrature_points(),
+                                       analytical_gradients);
+
+    double diff_values;
+    Tensor<1, dim> diff_gradients;
+    for (unsigned int q = 0; q < fe_v.n_quadrature_points; ++q) {
+        diff_values = analytical_values[q] - solution_values[q];
+        diff_gradients = analytical_gradients[q] - solution_gradients[q];
+
+        l2_error_integral += diff_values * diff_values * fe_v.JxW(q);
+        h1_error_integral += diff_gradients * diff_gradients * fe_v.JxW(q);
+    }
+
+}
+
+
+template<int dim>
+void Poisson<dim>::
+write_header_to_file(std::ofstream &file) {
+    file << "h, \\|u\\|_{L^2}, \\|u\\|_{H^1}, |u|_{H^1}" << std::endl;
+}
+
+
+template<int dim>
+void Poisson<dim>::
+write_error_to_file(Error &error, std::ofstream &file) {
+    file << error.mesh_size << ","
+         << error.l2_error << ","
+         << error.h1_error << ","
+         << error.h1_semi << std::endl;
 }
 
 

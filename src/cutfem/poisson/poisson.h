@@ -49,11 +49,18 @@ public:
             const bool write_output,
             Function<dim> &rhs,
             Function<dim> &bdd_values,
+            Function<dim> &analytical_soln,
             const double sphere_radius,
             const double sphere_x_coord);
 
-    virtual void
+    virtual Error
     run();
+
+    static void
+    write_header_to_file(std::ofstream &file);
+
+    static void
+    write_error_to_file(Error &error, std::ofstream &file);
 
 protected:
     void
@@ -89,6 +96,14 @@ protected:
     void
     output_results() const;
 
+    Error
+    compute_error();
+
+    void
+    integrate_cell(const FEValues<dim> &fe_v,
+                   double &l2_error_integral,
+                   double &h1_error_integral) const;
+
     const double radius;
     const double half_length;
     const unsigned int n_refines;
@@ -101,12 +116,11 @@ protected:
 
     Function<dim> *rhs_function;
     Function<dim> *boundary_values;
+    Function<dim> *analytical_solution;
 
     // Cell side-length.
     double h = 0;
     const unsigned int element_order;
-
-    unsigned int do_nothing_id = 2;
 
     Triangulation<dim> triangulation;
     FE_Q<dim> fe;
