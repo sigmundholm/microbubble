@@ -134,7 +134,9 @@ void PoissonNitsche<dim>::assemble_system() {
                 fe_face_v.reinit(cell, face);
 
                 h_local = std::pow(face->measure(), 1.0 / (dim - 1));
-                mu = 5 / h_local;  // Penalty parameter
+                double gamma_0 = 10;
+                mu = gamma_0 * degree * (degree + 1) /
+                     h_local;  // Penalty parameter
 
                 if (h_local > h) {
                     h = h_local;
