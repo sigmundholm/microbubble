@@ -10,6 +10,7 @@ struct Error {
     double l2_error = 0;
     double h1_error = 0;
     double h1_semi = 0;
+    double cond_num = 0;
 };
 
 

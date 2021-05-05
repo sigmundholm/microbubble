@@ -90,6 +90,7 @@ Poisson<dim>::run() {
     if (write_output) {
         output_results();
     }
+    compute_condition_number();
     return compute_error();
 }
 
@@ -356,6 +357,25 @@ Poisson<dim>::solve() {
 }
 
 template<int dim>
+void Poisson<dim>::
+compute_condition_number() {
+    std::cout << "Compute condition number" << std::endl;
+
+    // Invert the stiffness_matrix
+    FullMatrix<double> stiffness_matrix_full(solution.size());
+    stiffness_matrix_full.copy_from(stiffness_matrix);
+    FullMatrix<double> inverse(solution.size());
+    inverse.invert(stiffness_matrix_full);
+
+    double norm = stiffness_matrix.frobenius_norm();
+    double inverse_norm = inverse.frobenius_norm();
+
+    condition_number = norm * inverse_norm;
+    std::cout << "  cond_num = " << condition_number << std::endl;
+}
+
+
+template<int dim>
 void
 Poisson<dim>::output_results() const {
     std::cout << "Output results" << std::endl;
@@ -420,6 +440,7 @@ Error Poisson<dim>::compute_error() {
     error.l2_error = pow(l2_error_integral, 0.5);
     error.h1_semi = pow(h1_semi_error_integral, 0.5);
     error.h1_error = pow(l2_error_integral + h1_semi_error_integral, 0.5);
+    error.cond_num = condition_number;
     return error;
 }
 
@@ -460,7 +481,7 @@ integrate_cell(const FEValues<dim> &fe_v,
 template<int dim>
 void Poisson<dim>::
 write_header_to_file(std::ofstream &file) {
-    file << "h, \\|u\\|_{L^2}, \\|u\\|_{H^1}, |u|_{H^1}" << std::endl;
+    file << "h, \\|u\\|_{L^2}, \\|u\\|_{H^1}, |u|_{H^1}, \\kappa(A)" << std::endl;
 }
 
 
@@ -470,7 +491,8 @@ write_error_to_file(Error &error, std::ofstream &file) {
     file << error.mesh_size << ","
          << error.l2_error << ","
          << error.h1_error << ","
-         << error.h1_semi << std::endl;
+         << error.h1_semi << ","
+         << error.cond_num << std::endl;
 }
 
 

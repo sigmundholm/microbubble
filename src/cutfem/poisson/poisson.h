@@ -100,6 +100,9 @@ protected:
     compute_error();
 
     void
+    compute_condition_number();
+
+    void
     integrate_cell(const FEValues<dim> &fe_v,
                    double &l2_error_integral,
                    double &h1_error_integral) const;
@@ -142,6 +145,7 @@ protected:
 
     SparsityPattern sparsity_pattern;
     SparseMatrix<double> stiffness_matrix;
+    double condition_number;
 
     Vector<double> rhs;
     Vector<double> solution;
