@@ -62,7 +62,7 @@ def convergence_plot(ns, errors, yscale="log2", desired_order=2, reference_line_
     plt.show()
 
 
-def add_convergence_line(ax, ns, errors, yscale="log2", xlabel="$N$", name=""):
+def add_convergence_line(ax, ns, errors, yscale="log2", xlabel="$N$", name="", color=None, regression=True):
     # Remove small tick lines on the axes, that doesnt have any number with them.
     matplotlib.rcParams['xtick.minor.size'] = 0
     matplotlib.rcParams['xtick.minor.width'] = 0
@@ -78,7 +78,8 @@ def add_convergence_line(ax, ns, errors, yscale="log2", xlabel="$N$", name=""):
     print("Polyfit:", name, res)
     print("Order of convergence", -res[0])
 
-    ax.plot(ns, errors, "-o", label=f'${name}: {abs(round(res[0], 3))}$')
+    label = f'${name}$' if not regression else f'${name}: {abs(round(res[0], 3))}$'
+    ax.plot(ns, errors, "-o", label=label, color=color)
     if yscale == "log2":
         ax.set_yscale("log", base=2)
     else:
@@ -187,6 +188,77 @@ def eoc_plot(data, columns, title="", domain_lenght=1, latex=True, lines_at=None
     ax.legend()
 
     return ax
+
+
+def conv_plots2(paths, norm_names, element_orders, expected_degrees, domain_length=1.0,
+                colors=None, save_figs=False, font_size=10, label_size='medium'):
+    """
+    Creates convergence plot for the report. One plot for each norm, then one convergence
+    line for each element order.
+
+    :param paths:
+    :param norm_names:
+    :param element_orders:
+    :param expected_degrees:
+    :param domain_length:
+    :param colors:
+    :return:
+    """
+    if_latex(True)
+
+    dfs = []
+    head = ""
+    mesh_size = []
+    for full_path in paths:
+        head = list(map(str.strip, open(full_path).readline().split(",")))
+        data = np.genfromtxt(full_path, delimiter=",", skip_header=True)
+
+        mesh_size = data[:, 0]
+        dfs.append(data)
+
+    ns = list(map(int, domain_length / mesh_size))
+
+    matplotlib.rcParams['xtick.minor.size'] = 0
+    matplotlib.rcParams['xtick.minor.width'] = 0
+    matplotlib.rcParams['ytick.minor.size'] = 0
+    matplotlib.rcParams['ytick.minor.width'] = 0
+
+    matplotlib.rc('xtick', labelsize=font_size)
+    matplotlib.rc('ytick', labelsize=font_size)
+    plt.rcParams.update({'axes.labelsize': label_size})
+
+    for i, norm_name in enumerate(norm_names):
+        fig, ax = plt.subplots()
+        for deg_index, degree in enumerate(element_orders):
+            data_column = head.index(norm_name)
+            errors = dfs[deg_index][:, data_column]
+            color = None if colors is None else colors[deg_index]
+            ax = add_convergence_line(ax, ns, errors, name=f"k={degree}", color=color, regression=False)
+            add_conv_triangle(ax, expected_degrees[i] + degree, color, errors[-1], ns[-2:])
+
+        ylabel = f"${norm_name}".replace("u", "u - u_h")[:-1] + r"(\Omega)}$"
+        ax.set_ylabel(ylabel)
+        if save_figs:
+            plt.savefig(f"conv-norm-{i}.svg")
+
+
+def add_conv_triangle(ax, degree, color, right_error, ns):
+    left_n, right_n = ns[0] * 1.1, ns[1] / 1.1
+    bottom_value = right_error / 1.05
+    top_value = bottom_value * 2 ** (degree * np.log2(right_n / left_n))  # from EOC formula
+
+    linestyle = "dashed"
+    linewidth = 1
+    # Horisontal line
+    ax.plot([left_n, right_n], [bottom_value, bottom_value], color=color, linestyle=linestyle, linewidth=linewidth)
+    ax.text(ns[0] * 1.4, bottom_value / 1.5, f"$1$", color=color)
+
+    # Vertical line
+    ax.plot([left_n, left_n], [bottom_value, top_value], color=color, linestyle=linestyle, linewidth=linewidth)
+    ax.text(ns[0], bottom_value * 2 ** (degree / 4), f"${degree}$", color=color)
+
+    # Diagonal line
+    ax.plot([left_n, right_n], [top_value, bottom_value], color=color, linestyle=linestyle, linewidth=linewidth)
 
 
 if __name__ == '__main__':
