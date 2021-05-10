@@ -54,7 +54,7 @@ public:
             const double sphere_x_coord);
 
     virtual Error
-    run();
+    run(bool compute_cond_number);
 
     static void
     write_header_to_file(std::ofstream &file);

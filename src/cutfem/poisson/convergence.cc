@@ -13,9 +13,9 @@ void solve_for_element_order(int element_order, int max_refinement,
                        + "o" + std::to_string(element_order) + ".csv");
     Poisson<dim>::write_header_to_file(file);
 
-    double radius = 1;
-    double half_length = 1;
-    double sphere_rad = radius * 0.9;
+    double radius = 1.1;
+    double half_length = 1.1;
+    double sphere_rad = 1.0;
     double sphere_x_coord = 0;
 
     RightHandSide<dim> rhs;
@@ -28,7 +28,7 @@ void solve_for_element_order(int element_order, int max_refinement,
 
         Poisson<dim> poisson(radius, half_length, n_refines, element_order, write_output,
                              rhs, bdd, soln, sphere_rad, sphere_x_coord);
-        Error error = poisson.run();
+        Error error = poisson.run(false);
 
         std::cout << "|| u - u_h ||_L2 = " << error.l2_error << std::endl;
         std::cout << "|| u - u_h ||_H1 = " << error.h1_error << std::endl;

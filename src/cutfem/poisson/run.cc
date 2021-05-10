@@ -18,5 +18,5 @@ int main() {
     Poisson<dim> poisson(radius, half_length, n_refines, degree, write_output,
                          rhs, bdd, soln, sphere_rad, sphere_x_coord);
 
-    poisson.run();
+    poisson.run(true);
 }

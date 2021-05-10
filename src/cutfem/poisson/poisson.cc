@@ -78,7 +78,7 @@ Poisson<dim>::setup_quadrature() {
 
 template<int dim>
 Error
-Poisson<dim>::run() {
+Poisson<dim>::run(bool compute_cond_number) {
     make_grid();
     setup_quadrature();
     setup_level_set();
@@ -90,7 +90,9 @@ Poisson<dim>::run() {
     if (write_output) {
         output_results();
     }
-    compute_condition_number();
+    if (compute_cond_number) {
+        compute_condition_number();
+    }
     return compute_error();
 }
 
@@ -372,6 +374,8 @@ compute_condition_number() {
 
     condition_number = norm * inverse_norm;
     std::cout << "  cond_num = " << condition_number << std::endl;
+
+    // TODO bruk eigenvalues istedet
 }
 
 
@@ -481,7 +485,8 @@ integrate_cell(const FEValues<dim> &fe_v,
 template<int dim>
 void Poisson<dim>::
 write_header_to_file(std::ofstream &file) {
-    file << "h, \\|u\\|_{L^2}, \\|u\\|_{H^1}, |u|_{H^1}, \\kappa(A)" << std::endl;
+    file << "h, \\|u\\|_{L^2}, \\|u\\|_{H^1}, |u|_{H^1}, \\kappa(A)"
+         << std::endl;
 }
 
 
