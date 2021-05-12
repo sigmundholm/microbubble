@@ -10,6 +10,8 @@
 #include <deal.II/grid/tria_accessor.h>
 
 #include <deal.II/lac/full_matrix.h>
+#include <deal.II/lac/petsc_precondition.h>
+#include <deal.II/lac/petsc_solver.h>
 #include <deal.II/lac/precondition.h>
 #include <deal.II/lac/solver_control.h>
 #include <deal.II/lac/sparse_direct.h>
@@ -27,6 +29,7 @@
 #include <fstream>
 
 #include "cutfem/geometry/SignedDistanceSphere.h"
+#include "cutfem/nla/nla_tools.h"
 #include "cutfem/nla/sparsity_pattern.h"
 #include "cutfem/stabilization/jump_stabilization.h"
 
@@ -353,9 +356,23 @@ template<int dim>
 void
 Poisson<dim>::solve() {
     std::cout << "Solving system" << std::endl;
+    /*
     SparseDirectUMFPACK inverse;
     inverse.initialize(stiffness_matrix);
     inverse.vmult(solution, rhs);
+     */
+
+    std::function<void(double)> slot;
+    slot = [this](double value) mutable { condition_number = value; };
+    SolverControl solver_control(1000, 1e-15);
+    PETScWrappers::SolverCG solver(solver_control);
+    // solver.connect_condition_number_slot(slot, false);
+
+    solver.solve(stiffness_matrix, solution, rhs, PreconditionIdentity());
+
+    std::cout << "  " << solver_control.last_step()
+              << " CG iterations needed to obtain convergence." << std::endl;
+    std::cout << "  condition_number = " << condition_number << std::endl;
 }
 
 template<int dim>
@@ -363,6 +380,7 @@ void Poisson<dim>::
 compute_condition_number() {
     std::cout << "Compute condition number" << std::endl;
 
+    /*
     // Invert the stiffness_matrix
     FullMatrix<double> stiffness_matrix_full(solution.size());
     stiffness_matrix_full.copy_from(stiffness_matrix);
@@ -374,6 +392,28 @@ compute_condition_number() {
 
     condition_number = norm * inverse_norm;
     std::cout << "  cond_num = " << condition_number << std::endl;
+
+     */
+    // const LA::SparseMatrix &stiffness_matrix = assembler.get_stiffness_matrix();
+    const unsigned int max_iterations = stiffness_matrix.m();
+    std::cout << "Computing smallest eigenvalue" << std::endl;
+    SolverControl solver_control_min(max_iterations, 1E-10);
+    // Need to set a preconditioner when passing to slepc.
+    // PETScWrappers::PreconditionNone preconditioner;
+    // SolverCG<Vector<double>> solver(solver_control_min);
+    // solver.initialize(preconditioner);
+
+    PETScWrappers::MPI::SparseMatrix matrix;
+    matrix.reinit(stiffness_matrix);
+    matrix.copy_from(stiffness_matrix);
+
+    double min = cutfem::nla::smallest_eigenvalue(stiffness_matrix,
+                                                  solver_control_min);
+    std::cout << "Computing largest eigenvalue" << std::endl;
+    SolverControl solver_control_max(max_iterations, 1E-6);
+    double max = cutfem::nla::largest_eigenvalue(stiffness_matrix,
+                                                 solver_control_max);
+    condition_number = max / min;
 
     // TODO bruk eigenvalues istedet
 }

@@ -23,9 +23,11 @@
 #include <deal.II/hp/q_collection.h>
 
 #include <deal.II/lac/affine_constraints.h>
-#include <deal.II/lac/sparse_matrix.h>
+// #include <deal.II/lac/sparse_matrix.h>
 #include <deal.II/lac/sparsity_pattern.h>
-#include <deal.II/lac/vector.h>
+// #include <deal.II/lac/vector.h>
+#include <deal.II/lac/petsc_parallel_sparse_matrix.h>
+#include <deal.II/lac/petsc_parallel_vector.h>
 
 #include <vector>
 
@@ -144,11 +146,11 @@ protected:
     NonMatching::CutMeshClassifier<dim> cut_mesh_classifier;
 
     SparsityPattern sparsity_pattern;
-    SparseMatrix<double> stiffness_matrix;
+    PETScWrappers::MPI::SparseMatrix stiffness_matrix;
     double condition_number;
 
-    Vector<double> rhs;
-    Vector<double> solution;
+    PETScWrappers::MPI::Vector rhs;
+    PETScWrappers::MPI::Vector solution;
 
     AffineConstraints<double> constraints;
 };
