@@ -46,10 +46,13 @@ Poisson<dim>::Poisson(const double radius,
                       Function<dim> &bdd_values,
                       Function<dim> &analytical_soln,
                       const double sphere_radius,
-                      const double sphere_x_coord)
+                      const double sphere_x_coord,
+                      const double sphere_y_coord,
+                      const bool stabilized)
         : radius(radius), half_length(half_length), n_refines(n_refines),
           write_output(write_output), sphere_radius(sphere_radius),
-          sphere_x_coord(sphere_x_coord), element_order(element_order),
+          sphere_x_coord(sphere_x_coord), sphere_y_coord(sphere_y_coord),
+          stabilized(stabilized), element_order(element_order),
           fe(element_order), fe_levelset(element_order),
           levelset_dof_handler(triangulation), dof_handler(triangulation),
           cut_mesh_classifier(triangulation, levelset_dof_handler, levelset) {
@@ -61,9 +64,9 @@ Poisson<dim>::Poisson(const double radius,
     analytical_solution = &analytical_soln;
 
     if (dim == 2) {
-        this->center = Point<dim>(sphere_x_coord, 0);
+        this->center = Point<dim>(sphere_x_coord, sphere_y_coord);
     } else if (dim == 3) {
-        this->center = Point<dim>(sphere_x_coord, 0, 0);
+        this->center = Point<dim>(sphere_x_coord, sphere_y_coord, 0);
     }
 }
 
@@ -78,7 +81,7 @@ Poisson<dim>::setup_quadrature() {
 
 template<int dim>
 Error
-Poisson<dim>::run(bool compute_cond_number) {
+Poisson<dim>::run(bool compute_cond_number, std::string suffix) {
     make_grid();
     setup_quadrature();
     setup_level_set();
@@ -88,7 +91,7 @@ Poisson<dim>::run(bool compute_cond_number) {
     assemble_system();
     solve();
     if (write_output) {
-        output_results();
+        output_results(suffix);
     }
     if (compute_cond_number) {
         compute_condition_number();
@@ -180,18 +183,19 @@ Poisson<dim>::assemble_system() {
 
     // Use a helper object to compute the stabilisation for both the velocity
     // and the pressure component.
-    // TODO ta ut stabiliseringen i en egen funksjon?
     const FEValuesExtractors::Scalar velocities(0);
-
     stabilization::JumpStabilization<dim, FEValuesExtractors::Scalar>
             velocity_stabilization(dof_handler,
                                    mapping_collection,
                                    cut_mesh_classifier,
                                    constraints);
-    velocity_stabilization.set_function_describing_faces_to_stabilize(
-            stabilization::inside_stabilization);
-    velocity_stabilization.set_weight_function(stabilization::taylor_weights);
-    velocity_stabilization.set_extractor(velocities);
+    if (stabilized) {
+        velocity_stabilization.set_function_describing_faces_to_stabilize(
+                stabilization::inside_stabilization);
+        velocity_stabilization.set_weight_function(
+                stabilization::taylor_weights);
+        velocity_stabilization.set_extractor(velocities);
+    }
 
     NonMatching::RegionUpdateFlags region_update_flags;
     region_update_flags.inside = update_values | update_JxW_values |
@@ -246,11 +250,13 @@ Poisson<dim>::assemble_system() {
         if (fe_values_surface)
             assemble_local_over_surface(*fe_values_surface, loc2glb);
 
-        // TODO hvordan skal stabiliseringen være?
-        // Compute and add the velocity stabilization.
-        velocity_stabilization.compute_stabilization(cell);
-        velocity_stabilization.add_stabilization_to_matrix(gamma_A / (h * h),
-                                                           stiffness_matrix);
+        if (stabilized) {
+            // Compute and add the velocity stabilization.
+            velocity_stabilization.compute_stabilization(cell);
+            velocity_stabilization.add_stabilization_to_matrix(
+                    gamma_A / (h * h),
+                    stiffness_matrix);
+        }
     }
 }
 
@@ -381,7 +387,7 @@ compute_condition_number() {
 
 template<int dim>
 void
-Poisson<dim>::output_results() const {
+Poisson<dim>::output_results(std::string &suffix) const {
     std::cout << "Output results" << std::endl;
     // Output results, see step-22
     DataOut<dim> data_out;
@@ -390,7 +396,7 @@ Poisson<dim>::output_results() const {
     data_out.build_patches();
     std::ofstream out("solution-d" + std::to_string(dim)
                       + "o" + std::to_string(element_order)
-                      + "r" + std::to_string(n_refines) + ".vtk");
+                      + "r" + std::to_string(n_refines) + suffix + ".vtk");
     data_out.write_vtk(out);
 
     // Output levelset function.
@@ -400,7 +406,8 @@ Poisson<dim>::output_results() const {
     data_out_levelset.build_patches();
     std::ofstream output_ls("levelset-d" + std::to_string(dim)
                             + "o" + std::to_string(element_order)
-                            + "r" + std::to_string(n_refines) + ".vtk");
+                            + "r" + std::to_string(n_refines) + suffix +
+                            ".vtk");
     data_out_levelset.write_vtk(output_ls);
 }
 

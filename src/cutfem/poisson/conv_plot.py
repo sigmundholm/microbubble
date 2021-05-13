@@ -3,17 +3,34 @@ from os.path import split
 import numpy as np
 import matplotlib.pyplot as plt
 
-from utils.plot import conv_plots, conv_plots2, eoc_plot
+from utils.plot import conv_plots, conv_plots2, eoc_plot, condnum_sensitivity_plot
 
-if __name__ == '__main__':
+
+def convergence_plot_report():
     # A report ready convergence plot
-    base = split(split(split(os.getcwd())[0])[0])[0]
     paths = [os.path.join(base, f"build/src/cutfem/poisson/errors-d2o{d}.csv") for d in [1, 2]]
     plot_for = ["\|u\|_{L^2}", "\|u\|_{H^1}"]
     element_orders = [1, 2]
     conv_plots2(paths, plot_for, element_orders, expected_degrees=[1, 0], domain_length=1.1,
                 colors=["mediumseagreen", "darkturquoise"], save_figs=True, font_size=12, label_size="large")
+
+
+def condition_number_sensitivity_plot():
+    # A plot for condition number sensitivity
+    path_stab = os.path.join(base, f"build/src/cutfem/poisson/condnums-d2o1r5-stabilized.csv")
+    path_non_stab = os.path.join(base, f"build/src/cutfem/poisson/condnums-d2o1r5-nonstabilized.csv")
+    condnum_sensitivity_plot(path_stab, path_non_stab, colors=["mediumseagreen", "darkturquoise"],
+                             save_figs=True, font_size=12, label_size="large")
+
+
+if __name__ == '__main__':
+    base = split(split(split(os.getcwd())[0])[0])[0]
+
+    convergence_plot_report()
+
+    condition_number_sensitivity_plot()
     plt.show()
+    exit()
 
     skip = 0
     for poly_order in [1, 2]:

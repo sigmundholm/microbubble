@@ -12,4 +12,5 @@ venv
 # General
 *.pdf
 *.png
+*.svg
 *.pyc

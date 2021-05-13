@@ -233,7 +233,7 @@ def conv_plots2(paths, norm_names, element_orders, expected_degrees, domain_leng
             data_column = head.index(norm_name)
             errors = dfs[deg_index][:, data_column]
             color = None if colors is None else colors[deg_index]
-            ax = add_convergence_line(ax, ns, errors, name=f"k={degree}", color=color, regression=False)
+            ax = add_convergence_line(ax, ns, errors, yscale="log", name=f"k={degree}", color=color, regression=False)
             add_conv_triangle(ax, expected_degrees[i] + degree, color, errors[-1], ns[-2:])
 
         ylabel = f"${norm_name}".replace("u", "u - u_h")[:-1] + r"(\Omega)}$"
@@ -259,6 +259,31 @@ def add_conv_triangle(ax, degree, color, right_error, ns):
 
     # Diagonal line
     ax.plot([left_n, right_n], [top_value, bottom_value], color=color, linestyle=linestyle, linewidth=linewidth)
+
+
+def condnum_sensitivity_plot(path_stabilized, path_nonstabilized, colors=None, save_figs=True,
+                             font_size=10, label_size='medium'):
+    if_latex(True)
+    data_stab = np.genfromtxt(path_stabilized, delimiter=",", skip_header=True)
+    data_non_stab = np.genfromtxt(path_nonstabilized, delimiter=",", skip_header=True)
+
+    matplotlib.rc('xtick', labelsize=font_size)
+    matplotlib.rc('ytick', labelsize=font_size)
+    plt.rcParams.update({'axes.labelsize': label_size})
+
+    fig, ax = plt.subplots()
+    ax.plot(data_stab[:, 0] / data_stab[:, 0].max(), data_stab[:, 1], color=None if colors is None else colors[0],
+            label=r"\textrm{Stabilized}")
+    ax.plot(data_non_stab[:, 0] / data_non_stab[:, 0].max(), data_non_stab[:, 1], color=None if colors is None else colors[1],
+            label=r"\textrm{Not stabilized}")
+    ax.set_yscale("log", base=10)
+
+    ax.set_xlabel("$\delta$")
+    ax.set_ylabel("$\\kappa(A)$")
+    ax.legend()
+
+    if save_figs:
+        plt.savefig(f"condnum-sensitivity.svg")
 
 
 if __name__ == '__main__':

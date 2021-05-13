@@ -51,10 +51,12 @@ public:
             Function<dim> &bdd_values,
             Function<dim> &analytical_soln,
             const double sphere_radius,
-            const double sphere_x_coord);
+            const double sphere_x_coord = 0,
+            const double sphere_y_coord = 0,
+            const bool stabilized = true);
 
     virtual Error
-    run(bool compute_cond_number);
+    run(bool compute_cond_number, std::string suffix = "");
 
     static void
     write_header_to_file(std::ofstream &file);
@@ -94,7 +96,7 @@ protected:
     solve();
 
     void
-    output_results() const;
+    output_results(std::string &suffix) const;
 
     Error
     compute_error();
@@ -115,7 +117,9 @@ protected:
 
     double sphere_radius;
     double sphere_x_coord;
+    double sphere_y_coord;
     Point<dim> center;
+    const bool stabilized;
 
     Function<dim> *rhs_function;
     Function<dim> *boundary_values;
@@ -145,7 +149,7 @@ protected:
 
     SparsityPattern sparsity_pattern;
     SparseMatrix<double> stiffness_matrix;
-    double condition_number;
+    double condition_number = 0;
 
     Vector<double> rhs;
     Vector<double> solution;
