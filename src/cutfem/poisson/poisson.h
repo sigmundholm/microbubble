@@ -50,9 +50,7 @@ public:
             Function<dim> &rhs,
             Function<dim> &bdd_values,
             Function<dim> &analytical_soln,
-            const double sphere_radius,
-            const double sphere_x_coord = 0,
-            const double sphere_y_coord = 0,
+            Function<dim> &domain_func,
             const bool stabilized = true);
 
     virtual Error
@@ -114,16 +112,12 @@ protected:
     const unsigned int n_refines;
 
     bool write_output;
-
-    double sphere_radius;
-    double sphere_x_coord;
-    double sphere_y_coord;
-    Point<dim> center;
     const bool stabilized;
 
     Function<dim> *rhs_function;
     Function<dim> *boundary_values;
     Function<dim> *analytical_solution;
+    Function<dim> *domain_function;
 
     // Cell side-length.
     double h = 0;

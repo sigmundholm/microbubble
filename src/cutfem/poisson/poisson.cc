@@ -26,7 +26,6 @@
 #include <cmath>
 #include <fstream>
 
-#include "cutfem/geometry/SignedDistanceSphere.h"
 #include "cutfem/nla/sparsity_pattern.h"
 #include "cutfem/stabilization/jump_stabilization.h"
 
@@ -45,14 +44,11 @@ Poisson<dim>::Poisson(const double radius,
                       Function<dim> &rhs,
                       Function<dim> &bdd_values,
                       Function<dim> &analytical_soln,
-                      const double sphere_radius,
-                      const double sphere_x_coord,
-                      const double sphere_y_coord,
+                      Function<dim> &domain_func,
                       const bool stabilized)
         : radius(radius), half_length(half_length), n_refines(n_refines),
-          write_output(write_output), sphere_radius(sphere_radius),
-          sphere_x_coord(sphere_x_coord), sphere_y_coord(sphere_y_coord),
-          stabilized(stabilized), element_order(element_order),
+          write_output(write_output), stabilized(stabilized),
+          element_order(element_order),
           fe(element_order), fe_levelset(element_order),
           levelset_dof_handler(triangulation), dof_handler(triangulation),
           cut_mesh_classifier(triangulation, levelset_dof_handler, levelset) {
@@ -62,12 +58,7 @@ Poisson<dim>::Poisson(const double radius,
     rhs_function = &rhs;
     boundary_values = &bdd_values;
     analytical_solution = &analytical_soln;
-
-    if (dim == 2) {
-        this->center = Point<dim>(sphere_x_coord, sphere_y_coord);
-    } else if (dim == 3) {
-        this->center = Point<dim>(sphere_x_coord, sphere_y_coord, 0);
-    }
+    domain_function = &domain_func;
 }
 
 template<int dim>
@@ -127,12 +118,10 @@ Poisson<dim>::setup_level_set() {
     levelset.reinit(levelset_dof_handler.n_dofs());
 
     // Project the geometry onto the mesh.
-    cutfem::geometry::SignedDistanceSphere<dim> signed_distance_sphere(
-            sphere_radius, center, 1);
     VectorTools::project(levelset_dof_handler,
                          constraints,
                          QGauss<dim>(2 * element_order + 1),
-                         signed_distance_sphere,
+                         *domain_function,
                          levelset);
 }
 
