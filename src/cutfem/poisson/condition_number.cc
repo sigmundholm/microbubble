@@ -44,7 +44,10 @@ void condition_number_sensitivity() {
 
         Error error = poisson.run(true, "-k" + std::to_string(k));
 
-        file << k << "," << error.cond_num << std::endl;
+        file << k << ","
+             << error.cond_num << ","
+             << error.l2_error << ","
+             << error.h1_error << std::endl;
         h = error.mesh_size;
     }
 }

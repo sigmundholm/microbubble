@@ -211,7 +211,7 @@ Poisson<dim>::assemble_system() {
                                      update_normal_vectors | update_JxW_values);
 
     double beta_0 = 0.1;
-    double gamma_A = beta_0 * pow(element_order, 2);
+    double gamma_A = beta_0 * element_order * (element_order + 1);
 
     for (const auto &cell : dof_handler.active_cell_iterators()) {
         const unsigned int n_dofs = cell->get_fe().dofs_per_cell;
@@ -310,7 +310,8 @@ Poisson<dim>::assemble_local_over_surface(
     std::vector<Tensor<1, dim>> grad_phi(dofs_per_cell);
     std::vector<double> phi(dofs_per_cell);
 
-    double mu = 50 / h; // Penalty parameter TODO konstant avh. av polygrad.
+    double gamma = 20 * element_order * (element_order + 1);
+    double mu = gamma / h; // Penalty parameter TODO konstant avh. av polygrad.
     Tensor<1, dim> normal;
 
     for (unsigned int q : fe_values.quadrature_point_indices()) {
