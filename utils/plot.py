@@ -191,7 +191,7 @@ def eoc_plot(data, columns, title="", domain_lenght=1, latex=True, lines_at=None
 
 
 def conv_plots2(paths, norm_names, element_orders, expected_degrees, domain_length=1.0,
-                colors=None, save_figs=False, font_size=10, label_size='medium'):
+                colors=None, save_figs=False, font_size=10, label_size='medium', skip=0):
     """
     Creates convergence plot for the report. One plot for each norm, then one convergence
     line for each element order.
@@ -216,7 +216,7 @@ def conv_plots2(paths, norm_names, element_orders, expected_degrees, domain_leng
         mesh_size = data[:, 0]
         dfs.append(data)
 
-    ns = list(map(int, domain_length / mesh_size))
+    ns = list(map(int, domain_length / mesh_size))[skip:]
 
     matplotlib.rcParams['xtick.minor.size'] = 0
     matplotlib.rcParams['xtick.minor.width'] = 0
@@ -231,7 +231,7 @@ def conv_plots2(paths, norm_names, element_orders, expected_degrees, domain_leng
         fig, ax = plt.subplots()
         for deg_index, degree in enumerate(element_orders):
             data_column = head.index(norm_name)
-            errors = dfs[deg_index][:, data_column]
+            errors = dfs[deg_index][skip:, data_column]
             color = None if colors is None else colors[deg_index]
             ax = add_convergence_line(ax, ns, errors, yscale="log", name=f"k={degree}", color=color, regression=False)
             add_conv_triangle(ax, expected_degrees[i] + degree, color, errors[-1], ns[-2:])
@@ -262,7 +262,19 @@ def add_conv_triangle(ax, degree, color, right_error, ns):
 
 
 def condnum_sensitivity_plot(path_stabilized, path_nonstabilized, colors=None, save_figs=True,
-                             font_size=10, label_size='medium'):
+                             font_size=10, label_size='medium', errors=False):
+    """
+
+    :param path_stabilized:
+    :param path_nonstabilized:
+    :param colors:
+    :param save_figs:
+    :param font_size:
+    :param label_size:
+    :param errors: plotting a sensitivity plot of the condition number when set to
+    False, and of the errors when True.
+    :return:
+    """
     if_latex(True)
     data_stab = np.genfromtxt(path_stabilized, delimiter=",", skip_header=True)
     data_non_stab = np.genfromtxt(path_nonstabilized, delimiter=",", skip_header=True)
@@ -272,18 +284,35 @@ def condnum_sensitivity_plot(path_stabilized, path_nonstabilized, colors=None, s
     plt.rcParams.update({'axes.labelsize': label_size})
 
     fig, ax = plt.subplots()
-    ax.plot(data_stab[:, 0] / data_stab[:, 0].max(), data_stab[:, 1], color=None if colors is None else colors[0],
-            label=r"\textrm{Stabilized}")
-    ax.plot(data_non_stab[:, 0] / data_non_stab[:, 0].max(), data_non_stab[:, 1], color=None if colors is None else colors[1],
-            label=r"\textrm{Not stabilized}")
+    data_columns = [2, 3] if errors else [1]
+    first_axis = data_stab[:, 0] / data_stab[:, 0].max()
+
+    # Plot the L^1 and the H^1 errors.
+    if errors:
+        # H^1
+        ax.plot(first_axis, data_stab[:, 3], color=colors[3], label=r"\textrm{$H^1$ (stabilized)}")
+        ax.plot(first_axis, data_non_stab[:, 3], color=colors[2], label=r"\textrm{$H^1$ (not stabilized)}")
+
+        # L^2
+        ax.plot(first_axis, data_stab[:, 2], color=colors[1], label=r"\textrm{$L^2$ (stabilized)}")
+        ax.plot(first_axis, data_non_stab[:, 2], color=colors[0], label=r"\textrm{$L^2$ (not stabilized)}")
+
+        ax.set_ylabel(r"$\|u - u_h\|_{L^2(\Omega_F)} \qquad \|u - u_h\|_{H^1(\Omega_F)}$")
+
+    # Plot the condition numbers
+    else:
+        ax.plot(first_axis, data_stab[:, 1], color=colors[2], label=r"\textrm{Stabilized}")
+
+        ax.plot(first_axis, data_non_stab[:, 1], color=colors[3], label=r"\textrm{Not stabilized}")
+        ax.set_ylabel("$\\kappa(A)$")
+
     ax.set_yscale("log", base=10)
 
     ax.set_xlabel("$\delta$")
-    ax.set_ylabel("$\\kappa(A)$")
     ax.legend()
 
     if save_figs:
-        plt.savefig(f"condnum-sensitivity.svg")
+        plt.savefig(f"sensitivity-{'error' if errors else 'condnum'}.svg")
 
 
 if __name__ == '__main__':

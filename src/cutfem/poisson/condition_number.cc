@@ -1,8 +1,8 @@
 #include "poisson.h"
 
-void write_cond_num(std::ofstream &file, int step, double cond_num) {
-    file << step << "," << cond_num << std::endl;
-}
+#include "cutfem/geometry/SignedDistanceSphere.h"
+
+using namespace cutfem;
 
 
 template<int dim>
@@ -24,6 +24,9 @@ void condition_number_sensitivity() {
     unsigned int n = 500;
     const bool stabilized = true;
 
+    double sphere_radius = 1.0;
+    Point<dim> sphere_center;
+
     for (unsigned int k = 0; k <= n; ++k) {
         std::cout << std::endl << "k = " << k << std::endl;
         center = k / (pow(2, 0.5) * n) * h;
@@ -32,13 +35,19 @@ void condition_number_sensitivity() {
         BoundaryValues<dim> bdd(center, center);
         AnalyticalSolution<dim> soln(center, center);
 
+        sphere_center = Point<dim>(center, center);
+        // cutfem::geometry::SignedDistanceSphere<dim> domain(sphere_radius, sphere_center, 1);
+        FlowerDomain<dim> domain(center, center);
+
         Poisson<dim> poisson(radius, half_length, n_refines, element_order,
-                             write_output, rhs, bdd, soln, sphere_rad, center,
-                             center, stabilized);
+                             write_output, rhs, bdd, soln, domain, stabilized);
 
         Error error = poisson.run(true, "-k" + std::to_string(k));
 
-        file << k << "," << error.cond_num << std::endl;
+        file << k << ","
+             << error.cond_num << ","
+             << error.l2_error << ","
+             << error.h1_error << std::endl;
         h = error.mesh_size;
     }
 }

@@ -4,6 +4,10 @@
 
 #include "poisson.h"
 
+#include "cutfem/geometry/SignedDistanceSphere.h"
+
+using namespace cutfem;
+
 
 template<int dim>
 void solve_for_element_order(int element_order, int max_refinement,
@@ -15,19 +19,27 @@ void solve_for_element_order(int element_order, int max_refinement,
 
     double radius = 1.1;
     double half_length = 1.1;
-    double sphere_rad = 1.0;
-    double sphere_x_coord = 0;
 
     RightHandSide<dim> rhs;
     BoundaryValues<dim> bdd;
     AnalyticalSolution<dim> soln;
 
+    double sphere_radius = 1.0;
+    double sphere_x_coord = 0;
+    Point<dim> sphere_center;
+    if (dim == 2) {
+        sphere_center = Point<dim>(0, 0);
+    } else if (dim == 3) {
+        sphere_center = Point<dim>(0, 0, 0);
+    }
+    //cutfem::geometry::SignedDistanceSphere<dim> domain(sphere_radius, sphere_center, 1);
+    FlowerDomain<dim> domain;
+
     for (int n_refines = 1; n_refines < max_refinement + 1; ++n_refines) {
         std::cout << "\nn_refines=" << n_refines << std::endl;
 
-
         Poisson<dim> poisson(radius, half_length, n_refines, element_order, write_output,
-                             rhs, bdd, soln, sphere_rad, sphere_x_coord);
+                             rhs, bdd, soln, domain);
         Error error = poisson.run(false);
 
         std::cout << "|| u - u_h ||_L2 = " << error.l2_error << std::endl;

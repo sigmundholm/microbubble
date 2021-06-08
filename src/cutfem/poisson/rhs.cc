@@ -60,6 +60,25 @@ gradient(const Point<dim> &p, const unsigned int component) const {
 }
 
 
+template<int dim>
+FlowerDomain<dim>::FlowerDomain(const double center_x, const double center_y)
+        : center_x(center_x), center_y(center_y) {}
+
+
+template<int dim>
+double FlowerDomain<dim>::
+value(const Point<dim> &p, const unsigned int component) const {
+    // Uses the domain from eq (2.122) in Gürkan–Massing (2019), for z = 0.
+    (void) component;
+    double r = 0.5;
+    double r0 = 3.5;
+
+    double x = p[0] - center_x;
+    double y = p[1] - center_y;
+    return sqrt(pow(x, 2) + pow(y, 2)) - r + (r / r0) * cos(5 * atan2(y, x));
+}
+
+
 template
 class RightHandSide<2>;
 
@@ -77,3 +96,9 @@ class AnalyticalSolution<2>;
 
 template
 class AnalyticalSolution<3>;
+
+template
+class FlowerDomain<2>;
+
+template
+class FlowerDomain<3>;
