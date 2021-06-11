@@ -33,12 +33,23 @@ def condition_number_sensitivity_plot():
                              save_figs=True, font_size=12, label_size="large", errors=True)
 
 
+def condition_number_plot():
+    paths = [os.path.join(base, f"build/src/cutfem/poisson/errors-d2o{d}.csv") for d in [1, 2]]
+    plot_for = ["\kappa(A)"]
+    element_orders = [1, 2]
+    conv_plots2(paths, plot_for, element_orders, expected_degrees=[-2, -2], domain_length=2.2,
+                colors=[color2, color1], save_figs=True, font_size=12, label_size="large",
+                skip=4, ylabel=f"${plot_for[0]}$", guess_degree=False)
+
+
 if __name__ == '__main__':
     base = split(split(split(os.getcwd())[0])[0])[0]
 
     convergence_plot_report()
 
     condition_number_sensitivity_plot()
+
+    condition_number_plot()
     plt.show()
 
     skip = 2

@@ -191,7 +191,8 @@ def eoc_plot(data, columns, title="", domain_lenght=1, latex=True, lines_at=None
 
 
 def conv_plots2(paths, norm_names, element_orders, expected_degrees, domain_length=1.0,
-                colors=None, save_figs=False, font_size=10, label_size='medium', skip=0):
+                colors=None, save_figs=False, font_size=10, label_size='medium', skip=0,
+                ylabel=None, guess_degree=True):
     """
     Creates convergence plot for the report. One plot for each norm, then one convergence
     line for each element order.
@@ -234,9 +235,14 @@ def conv_plots2(paths, norm_names, element_orders, expected_degrees, domain_leng
             errors = dfs[deg_index][skip:, data_column]
             color = None if colors is None else colors[deg_index]
             ax = add_convergence_line(ax, ns, errors, yscale="log", name=f"k={degree}", color=color, regression=False)
-            add_conv_triangle(ax, expected_degrees[i] + degree, color, errors[-1], ns[-2:])
+            if guess_degree:
+                guess = expected_degrees[i] + degree
+            else:
+                guess = expected_degrees[i]
 
-        ylabel = f"${norm_name}".replace("u", "u - u_h")[:-1] + r"(\Omega)}$"
+            add_conv_triangle(ax, guess, color, errors[-1], ns[-2:])
+
+        ylabel = f"${norm_name}".replace("u", "u - u_h")[:-1] + r"(\Omega)}$" if ylabel is None else ylabel
         ax.set_ylabel(ylabel)
         if save_figs:
             plt.savefig(f"conv-norm-{i}.svg")
@@ -255,7 +261,8 @@ def add_conv_triangle(ax, degree, color, right_error, ns):
 
     # Vertical line
     ax.plot([left_n, left_n], [bottom_value, top_value], color=color, linestyle=linestyle, linewidth=linewidth)
-    ax.text(ns[0], bottom_value * 2 ** (degree / 4), f"${degree}$", color=color)
+    degree_text_x = ns[0] / 1.05 if degree < 0 else ns[0]
+    ax.text(degree_text_x, bottom_value * 2 ** (degree / 4), f"${degree}$", color=color)
 
     # Diagonal line
     ax.plot([left_n, right_n], [top_value, bottom_value], color=color, linestyle=linestyle, linewidth=linewidth)
