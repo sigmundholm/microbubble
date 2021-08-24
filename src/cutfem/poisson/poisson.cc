@@ -26,7 +26,6 @@
 #include <cmath>
 #include <fstream>
 
-#include "cutfem/geometry/SignedDistanceSphere.h"
 #include "cutfem/nla/sparsity_pattern.h"
 #include "cutfem/stabilization/jump_stabilization.h"
 
@@ -45,11 +44,11 @@ Poisson<dim>::Poisson(const double radius,
                       Function<dim> &rhs,
                       Function<dim> &bdd_values,
                       Function<dim> &analytical_soln,
-                      const double sphere_radius,
-                      const double sphere_x_coord)
+                      Function<dim> &domain_func,
+                      const bool stabilized)
         : radius(radius), half_length(half_length), n_refines(n_refines),
-          write_output(write_output), sphere_radius(sphere_radius),
-          sphere_x_coord(sphere_x_coord), element_order(element_order),
+          write_output(write_output), stabilized(stabilized),
+          element_order(element_order),
           fe(element_order), fe_levelset(element_order),
           levelset_dof_handler(triangulation), dof_handler(triangulation),
           cut_mesh_classifier(triangulation, levelset_dof_handler, levelset) {
@@ -59,12 +58,7 @@ Poisson<dim>::Poisson(const double radius,
     rhs_function = &rhs;
     boundary_values = &bdd_values;
     analytical_solution = &analytical_soln;
-
-    if (dim == 2) {
-        this->center = Point<dim>(sphere_x_coord, 0);
-    } else if (dim == 3) {
-        this->center = Point<dim>(sphere_x_coord, 0, 0);
-    }
+    domain_function = &domain_func;
 }
 
 template<int dim>
@@ -78,7 +72,7 @@ Poisson<dim>::setup_quadrature() {
 
 template<int dim>
 Error
-Poisson<dim>::run() {
+Poisson<dim>::run(bool compute_cond_number, std::string suffix) {
     make_grid();
     setup_quadrature();
     setup_level_set();
@@ -88,7 +82,10 @@ Poisson<dim>::run() {
     assemble_system();
     solve();
     if (write_output) {
-        output_results();
+        output_results(suffix);
+    }
+    if (compute_cond_number) {
+        compute_condition_number();
     }
     return compute_error();
 }
@@ -121,12 +118,10 @@ Poisson<dim>::setup_level_set() {
     levelset.reinit(levelset_dof_handler.n_dofs());
 
     // Project the geometry onto the mesh.
-    cutfem::geometry::SignedDistanceSphere<dim> signed_distance_sphere(
-            sphere_radius, center, 1);
     VectorTools::project(levelset_dof_handler,
                          constraints,
                          QGauss<dim>(2 * element_order + 1),
-                         signed_distance_sphere,
+                         *domain_function,
                          levelset);
 }
 
@@ -177,18 +172,19 @@ Poisson<dim>::assemble_system() {
 
     // Use a helper object to compute the stabilisation for both the velocity
     // and the pressure component.
-    // TODO ta ut stabiliseringen i en egen funksjon?
     const FEValuesExtractors::Scalar velocities(0);
-
     stabilization::JumpStabilization<dim, FEValuesExtractors::Scalar>
             velocity_stabilization(dof_handler,
                                    mapping_collection,
                                    cut_mesh_classifier,
                                    constraints);
-    velocity_stabilization.set_function_describing_faces_to_stabilize(
-            stabilization::inside_stabilization);
-    velocity_stabilization.set_weight_function(stabilization::taylor_weights);
-    velocity_stabilization.set_extractor(velocities);
+    if (stabilized) {
+        velocity_stabilization.set_function_describing_faces_to_stabilize(
+                stabilization::inside_stabilization);
+        velocity_stabilization.set_weight_function(
+                stabilization::taylor_weights);
+        velocity_stabilization.set_extractor(velocities);
+    }
 
     NonMatching::RegionUpdateFlags region_update_flags;
     region_update_flags.inside = update_values | update_JxW_values |
@@ -215,7 +211,7 @@ Poisson<dim>::assemble_system() {
                                      update_normal_vectors | update_JxW_values);
 
     double beta_0 = 0.1;
-    double gamma_A = beta_0 * pow(element_order, 2);
+    double gamma_A = beta_0 * element_order * (element_order + 1);
 
     for (const auto &cell : dof_handler.active_cell_iterators()) {
         const unsigned int n_dofs = cell->get_fe().dofs_per_cell;
@@ -243,11 +239,13 @@ Poisson<dim>::assemble_system() {
         if (fe_values_surface)
             assemble_local_over_surface(*fe_values_surface, loc2glb);
 
-        // TODO hvordan skal stabiliseringen være?
-        // Compute and add the velocity stabilization.
-        velocity_stabilization.compute_stabilization(cell);
-        velocity_stabilization.add_stabilization_to_matrix(gamma_A / (h * h),
-                                                           stiffness_matrix);
+        if (stabilized) {
+            // Compute and add the velocity stabilization.
+            velocity_stabilization.compute_stabilization(cell);
+            velocity_stabilization.add_stabilization_to_matrix(
+                    gamma_A / (h * h),
+                    stiffness_matrix);
+        }
     }
 }
 
@@ -312,7 +310,8 @@ Poisson<dim>::assemble_local_over_surface(
     std::vector<Tensor<1, dim>> grad_phi(dofs_per_cell);
     std::vector<double> phi(dofs_per_cell);
 
-    double mu = 50 / h; // Penalty parameter TODO konstant avh. av polygrad.
+    double gamma = 20 * element_order * (element_order + 1);
+    double mu = gamma / h; // Penalty parameter TODO konstant avh. av polygrad.
     Tensor<1, dim> normal;
 
     for (unsigned int q : fe_values.quadrature_point_indices()) {
@@ -356,8 +355,29 @@ Poisson<dim>::solve() {
 }
 
 template<int dim>
+void Poisson<dim>::
+compute_condition_number() {
+    std::cout << "Compute condition number" << std::endl;
+
+    // Invert the stiffness_matrix
+    FullMatrix<double> stiffness_matrix_full(solution.size());
+    stiffness_matrix_full.copy_from(stiffness_matrix);
+    FullMatrix<double> inverse(solution.size());
+    inverse.invert(stiffness_matrix_full);
+
+    double norm = stiffness_matrix.frobenius_norm();
+    double inverse_norm = inverse.frobenius_norm();
+
+    condition_number = norm * inverse_norm;
+    std::cout << "  cond_num = " << condition_number << std::endl;
+
+    // TODO bruk eigenvalues istedet
+}
+
+
+template<int dim>
 void
-Poisson<dim>::output_results() const {
+Poisson<dim>::output_results(std::string &suffix) const {
     std::cout << "Output results" << std::endl;
     // Output results, see step-22
     DataOut<dim> data_out;
@@ -366,7 +386,7 @@ Poisson<dim>::output_results() const {
     data_out.build_patches();
     std::ofstream out("solution-d" + std::to_string(dim)
                       + "o" + std::to_string(element_order)
-                      + "r" + std::to_string(n_refines) + ".vtk");
+                      + "r" + std::to_string(n_refines) + suffix + ".vtk");
     data_out.write_vtk(out);
 
     // Output levelset function.
@@ -376,7 +396,8 @@ Poisson<dim>::output_results() const {
     data_out_levelset.build_patches();
     std::ofstream output_ls("levelset-d" + std::to_string(dim)
                             + "o" + std::to_string(element_order)
-                            + "r" + std::to_string(n_refines) + ".vtk");
+                            + "r" + std::to_string(n_refines) + suffix +
+                            ".vtk");
     data_out_levelset.write_vtk(output_ls);
 }
 
@@ -420,6 +441,7 @@ Error Poisson<dim>::compute_error() {
     error.l2_error = pow(l2_error_integral, 0.5);
     error.h1_semi = pow(h1_semi_error_integral, 0.5);
     error.h1_error = pow(l2_error_integral + h1_semi_error_integral, 0.5);
+    error.cond_num = condition_number;
     return error;
 }
 
@@ -460,7 +482,8 @@ integrate_cell(const FEValues<dim> &fe_v,
 template<int dim>
 void Poisson<dim>::
 write_header_to_file(std::ofstream &file) {
-    file << "h, \\|u\\|_{L^2}, \\|u\\|_{H^1}, |u|_{H^1}" << std::endl;
+    file << "h, \\|u\\|_{L^2}, \\|u\\|_{H^1}, |u|_{H^1}, \\kappa(A)"
+         << std::endl;
 }
 
 
@@ -470,7 +493,8 @@ write_error_to_file(Error &error, std::ofstream &file) {
     file << error.mesh_size << ","
          << error.l2_error << ","
          << error.h1_error << ","
-         << error.h1_semi << std::endl;
+         << error.h1_semi << ","
+         << error.cond_num << std::endl;
 }
 
 
