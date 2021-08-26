@@ -4,6 +4,8 @@
 
 using namespace cutfem;
 
+using namespace examples::cut::HeatEquation;
+
 
 template<int dim>
 void condition_number_sensitivity() {
@@ -39,8 +41,9 @@ void condition_number_sensitivity() {
         // cutfem::geometry::SignedDistanceSphere<dim> domain(sphere_radius, sphere_center, 1);
         FlowerDomain<dim> domain(center, center);
 
-        Poisson<dim> poisson(radius, half_length, n_refines, element_order,
-                             write_output, rhs, bdd, soln, domain, stabilized);
+        HeatEqn<dim> poisson(radius, half_length, n_refines, element_order,
+                             write_output, rhs, bdd, soln, domain,
+                             stabilized);
 
         Error error = poisson.run(true, "-k" + std::to_string(k));
 

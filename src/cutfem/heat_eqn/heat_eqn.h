@@ -39,117 +39,122 @@ using namespace cutfem;
 
 using NonMatching::LocationToLevelSet;
 
-template<int dim>
-class Poisson {
-public:
-    Poisson(const double radius,
-            const double half_length,
-            const unsigned int n_refines,
-            const int element_order,
-            const bool write_output,
-            Function<dim> &rhs,
-            Function<dim> &bdd_values,
-            Function<dim> &analytical_soln,
-            Function<dim> &domain_func,
-            const bool stabilized = true);
 
-    virtual Error
-    run(bool compute_cond_number, std::string suffix = "");
+namespace examples::cut::HeatEquation {
 
-    static void
-    write_header_to_file(std::ofstream &file);
 
-    static void
-    write_error_to_file(Error &error, std::ofstream &file);
+    template<int dim>
+    class HeatEqn {
+    public:
+        HeatEqn(const double radius,
+                const double half_length,
+                const unsigned int n_refines,
+                const int element_order,
+                const bool write_output,
+                Function<dim> &rhs,
+                Function<dim> &bdd_values,
+                Function<dim> &analytical_soln,
+                Function<dim> &domain_func,
+                const bool stabilized = true);
 
-protected:
-    void
-    make_grid();
+        virtual Error
+        run(bool compute_cond_number, std::string suffix = "");
 
-    void
-    setup_level_set();
+        static void
+        write_header_to_file(std::ofstream &file);
 
-    void
-    setup_quadrature();
+        static void
+        write_error_to_file(Error &error, std::ofstream &file);
 
-    void
-    distribute_dofs();
+    protected:
+        void
+        make_grid();
 
-    void
-    initialize_matrices();
+        void
+        setup_level_set();
 
-    void
-    assemble_system();
+        void
+        setup_quadrature();
 
-    void
-    assemble_local_over_bulk(const FEValues<dim> &fe_values,
-                             const std::vector<types::global_dof_index> &loc2glb);
+        void
+        distribute_dofs();
 
-    void
-    assemble_local_over_surface(
-            const FEValuesBase<dim> &fe_values,
-            const std::vector<types::global_dof_index> &loc2glb);
+        void
+        initialize_matrices();
 
-    void
-    solve();
+        void
+        assemble_system();
 
-    void
-    output_results(std::string &suffix) const;
+        void
+        assemble_local_over_bulk(const FEValues<dim> &fe_values,
+                                 const std::vector<types::global_dof_index> &loc2glb);
 
-    Error
-    compute_error();
+        void
+        assemble_local_over_surface(
+                const FEValuesBase<dim> &fe_values,
+                const std::vector<types::global_dof_index> &loc2glb);
 
-    void
-    compute_condition_number();
+        void
+        solve();
 
-    void
-    integrate_cell(const FEValues<dim> &fe_v,
-                   double &l2_error_integral,
-                   double &h1_error_integral) const;
+        void
+        output_results(std::string &suffix) const;
 
-    const double radius;
-    const double half_length;
-    const unsigned int n_refines;
+        Error
+        compute_error();
 
-    bool write_output;
-    const bool stabilized;
+        void
+        compute_condition_number();
 
-    Function<dim> *rhs_function;
-    Function<dim> *boundary_values;
-    Function<dim> *analytical_solution;
-    Function<dim> *domain_function;
+        void
+        integrate_cell(const FEValues<dim> &fe_v,
+                       double &l2_error_integral,
+                       double &h1_error_integral) const;
 
-    // Cell side-length.
-    double h = 0;
-    const unsigned int element_order;
+        const double radius;
+        const double half_length;
+        const unsigned int n_refines;
 
-    Triangulation<dim> triangulation;
-    FE_Q<dim> fe;
+        bool write_output;
+        const bool stabilized;
 
-    hp::FECollection<dim> fe_collection;
-    hp::MappingCollection<dim> mapping_collection;
-    hp::QCollection<dim> q_collection;
-    hp::QCollection<1> q_collection1D;
+        Function<dim> *rhs_function;
+        Function<dim> *boundary_values;
+        Function<dim> *analytical_solution;
+        Function<dim> *domain_function;
 
-    // Object managing degrees of freedom for the level set function.
-    FE_Q<dim> fe_levelset;
-    DoFHandler<dim> levelset_dof_handler;
-    Vector<double> levelset;
+        // Cell side-length.
+        double h = 0;
+        const unsigned int element_order;
 
-    // Object managing degrees of freedom for the cutfem method.
-    hp::DoFHandler<dim> dof_handler;
+        Triangulation<dim> triangulation;
+        FE_Q<dim> fe;
 
-    NonMatching::CutMeshClassifier<dim> cut_mesh_classifier;
+        hp::FECollection<dim> fe_collection;
+        hp::MappingCollection<dim> mapping_collection;
+        hp::QCollection<dim> q_collection;
+        hp::QCollection<1> q_collection1D;
 
-    SparsityPattern sparsity_pattern;
-    SparseMatrix<double> stiffness_matrix;
-    double condition_number = 0;
+        // Object managing degrees of freedom for the level set function.
+        FE_Q<dim> fe_levelset;
+        DoFHandler<dim> levelset_dof_handler;
+        Vector<double> levelset;
 
-    Vector<double> rhs;
-    Vector<double> solution;
+        // Object managing degrees of freedom for the cutfem method.
+        hp::DoFHandler<dim> dof_handler;
 
-    AffineConstraints<double> constraints;
-};
+        NonMatching::CutMeshClassifier<dim> cut_mesh_classifier;
 
+        SparsityPattern sparsity_pattern;
+        SparseMatrix<double> stiffness_matrix;
+        double condition_number = 0;
+
+        Vector<double> rhs;
+        Vector<double> solution;
+
+        AffineConstraints<double> constraints;
+    };
+
+} // namespace examples::cut::HeatEquation
 
 #endif //MICROBUBBLE_CUTFEM_POISSON_POISSON_H

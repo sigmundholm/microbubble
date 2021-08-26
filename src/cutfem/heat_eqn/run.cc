@@ -5,6 +5,8 @@
 
 using namespace cutfem;
 
+using namespace examples::cut::HeatEquation;
+
 
 int main() {
     const int dim = 2;
@@ -30,8 +32,9 @@ int main() {
 
     FlowerDomain<dim> domain;
 
-    Poisson<dim> poisson(radius, half_length, n_refines, degree, write_output,
-                         rhs, bdd, soln, domain);
+    HeatEqn<dim> heat(radius, half_length, n_refines, degree, write_output,
+                      rhs, bdd, soln, domain);
 
-    poisson.run(true);
+    heat.run(true);
 }
+
