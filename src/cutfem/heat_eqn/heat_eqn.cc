@@ -222,6 +222,7 @@ namespace examples::cut::HeatEquation {
 
         double beta_0 = 0.1;
         double gamma_A = beta_0 * element_order * (element_order + 1);
+        double gamma_M = beta_0 * element_order * (element_order + 1);
 
         for (const auto &cell : dof_handler.active_cell_iterators()) {
             const unsigned int n_dofs = cell->get_fe().dofs_per_cell;
@@ -253,7 +254,7 @@ namespace examples::cut::HeatEquation {
                 // Compute and add the velocity stabilization.
                 velocity_stabilization.compute_stabilization(cell);
                 velocity_stabilization.add_stabilization_to_matrix(
-                        gamma_A / (h * h),
+                        gamma_M + tau * nu * gamma_A / (h * h),
                         stiffness_matrix);
             }
         }
@@ -289,8 +290,10 @@ namespace examples::cut::HeatEquation {
 
             for (const unsigned int i : fe_values.dof_indices()) {
                 for (const unsigned int j : fe_values.dof_indices()) {
-                    local_matrix(i, j) += tau * nu * grad_phi[j] * grad_phi[i] *
-                                          fe_values.JxW(q); // dx
+                    local_matrix(i, j) += (phi[j] * phi[i]
+                                          +
+                                          tau * nu * grad_phi[j] * grad_phi[i]
+                                          ) * fe_values.JxW(q); // dx
                 }
                 // RHS
                 local_rhs(i) += tau * rhs_values[q] * phi[i] // (f, v)

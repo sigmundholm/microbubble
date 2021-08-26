@@ -18,7 +18,8 @@ namespace examples::cut::HeatEquation {
     RightHandSide<dim>::value(const Point<dim> &p, const unsigned int) const {
         double x = p[0] - center_x;
         double y = p[1] - center_y;
-        return 2 * nu * pi * pi * sin(pi * x) * sin(pi * y);
+        return 2 * nu * pi * pi * sin(pi * x) * sin(pi * y) +
+               sin(pi * x) * sin(pi * y) / tau;
     }
 
 
