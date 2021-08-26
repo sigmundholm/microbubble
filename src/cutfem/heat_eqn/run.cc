@@ -16,7 +16,10 @@ int main() {
     int degree = 1;
     bool write_output = true;
 
-    RightHandSide<dim> rhs;
+    const double nu = 2;
+    const double tau = 0.1;
+
+    RightHandSide<dim> rhs(nu, tau);
     BoundaryValues<dim> bdd;
     AnalyticalSolution<dim> soln;
 
@@ -32,9 +35,12 @@ int main() {
 
     FlowerDomain<dim> domain;
 
-    HeatEqn<dim> heat(radius, half_length, n_refines, degree, write_output,
+    HeatEqn<dim> heat(nu, tau, radius, half_length, n_refines, degree, write_output,
                       rhs, bdd, soln, domain);
 
-    heat.run(true);
+    Error error = heat.run(true);
+    std::cout << "|| u - u_h ||_L2 = " << error.l2_error << std::endl;
+    std::cout << "|| u - u_h ||_H1 = " << error.h1_error << std::endl;
+    std::cout << "| u - u_h |_H1 = " << error.h1_semi << std::endl;
 }
 

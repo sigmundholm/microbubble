@@ -7,16 +7,18 @@ namespace examples::cut::HeatEquation {
 
 
     template<int dim>
-    RightHandSide<dim>::RightHandSide(const double center_x,
+    RightHandSide<dim>::RightHandSide(const double nu,
+                                      const double tau,
+                                      const double center_x,
                                       const double center_y)
-            : center_x(center_x), center_y(center_y) {}
+            : nu(nu), tau(tau), center_x(center_x), center_y(center_y) {}
 
     template<int dim>
     double
     RightHandSide<dim>::value(const Point<dim> &p, const unsigned int) const {
         double x = p[0] - center_x;
         double y = p[1] - center_y;
-        return 2 * pi * pi * sin(pi * x) * sin(pi * y);
+        return 2 * nu * pi * pi * sin(pi * x) * sin(pi * y);
     }
 
 

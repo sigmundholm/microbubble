@@ -39,7 +39,9 @@ namespace examples::cut::HeatEquation {
 
 
     template<int dim>
-    HeatEqn<dim>::HeatEqn(const double radius,
+    HeatEqn<dim>::HeatEqn(const double nu,
+                          const double tau,
+                          const double radius,
                           const double half_length,
                           const unsigned int n_refines,
                           const int element_order,
@@ -49,7 +51,8 @@ namespace examples::cut::HeatEquation {
                           Function<dim> &analytical_soln,
                           Function<dim> &domain_func,
                           const bool stabilized)
-            : radius(radius), half_length(half_length), n_refines(n_refines),
+            : nu(nu), tau(tau),
+              radius(radius), half_length(half_length), n_refines(n_refines),
               write_output(write_output), stabilized(stabilized),
               element_order(element_order),
               fe(element_order), fe_levelset(element_order),
@@ -286,11 +289,11 @@ namespace examples::cut::HeatEquation {
 
             for (const unsigned int i : fe_values.dof_indices()) {
                 for (const unsigned int j : fe_values.dof_indices()) {
-                    local_matrix(i, j) += grad_phi[j] * grad_phi[i] *
+                    local_matrix(i, j) += tau * nu * grad_phi[j] * grad_phi[i] *
                                           fe_values.JxW(q); // dx
                 }
                 // RHS
-                local_rhs(i) += rhs_values[q] * phi[i] // (f, v)
+                local_rhs(i) += tau * rhs_values[q] * phi[i] // (f, v)
                                 * fe_values.JxW(q);      // dx
             }
         }
@@ -334,18 +337,21 @@ namespace examples::cut::HeatEquation {
             for (const unsigned int i : fe_values.dof_indices()) {
                 for (const unsigned int j : fe_values.dof_indices()) {
                     local_matrix(i, j) +=
-                            (mu * phi[j] * phi[i]  // mu (u, v)
-                             -
-                             grad_phi[j] * normal * phi[i] // (∂_n u,v)
-                             -
-                             phi[j] * grad_phi[i] * normal // (u,∂_n v)
+                            tau * nu * (mu * phi[j] * phi[i]  // mu (u, v)
+                                        -
+                                        grad_phi[j] * normal *
+                                        phi[i] // (∂_n u,v)
+                                        -
+                                        phi[j] * grad_phi[i] *
+                                        normal // (u,∂_n v)
                             ) * fe_values.JxW(q); // ds
                 }
 
                 local_rhs(i) +=
-                        (mu * bdd_values[q] * phi[i] // mu (g, v)
-                         -
-                         bdd_values[q] * grad_phi[i] * normal // (g, n ∂_n v)
+                        tau * nu * (mu * bdd_values[q] * phi[i] // mu (g, v)
+                                    -
+                                    bdd_values[q] * grad_phi[i] *
+                                    normal // (g, n ∂_n v)
                         ) * fe_values.JxW(q);        // ds
             }
         }

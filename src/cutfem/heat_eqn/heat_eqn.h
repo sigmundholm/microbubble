@@ -46,7 +46,9 @@ namespace examples::cut::HeatEquation {
     template<int dim>
     class HeatEqn {
     public:
-        HeatEqn(const double radius,
+        HeatEqn(const double nu,
+                const double tau,
+                const double radius,
                 const double half_length,
                 const unsigned int n_refines,
                 const int element_order,
@@ -110,6 +112,9 @@ namespace examples::cut::HeatEquation {
         integrate_cell(const FEValues<dim> &fe_v,
                        double &l2_error_integral,
                        double &h1_error_integral) const;
+
+        const double nu;
+        const double tau;
 
         const double radius;
         const double half_length;

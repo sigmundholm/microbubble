@@ -242,8 +242,9 @@ def conv_plots2(paths, norm_names, element_orders, expected_degrees, domain_leng
 
             add_conv_triangle(ax, guess, color, errors[-1], ns[-2:])
 
-        ylabel = f"${norm_name}".replace("u", "u - u_h")[:-1] + r"(\Omega)}$" if ylabel is None else ylabel
-        ax.set_ylabel(ylabel)
+        ylabel_text = f"${norm_name}".replace("u", "u - u_h")[:-1] + r"(\Omega)}$" if ylabel is None else ylabel
+        ax.set_ylabel(ylabel_text)
+
         if save_figs:
             plt.savefig(f"conv-norm-{i}.svg")
 

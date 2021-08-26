@@ -22,7 +22,9 @@ namespace examples::cut::HeatEquation {
     template<int dim>
     class RightHandSide : public Function<dim> {
     public:
-        RightHandSide(const double center_x = 0,
+        RightHandSide(const double nu,
+                      const double tau,
+                      const double center_x = 0,
                       const double center_y = 0);
 
         double
@@ -30,6 +32,8 @@ namespace examples::cut::HeatEquation {
               const unsigned int component = 0) const override;
 
     private:
+        const double nu;
+        const double tau;
         const double center_x;
         const double center_y;
     };
