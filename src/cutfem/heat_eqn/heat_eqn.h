@@ -60,7 +60,7 @@ namespace examples::cut::HeatEquation {
                 const bool stabilized = true);
 
         virtual Error
-        run(bool compute_cond_number, std::string suffix = "");
+        run(unsigned int bdf_type, unsigned int steps);
 
         static void
         write_header_to_file(std::ofstream &file);
@@ -69,6 +69,13 @@ namespace examples::cut::HeatEquation {
         write_error_to_file(Error &error, std::ofstream &file);
 
     protected:
+        void
+        set_bdf_coefficients(unsigned int bdf_type);
+
+        void
+        interpolate_first_steps(unsigned int bdf_type,
+                                std::vector<Error> &errors);
+
         void
         make_grid();
 
@@ -85,16 +92,28 @@ namespace examples::cut::HeatEquation {
         initialize_matrices();
 
         void
-        assemble_system();
+        assemble_matrix();
 
         void
-        assemble_local_over_bulk(const FEValues<dim> &fe_values,
+        assemble_matrix_local_over_cell(const FEValues<dim> &fe_values,
                                  const std::vector<types::global_dof_index> &loc2glb);
 
         void
-        assemble_local_over_surface(
+        assemble_matrix_local_over_surface(
                 const FEValuesBase<dim> &fe_values,
                 const std::vector<types::global_dof_index> &loc2glb);
+
+        void
+        assemble_rhs();
+
+        void
+        assemble_rhs_local_over_cell(const FEValues<dim> &fe_values,
+                                     const std::vector<types::global_dof_index> &loc2glb);
+
+        void
+        assemble_rhs_local_over_surface(
+                const FEValuesBase<dim> &fe_values,
+                const std::vector<types::global_dof_index> &loc2glob);
 
         void
         solve();
@@ -104,6 +123,9 @@ namespace examples::cut::HeatEquation {
 
         Error
         compute_error();
+
+        Error
+        compute_time_error(std::vector<Error> errors);
 
         void
         compute_condition_number();
@@ -156,6 +178,8 @@ namespace examples::cut::HeatEquation {
 
         Vector<double> rhs;
         Vector<double> solution;
+        std::vector<Vector<double>> solutions;
+        std::vector<double> bdf_coeffs;
 
         AffineConstraints<double> constraints;
     };

@@ -2,10 +2,6 @@ add_executable(heat-cutfem run.cc heat_eqn.cc rhs.cc)
 deal_ii_setup_target(heat-cutfem)
 target_link_libraries(heat-cutfem cutfem)
 
-add_executable(convergence-heat-cutfem convergence.cc heat_eqn.cc rhs.cc)
-deal_ii_setup_target(convergence-heat-cutfem)
-target_link_libraries(convergence-heat-cutfem cutfem)
-
-add_executable(condnum-heat-cutfem condition_number.cc heat_eqn.cc rhs.cc)
-deal_ii_setup_target(condnum-heat-cutfem)
-target_link_libraries(condnum-heat-cutfem cutfem)
+# add_executable(convergence-heat-cutfem convergence.cc heat_eqn.cc rhs.cc)
+# deal_ii_setup_target(convergence-heat-cutfem)
+# target_link_libraries(convergence-heat-cutfem cutfem)

@@ -79,23 +79,88 @@ namespace examples::cut::HeatEquation {
 
     template<int dim>
     Error
-    HeatEqn<dim>::run(bool compute_cond_number, std::string suffix) {
+    HeatEqn<dim>::run(unsigned int bdf_type, unsigned int steps) {
+        // TODO imlement bdf2
+
         make_grid();
         setup_quadrature();
         setup_level_set();
         cut_mesh_classifier.reclassify();
         distribute_dofs();
         initialize_matrices();
-        assemble_system();
-        solve();
-        if (write_output) {
-            output_results(suffix);
+
+        std::vector<Error> errors(steps + 1);
+        interpolate_first_steps(bdf_type, errors);
+        set_bdf_coefficients(bdf_type);
+        assemble_matrix();
+
+        // TODO BDF-2: if u1 is provided; compute the error that step.
+
+        for (unsigned int k = bdf_type; k <= steps; ++k) {
+            std::cout << "k = " << std::to_string(k) << std::endl;
+            std::cout << "=========================" << std::endl;
+
+            rhs_function->set_time(k * tau);
+            boundary_values->set_time(k * tau);
+            analytical_solution->set_time(k * tau);
+
+            assemble_rhs();
+            solve();
+            errors[k] = compute_error();
+
+            std::string suffix = "-" + std::to_string(k);
+            if (write_output) {
+                output_results(suffix);
+            }
+
+            for (unsigned long i = 1; i < solutions.size(); ++i) {
+                solutions[i - 1] = solutions[i];
+            }
+            solutions[solutions.size() - 1] = solution;
         }
-        if (compute_cond_number) {
-            compute_condition_number();
-        }
-        return compute_error();
+
+        // compute_condition_number();
+        return compute_time_error(errors);
     }
+
+
+    template<int dim>
+    void HeatEqn<dim>::
+    set_bdf_coefficients(unsigned int bdf_type) {
+        bdf_coeffs = std::vector<double>(bdf_type + 1);
+
+        if (bdf_type == 1) {
+            bdf_coeffs[0] = 1;
+            bdf_coeffs[1] = -1;
+        } else {
+            throw std::invalid_argument("Only BDF-1 is implemented for now.");
+        }
+    }
+
+
+    template<int dim>
+    void HeatEqn<dim>::
+    interpolate_first_steps(unsigned int bdf_type, std::vector<Error> &errors) {
+        solutions = std::vector<Vector<double>>(bdf_type);
+
+        std::cout << "Fix interpolation!" << std::endl;
+
+        for (unsigned int i = 0; i < bdf_type; ++i) {
+            // Interpolate step i (step u1 will be overwritten by bdf2 if
+            // u1 is provided).
+            analytical_solution->set_time(i * tau);
+            VectorTools::interpolate(dof_handler, *analytical_solution,
+                                     solution);
+            solutions[i].reinit(solution.size());
+
+            // Compute the error of the interpolated step.
+            errors[i] = compute_error();
+            std::string suffix = "-" + std::to_string(i) + "-inter";
+            output_results(suffix);
+            solutions[i] = solution;
+        }
+    }
+
 
     template<int dim>
     void
@@ -171,7 +236,7 @@ namespace examples::cut::HeatEquation {
 
     template<int dim>
     void
-    HeatEqn<dim>::assemble_system() {
+    HeatEqn<dim>::assemble_matrix() {
         std::cout << "Assembling" << std::endl;
 
         stiffness_matrix = 0;
@@ -239,7 +304,7 @@ namespace examples::cut::HeatEquation {
                     cut_fe_values.get_inside_fe_values();
 
             if (fe_values_bulk) {
-                assemble_local_over_bulk(*fe_values_bulk, loc2glb);
+                assemble_matrix_local_over_cell(*fe_values_bulk, loc2glb);
             }
 
             // Retrieve an FEValues object with quadrature points
@@ -248,7 +313,7 @@ namespace examples::cut::HeatEquation {
                     fe_values_surface = cut_fe_values.get_surface_fe_values();
 
             if (fe_values_surface)
-                assemble_local_over_surface(*fe_values_surface, loc2glb);
+                assemble_matrix_local_over_surface(*fe_values_surface, loc2glb);
 
             if (stabilized) {
                 // Compute and add the velocity stabilization.
@@ -262,7 +327,7 @@ namespace examples::cut::HeatEquation {
 
     template<int dim>
     void
-    HeatEqn<dim>::assemble_local_over_bulk(
+    HeatEqn<dim>::assemble_matrix_local_over_cell(
             const FEValues<dim> &fe_values,
             const std::vector<types::global_dof_index> &loc2glb) {
         // TODO generelt: er det for mange hjelpeobjekter som opprettes her i cella?
@@ -290,24 +355,21 @@ namespace examples::cut::HeatEquation {
 
             for (const unsigned int i : fe_values.dof_indices()) {
                 for (const unsigned int j : fe_values.dof_indices()) {
-                    local_matrix(i, j) += (phi[j] * phi[i]
-                                          +
-                                          tau * nu * grad_phi[j] * grad_phi[i]
+                    local_matrix(i, j) += (bdf_coeffs[solutions.size()]
+                                           * phi[j] * phi[i]
+                                           +
+                                           tau * nu * grad_phi[j] * grad_phi[i]
                                           ) * fe_values.JxW(q); // dx
                 }
-                // RHS
-                local_rhs(i) += tau * rhs_values[q] * phi[i] // (f, v)
-                                * fe_values.JxW(q);      // dx
             }
         }
         stiffness_matrix.add(loc2glb, local_matrix);
-        rhs.add(loc2glb, local_rhs);
     }
 
 
     template<int dim>
     void
-    HeatEqn<dim>::assemble_local_over_surface(
+    HeatEqn<dim>::assemble_matrix_local_over_surface(
             const FEValuesBase<dim> &fe_values,
             const std::vector<types::global_dof_index> &loc2glb) {
         // Matrix and vector for the contribution of each cell
@@ -325,8 +387,7 @@ namespace examples::cut::HeatEquation {
         std::vector<double> phi(dofs_per_cell);
 
         double gamma = 20 * element_order * (element_order + 1);
-        double mu =
-                gamma / h; // Penalty parameter TODO konstant avh. av polygrad.
+        double mu = gamma / h;
         Tensor<1, dim> normal;
 
         for (unsigned int q : fe_values.quadrature_point_indices()) {
@@ -349,6 +410,155 @@ namespace examples::cut::HeatEquation {
                                         normal // (u,∂_n v)
                             ) * fe_values.JxW(q); // ds
                 }
+            }
+        }
+        stiffness_matrix.add(loc2glb, local_matrix);
+    }
+
+    template<int dim>
+    void
+    HeatEqn<dim>::assemble_rhs() {
+        std::cout << "Assembling RHS" << std::endl;
+
+        rhs = 0;
+
+        NonMatching::RegionUpdateFlags region_update_flags;
+        region_update_flags.inside = update_values | update_JxW_values |
+                                     update_gradients |
+                                     update_quadrature_points;
+        region_update_flags.surface = update_values | update_JxW_values |
+                                      update_gradients |
+                                      update_quadrature_points |
+                                      update_normal_vectors;
+
+        NonMatching::FEValues<dim> cut_fe_values(mapping_collection,
+                                                 fe_collection,
+                                                 q_collection,
+                                                 q_collection1D,
+                                                 region_update_flags,
+                                                 cut_mesh_classifier,
+                                                 levelset_dof_handler,
+                                                 levelset);
+
+        // Quadrature for the faces of the cells on the outer boundary
+        QGauss<dim - 1> face_quadrature_formula(fe.degree + 1);
+        FEFaceValues<dim> fe_face_values(fe,
+                                         face_quadrature_formula,
+                                         update_values | update_gradients |
+                                         update_quadrature_points |
+                                         update_normal_vectors |
+                                         update_JxW_values);
+
+        for (const auto &cell : dof_handler.active_cell_iterators()) {
+            const unsigned int n_dofs = cell->get_fe().dofs_per_cell;
+            std::vector<types::global_dof_index> loc2glb(n_dofs);
+            cell->get_dof_indices(loc2glb);
+
+            // This call will compute quadrature rules relevant for this cell
+            // in the background.
+            cut_fe_values.reinit(cell);
+
+            // Retrieve an FEValues object with quadrature points
+            // over the full cell.
+            const boost::optional<const FEValues<dim> &> fe_values_bulk =
+                    cut_fe_values.get_inside_fe_values();
+
+            if (fe_values_bulk) {
+                assemble_rhs_local_over_cell(*fe_values_bulk, loc2glb);
+            }
+
+            // Retrieve an FEValues object with quadrature points
+            // on the immersed surface.
+            const boost::optional<const FEImmersedSurfaceValues<dim> &>
+                    fe_values_surface = cut_fe_values.get_surface_fe_values();
+
+            if (fe_values_surface)
+                assemble_rhs_local_over_surface(*fe_values_surface, loc2glb);
+        }
+    }
+
+    template<int dim>
+    void
+    HeatEqn<dim>::assemble_rhs_local_over_cell(
+            const FEValues<dim> &fe_values,
+            const std::vector<types::global_dof_index> &loc2glb) {
+        // TODO generelt: er det for mange hjelpeobjekter som opprettes her i cella?
+        //  bør det heller gjøres i funksjonen før og sendes som argumenter? hvis
+        //  det er mulig mtp cellene som blir cut da
+
+        // Matrix and vector for the contribution of each cell
+        const unsigned int dofs_per_cell = fe_values.get_fe().dofs_per_cell;
+        // FullMatrix<double> local_matrix(dofs_per_cell, dofs_per_cell);
+        Vector<double> local_rhs(dofs_per_cell);
+
+        // Vector for values of the RightHandSide for all quadrature points on a cell.
+        std::vector<double> rhs_values(fe_values.n_quadrature_points);
+        rhs_function->value_list(fe_values.get_quadrature_points(), rhs_values);
+
+        // Calculate often used terms in the beginning of each cell-loop
+        std::vector<double> phi(dofs_per_cell);
+        // std::vector<Tensor<1, dim>> grad_phi(dofs_per_cell);
+
+        // Create vector of the previous solutions values
+        // std::vector<double> val(fe_values.n_quadrature_points);
+        std::vector<double> val(fe_values.n_quadrature_points, 0);
+        std::vector<std::vector<double>> prev_solution_values(solutions.size(),
+                                                              val);
+
+        // The the values of the previous solutions, and insert into the
+        // matrix initialized above.
+        for (unsigned long i = 0; i < solutions.size(); ++i) {
+            fe_values.get_function_values(solutions[i],
+                                          prev_solution_values[i]);
+        }
+
+        for (unsigned int q = 0; q < fe_values.n_quadrature_points; ++q) {
+            for (const unsigned int i : fe_values.dof_indices()) {
+                phi[i] = fe_values.shape_value(i, q);
+
+                double prev_values = 0;
+                for (unsigned long k = 0; k < solutions.size(); ++k) {
+                    prev_values += bdf_coeffs[k] * prev_solution_values[k][q];
+                }
+
+                local_rhs(i) += (tau * rhs_values[q] * phi[i] // (f, v)
+                                 - prev_values * phi[i]
+                                ) * fe_values.JxW(q);      // dx
+                // TODO add interpolation of the previous steps here, based on the length of solutions vector.
+            }
+        }
+        rhs.add(loc2glb, local_rhs);
+    }
+
+
+    template<int dim>
+    void
+    HeatEqn<dim>::assemble_rhs_local_over_surface(
+            const FEValuesBase<dim> &fe_values,
+            const std::vector<types::global_dof_index> &loc2glb) {
+        // Matrix and vector for the contribution of each cell
+        const unsigned int dofs_per_cell = fe_values.get_fe().dofs_per_cell;
+        FullMatrix<double> local_matrix(dofs_per_cell, dofs_per_cell);
+        Vector<double> local_rhs(dofs_per_cell);
+
+        // Evaluate the boundary function for all quadrature points on this face.
+        std::vector<double> bdd_values(fe_values.n_quadrature_points);
+        boundary_values->value_list(fe_values.get_quadrature_points(),
+                                    bdd_values);
+
+        // Calculate often used terms in the beginning of each cell-loop
+        std::vector<Tensor<1, dim>> grad_phi(dofs_per_cell);
+        std::vector<double> phi(dofs_per_cell);
+
+        double gamma = 20 * element_order * (element_order + 1);
+        double mu = gamma / h;
+        Tensor<1, dim> normal;
+
+        for (unsigned int q : fe_values.quadrature_point_indices()) {
+            normal = fe_values.normal_vector(q);
+            for (const unsigned int i : fe_values.dof_indices()) {
+                phi[i] = fe_values.shape_value(i, q);
+                grad_phi[i] = fe_values.shape_grad(i, q);
 
                 local_rhs(i) +=
                         tau * nu * (mu * bdd_values[q] * phi[i] // mu (g, v)
@@ -358,7 +568,6 @@ namespace examples::cut::HeatEquation {
                         ) * fe_values.JxW(q);        // ds
             }
         }
-        stiffness_matrix.add(loc2glb, local_matrix);
         rhs.add(loc2glb, local_rhs);
     }
 
@@ -461,6 +670,39 @@ namespace examples::cut::HeatEquation {
         error.h1_semi = pow(h1_semi_error_integral, 0.5);
         error.h1_error = pow(l2_error_integral + h1_semi_error_integral, 0.5);
         error.cond_num = condition_number;
+        return error;
+    }
+
+
+    template<int dim>
+    Error HeatEqn<dim>::
+    compute_time_error(std::vector<Error> errors) {
+        double l2_error_integral = 0;
+        double h1_error_integral = 0;
+
+        double l_inf_l2 = 0;
+        double l_inf_h1 = 0;
+
+        for (Error error : errors) {
+            l2_error_integral += tau * pow(error.l2_error, 2);
+            h1_error_integral += tau * pow(error.h1_semi, 2);
+
+            if (error.l2_error > l_inf_l2)
+                l_inf_l2 = error.l2_error;
+            if (error.h1_error > l_inf_h1)
+                l_inf_h1 = error.h1_error;
+        }
+
+        Error error;
+        error.mesh_size = h;
+        error.time_step = tau;
+
+        error.l2_error = pow(l2_error_integral, 0.5);
+        error.h1_error = pow(l2_error_integral + h1_error_integral, 0.5);
+        error.h1_semi = pow(h1_error_integral, 0.5);
+
+        error.l_inf_l2_error = l_inf_l2;
+        error.l_inf_h1_error = l_inf_h1;
         return error;
     }
 
