@@ -20,7 +20,7 @@ def convergence_plot_report():
     plot_for = ["\|u\|_{L^2}", "\|u\|_{H^1}"]
     element_orders = [1, 2]
     conv_plots2(paths, plot_for, element_orders, expected_degrees=[1, 0], domain_length=2.2,
-                colors=[color2, color1], save_figs=True, font_size=12, label_size="large", skip=2)
+                colors=[color2, color1], save_figs=True, font_size=12, label_size="large", skip=0)
 
 
 def condition_number_sensitivity_plot():
@@ -51,9 +51,9 @@ if __name__ == '__main__':
 
     # condition_number_plot()
     plt.show()
-    exit()
+    # exit()
 
-    skip = 2
+    skip = 0
     for poly_order in [1, 2]:
         full_path = os.path.join(base, f"build/src/cutfem/heat_eqn/errors-d2o{poly_order}.csv")
 

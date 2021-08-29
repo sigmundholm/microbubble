@@ -96,7 +96,7 @@ namespace examples::cut::HeatEquation {
 
         void
         assemble_matrix_local_over_cell(const FEValues<dim> &fe_values,
-                                 const std::vector<types::global_dof_index> &loc2glb);
+                                        const std::vector<types::global_dof_index> &loc2glb);
 
         void
         assemble_matrix_local_over_surface(
@@ -119,7 +119,7 @@ namespace examples::cut::HeatEquation {
         solve();
 
         void
-        output_results(std::string &suffix) const;
+        output_results(std::string &suffix, bool output_levelset = true) const;
 
         Error
         compute_error();

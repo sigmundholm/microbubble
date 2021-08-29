@@ -92,12 +92,15 @@ namespace examples::cut::HeatEquation {
         std::vector<Error> errors(steps + 1);
         interpolate_first_steps(bdf_type, errors);
         set_bdf_coefficients(bdf_type);
+
         assemble_matrix();
 
         // TODO BDF-2: if u1 is provided; compute the error that step.
 
         for (unsigned int k = bdf_type; k <= steps; ++k) {
-            std::cout << "k = " << std::to_string(k) << std::endl;
+            std::cout << "k = " << std::to_string(k)
+                      << ", time = " << std::to_string(k * tau)
+                      << ", tau = " << std::to_string(tau) << std::endl;
             std::cout << "=========================" << std::endl;
 
             rhs_function->set_time(k * tau);
@@ -110,7 +113,7 @@ namespace examples::cut::HeatEquation {
 
             std::string suffix = "-" + std::to_string(k);
             if (write_output) {
-                output_results(suffix);
+                output_results(suffix, false);
             }
 
             for (unsigned long i = 1; i < solutions.size(); ++i) {
@@ -130,8 +133,8 @@ namespace examples::cut::HeatEquation {
         bdf_coeffs = std::vector<double>(bdf_type + 1);
 
         if (bdf_type == 1) {
-            bdf_coeffs[0] = 1;
-            bdf_coeffs[1] = -1;
+            bdf_coeffs[0] = -1;
+            bdf_coeffs[1] = 1;
         } else {
             throw std::invalid_argument("Only BDF-1 is implemented for now.");
         }
@@ -319,7 +322,7 @@ namespace examples::cut::HeatEquation {
                 // Compute and add the velocity stabilization.
                 velocity_stabilization.compute_stabilization(cell);
                 velocity_stabilization.add_stabilization_to_matrix(
-                        gamma_M + tau * nu * gamma_A / (h * h),
+                        tau * gamma_M + tau * nu * gamma_A / (h * h),
                         stiffness_matrix);
             }
         }
@@ -496,7 +499,7 @@ namespace examples::cut::HeatEquation {
         rhs_function->value_list(fe_values.get_quadrature_points(), rhs_values);
 
         // Calculate often used terms in the beginning of each cell-loop
-        std::vector<double> phi(dofs_per_cell);
+        // std::vector<double> phi(dofs_per_cell);
         // std::vector<Tensor<1, dim>> grad_phi(dofs_per_cell);
 
         // Create vector of the previous solutions values
@@ -507,23 +510,23 @@ namespace examples::cut::HeatEquation {
 
         // The the values of the previous solutions, and insert into the
         // matrix initialized above.
-        for (unsigned long i = 0; i < solutions.size(); ++i) {
-            fe_values.get_function_values(solutions[i],
-                                          prev_solution_values[i]);
+        for (unsigned long k = 0; k < solutions.size(); ++k) {
+            fe_values.get_function_values(solutions[k],
+                                          prev_solution_values[k]);
         }
-
+        double phi_iq;
         for (unsigned int q = 0; q < fe_values.n_quadrature_points; ++q) {
             for (const unsigned int i : fe_values.dof_indices()) {
-                phi[i] = fe_values.shape_value(i, q);
 
                 double prev_values = 0;
                 for (unsigned long k = 0; k < solutions.size(); ++k) {
                     prev_values += bdf_coeffs[k] * prev_solution_values[k][q];
                 }
 
-                local_rhs(i) += (tau * rhs_values[q] * phi[i] // (f, v)
-                                 - prev_values * phi[i]
-                                ) * fe_values.JxW(q);      // dx
+                phi_iq = fe_values.shape_value(i, q);
+                local_rhs(i) += (tau * rhs_values[q] * phi_iq // (f, v)
+                                 - prev_values * phi_iq       // (u_n, v)
+                                ) * fe_values.JxW(q);         // dx
                 // TODO add interpolation of the previous steps here, based on the length of solutions vector.
             }
         }
@@ -604,7 +607,8 @@ namespace examples::cut::HeatEquation {
 
     template<int dim>
     void
-    HeatEqn<dim>::output_results(std::string &suffix) const {
+    HeatEqn<dim>::output_results(std::string &suffix,
+                                 bool output_levelset) const {
         std::cout << "Output results" << std::endl;
         // Output results, see step-22
         DataOut<dim> data_out;
@@ -617,15 +621,17 @@ namespace examples::cut::HeatEquation {
         data_out.write_vtk(out);
 
         // Output levelset function.
-        DataOut<dim, DoFHandler<dim>> data_out_levelset;
-        data_out_levelset.attach_dof_handler(levelset_dof_handler);
-        data_out_levelset.add_data_vector(levelset, "levelset");
-        data_out_levelset.build_patches();
-        std::ofstream output_ls("levelset-d" + std::to_string(dim)
-                                + "o" + std::to_string(element_order)
-                                + "r" + std::to_string(n_refines) + suffix +
-                                ".vtk");
-        data_out_levelset.write_vtk(output_ls);
+        if (output_levelset) {
+            DataOut<dim, DoFHandler<dim>> data_out_levelset;
+            data_out_levelset.attach_dof_handler(levelset_dof_handler);
+            data_out_levelset.add_data_vector(levelset, "levelset");
+            data_out_levelset.build_patches();
+            std::ofstream output_ls("levelset-d" + std::to_string(dim)
+                                    + "o" + std::to_string(element_order)
+                                    + "r" + std::to_string(n_refines) + suffix +
+                                    ".vtk");
+            data_out_levelset.write_vtk(output_ls);
+        }
     }
 
 

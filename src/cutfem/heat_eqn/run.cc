@@ -17,7 +17,7 @@ int main() {
     bool write_output = true;
 
     const double nu = 2;
-    const double tau = 0.1;
+    const double tau = 0.05;
 
     RightHandSide<dim> rhs(nu, tau);
     BoundaryValues<dim> bdd;
@@ -38,7 +38,7 @@ int main() {
     HeatEqn<dim> heat(nu, tau, radius, half_length, n_refines, degree, write_output,
                       rhs, bdd, soln, domain);
 
-    Error error = heat.run(1, 10);
+    Error error = heat.run(1, 40);
     std::cout << "|| u - u_h ||_L2 = " << error.l2_error << std::endl;
     std::cout << "|| u - u_h ||_H1 = " << error.h1_error << std::endl;
     std::cout << "| u - u_h |_H1 = " << error.h1_semi << std::endl;
