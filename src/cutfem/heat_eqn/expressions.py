@@ -10,7 +10,7 @@ def get_u():
 
 
 def get_f(u):
-    return u / tau - nu * laplace(u)
+    return sp.diff(u, t) - nu * laplace(u)
 
 
 u = get_u()

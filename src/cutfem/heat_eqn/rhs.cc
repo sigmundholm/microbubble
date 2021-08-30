@@ -19,8 +19,8 @@ namespace examples::cut::HeatEquation {
         double x = p[0] - center_x;
         double y = p[1] - center_y;
         double t = this->get_time();
-        return 2 * nu * pi * pi * exp(-t) * sin(pi * x) * sin(pi * y) +
-               exp(-t) * sin(pi * x) * sin(pi * y) / tau;
+        return 2 * nu * pi * pi * exp(-t) * sin(pi * x) * sin(pi * y) -
+               exp(-t) * sin(pi * x) * sin(pi * y);
     }
 
 
