@@ -96,6 +96,17 @@ namespace examples::cut::HeatEquation {
         assemble_matrix();
 
         // TODO BDF-2: if u1 is provided; compute the error that step.
+        std::ofstream file("errors-time-d" + std::to_string(dim)
+                           + "o" + std::to_string(element_order)
+                           + "r" + std::to_string(n_refines) + ".csv");
+        write_time_header_to_file(file);
+
+        // Write the interpolation errors to file.
+        // TODO note that this results in both the interpolation error and the
+        //  fem error to be written when u1 is supplied to bdf-2.
+        for (unsigned int k = 0; k < bdf_type; ++k) {
+            write_time_error_to_file(errors[k], file);
+        }
 
         for (unsigned int k = bdf_type; k <= steps; ++k) {
             std::cout << "k = " << std::to_string(k)
@@ -110,6 +121,8 @@ namespace examples::cut::HeatEquation {
             assemble_rhs();
             solve();
             errors[k] = compute_error();
+            errors[k].time_step = k;
+            write_time_error_to_file(errors[k], file);
 
             std::string suffix = "-" + std::to_string(k);
             if (write_output) {
@@ -158,6 +171,7 @@ namespace examples::cut::HeatEquation {
 
             // Compute the error of the interpolated step.
             errors[i] = compute_error();
+            errors[i].time_step = i;
             std::string suffix = "-" + std::to_string(i) + "-inter";
             output_results(suffix);
             solutions[i] = solution;
@@ -701,7 +715,7 @@ namespace examples::cut::HeatEquation {
 
         Error error;
         error.mesh_size = h;
-        error.time_step = tau;
+        error.tau = tau;
 
         error.l2_error = pow(l2_error_integral, 0.5);
         error.h1_error = pow(l2_error_integral + h1_error_integral, 0.5);
@@ -760,6 +774,25 @@ namespace examples::cut::HeatEquation {
     void HeatEqn<dim>::
     write_error_to_file(Error &error, std::ofstream &file) {
         file << error.mesh_size << ","
+             << error.l2_error << ","
+             << error.h1_error << ","
+             << error.h1_semi << ","
+             << error.cond_num << std::endl;
+    }
+
+
+    template<int dim>
+    void HeatEqn<dim>::
+    write_time_header_to_file(std::ofstream &file) {
+        file << "k, \\|u\\|_{L^2}, \\|u\\|_{H^1}, |u|_{H^1}, \\kappa(A)"
+             << std::endl;
+    }
+
+
+    template<int dim>
+    void HeatEqn<dim>::
+    write_time_error_to_file(Error &error, std::ofstream &file) {
+        file << error.time_step << ","
              << error.l2_error << ","
              << error.h1_error << ","
              << error.h1_semi << ","

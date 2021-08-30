@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 
-from utils.plot import conv_plots, conv_plots2, eoc_plot, condnum_sensitivity_plot
+from utils.plot import conv_plots, conv_plots2, eoc_plot, condnum_sensitivity_plot, time_error_plots
 
 # Use colours from the Plasma colour map.
 cmap = matplotlib.cm.get_cmap("plasma")
@@ -42,8 +42,18 @@ def condition_number_plot():
                 skip=4, ylabel=f"${plot_for[0]}$", guess_degree=False)
 
 
+def time_error_plot():
+    for d in [1, 2]:
+        paths = [os.path.join(base, f"build/src/cutfem/heat_eqn/errors-time-d2o{d}r{r}.csv") for r in range(1, 7)]
+        time_error_plots(paths, end_time=2, data_indices=[1, 2],
+                         title=f"Heat equation time error, element order {d}", save_fig=True, identifier=d)
+
+
 if __name__ == '__main__':
     base = split(split(split(os.getcwd())[0])[0])[0]
+    time_error_plot()
+    plt.show()
+    exit()
 
     convergence_plot_report()
 

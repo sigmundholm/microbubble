@@ -13,6 +13,7 @@ namespace examples::cut::HeatEquation {
 
     struct Error {
         double mesh_size = 0;
+        double tau = 0;
         double time_step = 0;
         double l2_error = 0;
         double h1_error = 0;

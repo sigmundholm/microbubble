@@ -247,6 +247,7 @@ def conv_plots2(paths, norm_names, element_orders, expected_degrees, domain_leng
 
         if save_figs:
             plt.savefig(f"conv-norm-{i}.svg")
+            plt.savefig(f"conv-norm-{i}.pdf")
 
 
 def add_conv_triangle(ax, degree, color, right_error, ns):
@@ -321,6 +322,42 @@ def condnum_sensitivity_plot(path_stabilized, path_nonstabilized, colors=None, s
 
     if save_figs:
         plt.savefig(f"sensitivity-{'error' if errors else 'condnum'}.svg")
+
+
+def time_error_plots(paths, end_time, data_indices, title="", save_fig=True, identifier=1, font_size=10):
+    if_latex(True)
+
+    dfs = []
+    head = ""
+    for full_path in paths:
+        head = list(map(str.strip, open(full_path).readline().split(",")))
+        data = np.genfromtxt(full_path, delimiter=",", skip_header=True)
+        dfs.append(data)
+
+    cmap = matplotlib.cm.get_cmap("plasma")
+
+    matplotlib.rc('xtick', labelsize=font_size)
+    matplotlib.rc('ytick', labelsize=font_size)
+
+    for data_index in data_indices:
+        fig, ax = plt.subplots()
+        for i, df in enumerate(dfs):
+            error = df[:, data_index]
+
+            time_steps = df[:, 0]
+            tau = end_time / (len(error) - 1)
+            times = time_steps * tau
+
+            ax.plot(times, error, label=f"$M={len(time_steps) - 1}$", linestyle="--", marker=".",
+                    color=cmap(i / len(paths)))
+
+        ax.set_xlabel(r"$t\, [s]$")
+        ax.set_ylabel(f"${head[data_index].replace('u', 'u-u_h')}$")
+        ax.set_title(r"$\textrm{" + f"{title}" + "}$")
+        ax.legend()
+
+        if save_fig:
+            plt.savefig(f"{'-'.join(map(str.lower, title.split()[:2]))}-{identifier}.{data_index}.pdf")
 
 
 if __name__ == '__main__':

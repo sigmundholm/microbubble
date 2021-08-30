@@ -135,6 +135,12 @@ namespace examples::cut::HeatEquation {
                        double &l2_error_integral,
                        double &h1_error_integral) const;
 
+        void
+        write_time_header_to_file(std::ofstream &file);
+
+        void
+        write_time_error_to_file(Error &error, std::ofstream &file);
+
         const double nu;
         const double tau;
 
