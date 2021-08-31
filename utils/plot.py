@@ -238,7 +238,7 @@ def conv_plots2(paths, norm_names, element_orders, expected_degrees, domain_leng
             if guess_degree:
                 guess = expected_degrees[i] + degree
             else:
-                guess = expected_degrees[i]
+                guess = expected_degrees[i][deg_index]
 
             add_conv_triangle(ax, guess, color, errors[-1], ns[-2:])
 

@@ -109,10 +109,10 @@ namespace examples::cut::HeatEquation {
         }
 
         for (unsigned int k = bdf_type; k <= steps; ++k) {
-            std::cout << "k = " << std::to_string(k)
+            std::cout << "\n k = " << std::to_string(k)
                       << ", time = " << std::to_string(k * tau)
                       << ", tau = " << std::to_string(tau) << std::endl;
-            std::cout << "=========================" << std::endl;
+            std::cout << "-------------------------" << std::endl;
 
             rhs_function->set_time(k * tau);
             boundary_values->set_time(k * tau);
@@ -148,6 +148,10 @@ namespace examples::cut::HeatEquation {
         if (bdf_type == 1) {
             bdf_coeffs[0] = -1;
             bdf_coeffs[1] = 1;
+        } else if (bdf_type == 2) {
+            bdf_coeffs[0] = 0.5;
+            bdf_coeffs[1] = -2;
+            bdf_coeffs[2] = 1.5;
         } else {
             throw std::invalid_argument("Only BDF-1 is implemented for now.");
         }
@@ -159,11 +163,13 @@ namespace examples::cut::HeatEquation {
     interpolate_first_steps(unsigned int bdf_type, std::vector<Error> &errors) {
         solutions = std::vector<Vector<double>>(bdf_type);
 
-        std::cout << "Fix interpolation!" << std::endl;
+        std::cout << "Interpolate first step(s)" << std::endl;
 
         for (unsigned int i = 0; i < bdf_type; ++i) {
             // Interpolate step i (step u1 will be overwritten by bdf2 if
             // u1 is provided).
+            std::cout << "  Interpolate step k = " << i
+                      << ", time = " << i * tau << std::endl;
             analytical_solution->set_time(i * tau);
             VectorTools::interpolate(dof_handler, *analytical_solution,
                                      solution);
@@ -529,11 +535,13 @@ namespace examples::cut::HeatEquation {
                                           prev_solution_values[k]);
         }
         double phi_iq;
+        double prev_values;
         for (unsigned int q = 0; q < fe_values.n_quadrature_points; ++q) {
             for (const unsigned int i : fe_values.dof_indices()) {
 
-                double prev_values = 0;
+                prev_values = 0;
                 for (unsigned long k = 0; k < solutions.size(); ++k) {
+                    // std::cout << "bdf_coeffs[" << k << "] = " << bdf_coeffs[k] << std::endl;
                     prev_values += bdf_coeffs[k] * prev_solution_values[k][q];
                 }
 
@@ -765,7 +773,7 @@ namespace examples::cut::HeatEquation {
     template<int dim>
     void HeatEqn<dim>::
     write_header_to_file(std::ofstream &file) {
-        file << "h, \\|u\\|_{L^2}, \\|u\\|_{H^1}, |u|_{H^1}, \\kappa(A)"
+        file << "h, \\|u\\|_{L^2}, \\|u\\|_{H^1}, |u|_{H^1}, \\|u\\|_{l^\\infty L^2}, \\|u\\|_{l^\\infty H^1}, \\kappa(A)"
              << std::endl;
     }
 
@@ -777,6 +785,8 @@ namespace examples::cut::HeatEquation {
              << error.l2_error << ","
              << error.h1_error << ","
              << error.h1_semi << ","
+             << error.l_inf_l2_error << ","
+             << error.l_inf_h1_error << ","
              << error.cond_num << std::endl;
     }
 

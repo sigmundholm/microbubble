@@ -17,10 +17,10 @@ color3 = cmap(0.9)
 def convergence_plot_report():
     # A report ready convergence plot
     paths = [os.path.join(base, f"build/src/cutfem/heat_eqn/errors-d2o{d}.csv") for d in [1, 2]]
-    plot_for = ["\|u\|_{L^2}", "\|u\|_{H^1}"]
+    plot_for = ["\|u\|_{L^2}", "\|u\|_{H^1}", "\|u\|_{l^\infty L^2}", "\|u\|_{l^\infty H^1}"]
     element_orders = [1, 2]
-    conv_plots2(paths, plot_for, element_orders, expected_degrees=[1, 0], domain_length=2.2,
-                colors=[color2, color1], save_figs=True, font_size=12, label_size="large", skip=0)
+    conv_plots2(paths, plot_for, element_orders, expected_degrees=[[2, 3], [1, 2], [2, 3], [1, 2]], domain_length=2.2,
+                colors=[color2, color1], save_figs=True, font_size=12, label_size="large", skip=0, guess_degree=False)
 
 
 def condition_number_sensitivity_plot():
@@ -51,16 +51,16 @@ def time_error_plot():
 
 if __name__ == '__main__':
     base = split(split(split(os.getcwd())[0])[0])[0]
-    time_error_plot()
+    # time_error_plot()
 
     convergence_plot_report()
 
-    plt.show()
-    exit()
+    # plt.show()
+    # exit()
     # condition_number_sensitivity_plot()
 
     # condition_number_plot()
-    plt.show()
+    # plt.show()
     # exit()
 
     skip = 0
@@ -73,12 +73,12 @@ if __name__ == '__main__':
 
         conv_plots(data, head, title=r"$\textrm{Heat Equation (CutFEM), element order: " + str(poly_order) + "}$",
                    domain_length=2.2)
-        # plt.savefig(f"figure-o{poly_order}.pdf")
+        plt.savefig(f"figure-o{poly_order}.pdf")
 
         # Create a EOC-plot
         eoc_plot(data, head,
                  title=r"\textrm{Heat Equation (CutFEM) EOC, element order: " + str(poly_order) + "}",
                  domain_lenght=2.2, lines_at=np.array([0, 1]) + poly_order)
-        # plt.savefig(f"eoc-o{poly_order}.pdf")
+        plt.savefig(f"eoc-o{poly_order}.pdf")
 
     plt.show()
