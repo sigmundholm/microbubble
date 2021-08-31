@@ -141,11 +141,14 @@ def conv_plots(data, columns, title="", latex=True, domain_length=1):
     matplotlib.rcParams['ytick.minor.size'] = 0
     matplotlib.rcParams['ytick.minor.width'] = 0
 
+    cmap = matplotlib.cm.get_cmap("plasma")
+
     fig, ax = plt.subplots()
-    for col_name, data_col in zip(columns[1:], [data[:, i] for i in range(1, data.shape[1])]):
+    for k, (col_name, data_col) in enumerate(zip(columns[1:], [data[:, i] for i in range(1, data.shape[1])])):
         print()
         print(col_name, data_col)
-        ax = add_convergence_line(ax, ns, data_col, "log2", name=col_name, xlabel="$N$")
+        ax = add_convergence_line(ax, ns, data_col, "log2", name=col_name, xlabel="$N$",
+                                  color=cmap(k / (len(columns) - 1)))
     ax.set_title(title)
 
 
@@ -161,6 +164,8 @@ def eoc_plot(data, columns, title="", domain_lenght=1, latex=True, lines_at=None
     matplotlib.rcParams['ytick.minor.size'] = 0
     matplotlib.rcParams['ytick.minor.width'] = 0
 
+    cmap = matplotlib.cm.get_cmap("plasma")
+
     fig, ax = plt.subplots()
     ax.set_xscale("log")
 
@@ -168,11 +173,12 @@ def eoc_plot(data, columns, title="", domain_lenght=1, latex=True, lines_at=None
         for line_val in lines_at:
             ax.plot([ns[1], ns[-1]], [line_val, line_val], linestyle='--', linewidth=1, color="gray")
 
-    for col_name, data_col in zip(columns[1:], [data[:, i] for i in range(1, data.shape[1])]):
+    for k, (col_name, data_col) in enumerate(zip(columns[1:], [data[:, i] for i in range(1, data.shape[1])])):
         eoc = np.log(data_col[:-1] / data_col[1:]) / np.log(mesh_size[:-1] / mesh_size[1:])
         print(col_name, eoc)
 
-        ax.plot(ns[1:], eoc, label=r"${" + col_name + "}$", linestyle='--', marker='.')
+        ax.plot(ns[1:], eoc, label=r"${" + col_name + "}$", linestyle='--', marker='.',
+                color=cmap(k / (len(columns) - 1)))
 
     # Remove scientific notation along x-axis
     ax.xaxis.set_major_formatter(StrMethodFormatter('{x:.0f}'))
@@ -324,7 +330,8 @@ def condnum_sensitivity_plot(path_stabilized, path_nonstabilized, colors=None, s
         plt.savefig(f"sensitivity-{'error' if errors else 'condnum'}.svg")
 
 
-def time_error_plots(paths, end_time, data_indices, title="", save_fig=True, identifier=1, font_size=10):
+def time_error_plots(paths, end_time, data_indices, title="", save_fig=True, identifier=1, font_size=10,
+                     label_size='medium'):
     if_latex(True)
 
     dfs = []
@@ -336,11 +343,18 @@ def time_error_plots(paths, end_time, data_indices, title="", save_fig=True, ide
 
     cmap = matplotlib.cm.get_cmap("plasma")
 
+    matplotlib.rcParams['xtick.minor.size'] = 0
+    matplotlib.rcParams['xtick.minor.width'] = 0
+    matplotlib.rcParams['ytick.minor.size'] = 0
+    matplotlib.rcParams['ytick.minor.width'] = 0
+
     matplotlib.rc('xtick', labelsize=font_size)
     matplotlib.rc('ytick', labelsize=font_size)
+    plt.rcParams.update({'axes.labelsize': label_size})
 
     for data_index in data_indices:
         fig, ax = plt.subplots()
+        ax.set_yscale("log")
         for i, df in enumerate(dfs):
             error = df[:, data_index]
 
@@ -354,7 +368,7 @@ def time_error_plots(paths, end_time, data_indices, title="", save_fig=True, ide
         ax.set_xlabel(r"$t\, [s]$")
         ax.set_ylabel(f"${head[data_index].replace('u', 'u-u_h')}$")
         ax.set_title(r"$\textrm{" + f"{title}" + "}$")
-        ax.legend()
+        ax.legend(loc='upper right')
 
         if save_fig:
             plt.savefig(f"{'-'.join(map(str.lower, title.split()[:2]))}-{identifier}.{data_index}.pdf")

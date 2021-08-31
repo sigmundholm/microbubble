@@ -44,14 +44,14 @@ def condition_number_plot():
 
 def time_error_plot():
     for d in [1, 2]:
-        paths = [os.path.join(base, f"build/src/cutfem/heat_eqn/errors-time-d2o{d}r{r}.csv") for r in range(1, 7)]
-        time_error_plots(paths, end_time=2, data_indices=[1, 2],
+        paths = [os.path.join(base, f"build/src/cutfem/heat_eqn/errors-time-d2o{d}r{r}.csv") for r in range(1, 8)]
+        time_error_plots(paths, end_time=2, data_indices=[1, 2], font_size=12, label_size="large",
                          title=f"Heat equation time error, element order {d}", save_fig=True, identifier=d)
 
 
 if __name__ == '__main__':
     base = split(split(split(os.getcwd())[0])[0])[0]
-    # time_error_plot()
+    time_error_plot()
 
     convergence_plot_report()
 
@@ -67,9 +67,9 @@ if __name__ == '__main__':
     for poly_order in [1, 2]:
         full_path = os.path.join(base, f"build/src/cutfem/heat_eqn/errors-d2o{poly_order}.csv")
 
-        head = list(map(str.strip, open(full_path).readline().split(",")))
+        head = list(map(str.strip, open(full_path).readline().split(",")))[:-1]
         data = np.genfromtxt(full_path, delimiter=",", skip_header=True)
-        data = data[skip:, :]
+        data = data[skip:, :-1]
 
         conv_plots(data, head, title=r"$\textrm{Heat Equation (CutFEM), element order: " + str(poly_order) + "}$",
                    domain_length=2.2)
