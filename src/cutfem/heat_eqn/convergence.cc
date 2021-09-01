@@ -48,10 +48,22 @@ void solve_for_element_order(int element_order, int max_refinement,
         const double tau = end_time / time_steps;
         RightHandSide<dim> rhs(nu, tau);
 
+        // BDF-1
+        // HeatEqn<dim> heat(nu, tau, radius, half_length, n_refines, element_order);
+
+
+        // BDF-2
         HeatEqn<dim> heat(nu, tau, radius, half_length, n_refines, element_order,
                              write_output,
                              rhs, bdd, soln, domain);
-        Error error = heat.run(2, time_steps);
+        Error error1 = heat.run(1, 1);
+
+        std::cout << "|| u - u_h ||_L2 = " << error1.l2_error << std::endl;
+        std::cout << "|| u - u_h ||_H1 = " << error1.h1_error << std::endl;
+        std::cout << "| u - u_h |_H1 = " << error1.h1_semi << std::endl;
+        Vector<double> u1 = heat.get_solution();
+
+        Error error = heat.run(2, time_steps, u1);
 
         std::cout << "|| u - u_h ||_L2 = " << error.l2_error << std::endl;
         std::cout << "|| u - u_h ||_H1 = " << error.h1_error << std::endl;

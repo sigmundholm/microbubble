@@ -60,7 +60,14 @@ namespace examples::cut::HeatEquation {
                 const bool stabilized = true);
 
         virtual Error
+        run(unsigned int bdf_type, unsigned int steps,
+                Vector<double> &supplied_solution);
+
+        virtual Error
         run(unsigned int bdf_type, unsigned int steps);
+
+        Vector<double>
+        get_solution();
 
         static void
         write_header_to_file(std::ofstream &file);
@@ -160,6 +167,7 @@ namespace examples::cut::HeatEquation {
         double h = 0;
         const unsigned int element_order;
 
+        bool triangulation_exists = false;
         Triangulation<dim> triangulation;
         FE_Q<dim> fe;
 

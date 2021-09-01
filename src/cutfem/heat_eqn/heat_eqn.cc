@@ -79,15 +79,18 @@ namespace examples::cut::HeatEquation {
 
     template<int dim>
     Error
-    HeatEqn<dim>::run(unsigned int bdf_type, unsigned int steps) {
+    HeatEqn<dim>::run(unsigned int bdf_type, unsigned int steps,
+                      Vector<double> &supplied_solution) {
         // TODO imlement bdf2
-
-        make_grid();
-        setup_quadrature();
-        setup_level_set();
-        cut_mesh_classifier.reclassify();
-        distribute_dofs();
-        initialize_matrices();
+        std::cout << "\nBDF-" << bdf_type << std::endl;
+        if (!triangulation_exists) {
+            make_grid();
+            setup_quadrature();
+            setup_level_set();
+            cut_mesh_classifier.reclassify();
+            distribute_dofs();
+            initialize_matrices();
+        }
 
         std::vector<Error> errors(steps + 1);
         interpolate_first_steps(bdf_type, errors);
@@ -101,15 +104,31 @@ namespace examples::cut::HeatEquation {
                            + "r" + std::to_string(n_refines) + ".csv");
         write_time_header_to_file(file);
 
+        // Overwrite the interpolated solution if the supplied_solution is a
+        // vector of lenght longer than one.
+        if (supplied_solution.size() == solution.size()) {
+            std::cout << "BDF-" << bdf_type << ", supplied solution set."
+                      << std::endl;
+            solutions[bdf_type - 1] = supplied_solution;
+            solution = supplied_solution;
+            analytical_solution->set_time((bdf_type - 1) * tau);
+            errors[bdf_type - 1] = compute_error();
+        }
+
         // Write the interpolation errors to file.
         // TODO note that this results in both the interpolation error and the
         //  fem error to be written when u1 is supplied to bdf-2.
         for (unsigned int k = 0; k < bdf_type; ++k) {
             write_time_error_to_file(errors[k], file);
+            std::cout << "  k = " << k << ", "
+                      << "|| u - u_h ||_L2 = " << errors[k].l2_error
+                      << ", || u - u_h ||_H1 = " << errors[k].h1_error
+                      << std::endl;
         }
 
+
         for (unsigned int k = bdf_type; k <= steps; ++k) {
-            std::cout << "\n k = " << std::to_string(k)
+            std::cout << "\nk = " << std::to_string(k)
                       << ", time = " << std::to_string(k * tau)
                       << ", tau = " << std::to_string(tau) << std::endl;
             std::cout << "-------------------------" << std::endl;
@@ -124,6 +143,11 @@ namespace examples::cut::HeatEquation {
             errors[k].time_step = k;
             write_time_error_to_file(errors[k], file);
 
+            std::cout << "  k = " << k << ", "
+                      << "|| u - u_h ||_L2 = " << errors[k].l2_error
+                      << ", || u - u_h ||_H1 = " << errors[k].h1_error
+                      << std::endl;
+
             std::string suffix = "-" + std::to_string(k);
             if (write_output) {
                 output_results(suffix, false);
@@ -137,6 +161,21 @@ namespace examples::cut::HeatEquation {
 
         // compute_condition_number();
         return compute_time_error(errors);
+    }
+
+
+    template<int dim>
+    Error HeatEqn<dim>::
+    run(unsigned int bdf_type, unsigned int steps) {
+        Vector<double> empty(1);
+        return run(bdf_type, steps, empty);
+    }
+
+
+    template<int dim>
+    Vector<double> HeatEqn<dim>::
+    get_solution() {
+        return solution;
     }
 
 
@@ -190,6 +229,7 @@ namespace examples::cut::HeatEquation {
     HeatEqn<dim>::make_grid() {
         std::cout << "Creating triangulation" << std::endl;
 
+        triangulation_exists = true;
         GridGenerator::cylinder(triangulation, radius, half_length);
         GridTools::remove_anisotropy(triangulation, 1.618, 5);
         triangulation.refine_global(n_refines);
@@ -773,8 +813,9 @@ namespace examples::cut::HeatEquation {
     template<int dim>
     void HeatEqn<dim>::
     write_header_to_file(std::ofstream &file) {
-        file << "h, \\|u\\|_{L^2}, \\|u\\|_{H^1}, |u|_{H^1}, \\|u\\|_{l^\\infty L^2}, \\|u\\|_{l^\\infty H^1}, \\kappa(A)"
-             << std::endl;
+        file
+                << "h, \\|u\\|_{L^2}, \\|u\\|_{H^1}, |u|_{H^1}, \\|u\\|_{l^\\infty L^2}, \\|u\\|_{l^\\infty H^1}, \\kappa(A)"
+                << std::endl;
     }
 
 
