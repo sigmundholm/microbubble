@@ -45,7 +45,7 @@ def condition_number_plot():
 def time_error_plot():
     for d in [1, 2]:
         paths = [os.path.join(base, f"build/src/cutfem/heat_eqn/errors-time-d2o{d}r{r}.csv") for r in range(2, 8)]
-        time_error_plots(paths, end_time=1, data_indices=[1, 2], font_size=12, label_size="large",
+        time_error_plots(paths, end_time=1.1/8, data_indices=[1, 2], font_size=12, label_size="large",
                          title=f"Heat equation time error, element order {d}", save_fig=True, identifier=d)
 
 
@@ -64,21 +64,23 @@ if __name__ == '__main__':
     # exit()
 
     skip = 0
+    domain_length = 1.1 / 8
+    xlabel = "M"
     for poly_order in [1, 2]:
         full_path = os.path.join(base, f"build/src/cutfem/heat_eqn/errors-d2o{poly_order}.csv")
 
-        head = list(map(str.strip, open(full_path).readline().split(",")))[:-1]
+        head = list(map(str.strip, open(full_path).readline().split(",")))[1:-1]
         data = np.genfromtxt(full_path, delimiter=",", skip_header=True)
-        data = data[skip:, :-1]
+        data = data[skip:, 1:-1]
 
         conv_plots(data, head, title=r"$\textrm{Heat Equation (CutFEM), element order: " + str(poly_order) + "}$",
-                   domain_length=2.2)
+                   domain_length=domain_length, xlabel=xlabel)
         plt.savefig(f"figure-o{poly_order}.pdf")
 
         # Create a EOC-plot
         eoc_plot(data, head,
                  title=r"\textrm{Heat Equation (CutFEM) EOC, element order: " + str(poly_order) + "}",
-                 domain_lenght=2.2, lines_at=np.array([0, 1]) + poly_order)
+                 domain_lenght=domain_length, lines_at=np.array([1, 2]), xlabel=xlabel)
         plt.savefig(f"eoc-o{poly_order}.pdf")
 
     plt.show()

@@ -740,6 +740,7 @@ namespace examples::cut::HeatEquation {
 
         Error error;
         error.mesh_size = h;
+        error.tau = tau;
         error.l2_error = pow(l2_error_integral, 0.5);
         error.h1_semi = pow(h1_semi_error_integral, 0.5);
         error.h1_error = pow(l2_error_integral + h1_semi_error_integral, 0.5);
@@ -820,7 +821,7 @@ namespace examples::cut::HeatEquation {
     void HeatEqn<dim>::
     write_header_to_file(std::ofstream &file) {
         file
-                << "h, \\|u\\|_{L^2}, \\|u\\|_{H^1}, |u|_{H^1}, \\|u\\|_{l^\\infty L^2}, \\|u\\|_{l^\\infty H^1}, \\kappa(A)"
+                << "h, \\tau, \\|u\\|_{L^2}, \\|u\\|_{H^1}, |u|_{H^1}, \\|u\\|_{l^\\infty L^2}, \\|u\\|_{l^\\infty H^1}, \\kappa(A)"
                 << std::endl;
     }
 
@@ -829,6 +830,7 @@ namespace examples::cut::HeatEquation {
     void HeatEqn<dim>::
     write_error_to_file(Error &error, std::ofstream &file) {
         file << error.mesh_size << ","
+             << error.tau << ","
              << error.l2_error << ","
              << error.h1_error << ","
              << error.h1_semi << ","

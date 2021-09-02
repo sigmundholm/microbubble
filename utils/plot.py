@@ -130,11 +130,11 @@ def plot3d(field, title="", latex=False, z_label="z", xs=None, ys=None):
     return ax
 
 
-def conv_plots(data, columns, title="", latex=True, domain_length=1):
+def conv_plots(data, columns, title="", latex=True, domain_length=1, xlabel="N"):
     if_latex(latex)
 
     mesh_size = data[:, 0]
-    ns = list(map(int, domain_length / mesh_size))
+    ns = list(map(round, domain_length / mesh_size))
 
     matplotlib.rcParams['xtick.minor.size'] = 0
     matplotlib.rcParams['xtick.minor.width'] = 0
@@ -147,12 +147,12 @@ def conv_plots(data, columns, title="", latex=True, domain_length=1):
     for k, (col_name, data_col) in enumerate(zip(columns[1:], [data[:, i] for i in range(1, data.shape[1])])):
         print()
         print(col_name, data_col)
-        ax = add_convergence_line(ax, ns, data_col, "log2", name=col_name, xlabel="$N$",
+        ax = add_convergence_line(ax, ns, data_col, "log2", name=col_name, xlabel=f"${xlabel}$",
                                   color=cmap(k / (len(columns) - 1)))
     ax.set_title(title)
 
 
-def eoc_plot(data, columns, title="", domain_lenght=1, latex=True, lines_at=None):
+def eoc_plot(data, columns, title="", domain_lenght=1, latex=True, lines_at=None, xlabel="N"):
     if_latex(latex)
 
     mesh_size = data[:, 0]
@@ -189,7 +189,7 @@ def eoc_plot(data, columns, title="", domain_lenght=1, latex=True, lines_at=None
     ax.set_xticklabels(ns_names)
 
     ax.set_title(title)
-    ax.set_xlabel(f"$N$")
+    ax.set_xlabel(f"${xlabel}$")
     ax.set_ylabel(r"\textrm{EOC}")
     ax.legend()
 
