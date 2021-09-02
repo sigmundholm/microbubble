@@ -113,6 +113,7 @@ namespace examples::cut::HeatEquation {
             solution = supplied_solution;
             analytical_solution->set_time((bdf_type - 1) * tau);
             errors[bdf_type - 1] = compute_error();
+            errors[bdf_type - 1].time_step = bdf_type - 1;
         }
 
         // Write the interpolation errors to file.
@@ -191,6 +192,11 @@ namespace examples::cut::HeatEquation {
             bdf_coeffs[0] = 0.5;
             bdf_coeffs[1] = -2;
             bdf_coeffs[2] = 1.5;
+        } else if (bdf_type == 3) {
+            bdf_coeffs[0] = -1.0 / 3;
+            bdf_coeffs[1] = 1.5;
+            bdf_coeffs[2] = -3;
+            bdf_coeffs[3] = 11.0 / 6;
         } else {
             throw std::invalid_argument("Only BDF-1 is implemented for now.");
         }

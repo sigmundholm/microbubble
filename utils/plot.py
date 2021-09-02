@@ -371,7 +371,7 @@ def time_error_plots(paths, end_time, data_indices, title="", save_fig=True, ide
         ax.legend(loc='upper right')
 
         if save_fig:
-            plt.savefig(f"{'-'.join(map(str.lower, title.split()[:2]))}-{identifier}.{data_index}.pdf")
+            plt.savefig(f"{'-'.join(map(str.lower, title.split()[:2]))}-{identifier}-{data_index}.pdf")
 
 
 if __name__ == '__main__':

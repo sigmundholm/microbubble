@@ -19,8 +19,8 @@ def convergence_plot_report():
     paths = [os.path.join(base, f"build/src/cutfem/heat_eqn/errors-d2o{d}.csv") for d in [1, 2]]
     plot_for = ["\|u\|_{L^2}", "\|u\|_{H^1}", "\|u\|_{l^\infty L^2}", "\|u\|_{l^\infty H^1}"]
     element_orders = [1, 2]
-    conv_plots2(paths, plot_for, element_orders, expected_degrees=[[2, 2], [1, 2], [2, 2], [1, 2]], domain_length=2.2,
-                colors=[color2, color1], save_figs=True, font_size=12, label_size="large", skip=0, guess_degree=False)
+    conv_plots2(paths, plot_for, element_orders, expected_degrees=[[2, 3], [1, 2], [2, 3], [1, 2]], domain_length=2.2,
+                colors=[color2, color1, color0], save_figs=True, font_size=12, label_size="large", skip=0, guess_degree=False)
 
 
 def condition_number_sensitivity_plot():
@@ -44,8 +44,8 @@ def condition_number_plot():
 
 def time_error_plot():
     for d in [1, 2]:
-        paths = [os.path.join(base, f"build/src/cutfem/heat_eqn/errors-time-d2o{d}r{r}.csv") for r in range(1, 8)]
-        time_error_plots(paths, end_time=2, data_indices=[1, 2], font_size=12, label_size="large",
+        paths = [os.path.join(base, f"build/src/cutfem/heat_eqn/errors-time-d2o{d}r{r}.csv") for r in range(2, 8)]
+        time_error_plots(paths, end_time=1, data_indices=[1, 2], font_size=12, label_size="large",
                          title=f"Heat equation time error, element order {d}", save_fig=True, identifier=d)
 
 
