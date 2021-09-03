@@ -13,10 +13,12 @@ color1 = cmap(0.5)
 color2 = cmap(0.7)
 color3 = cmap(0.9)
 
+folder = "e_tau_h_01"
+
 
 def convergence_plot_report():
     # A report ready convergence plot
-    paths = [os.path.join(base, f"build/src/cutfem/heat_eqn/errors-d2o{d}.csv") for d in [1, 2]]
+    paths = [os.path.join(base, f"build/src/cutfem/heat_eqn", folder, f"errors-d2o{d}.csv") for d in [1, 2]]
     plot_for = ["\|u\|_{L^2}", "\|u\|_{H^1}", "\|u\|_{l^\infty L^2}", "\|u\|_{l^\infty H^1}"]
     element_orders = [1, 2]
     conv_plots2(paths, plot_for, element_orders, expected_degrees=[[2, 3], [1, 2], [2, 3], [1, 2]], domain_length=2.2,
@@ -25,8 +27,8 @@ def convergence_plot_report():
 
 def condition_number_sensitivity_plot():
     # A plot for condition number sensitivity
-    path_stab = os.path.join(base, f"build/src/cutfem/heat_eqn/condnums-d2o1r5-stabilized.csv")
-    path_non_stab = os.path.join(base, f"build/src/cutfem/heat_eqn/condnums-d2o1r5-nonstabilized.csv")
+    path_stab = os.path.join(base, f"build/src/cutfem/heat_eqn", folder, "condnums-d2o1r5-stabilized.csv")
+    path_non_stab = os.path.join(base, f"build/src/cutfem/heat_eqn", folder, "condnums-d2o1r5-nonstabilized.csv")
     condnum_sensitivity_plot(path_stab, path_non_stab, colors=[color0, color1, color2, color3],
                              save_figs=True, font_size=12, label_size="large", errors=False)
     condnum_sensitivity_plot(path_stab, path_non_stab, colors=[color0, color1, color2, color3],
@@ -34,7 +36,7 @@ def condition_number_sensitivity_plot():
 
 
 def condition_number_plot():
-    paths = [os.path.join(base, f"build/src/cutfem/heat_eqn/errors-d2o{d}.csv") for d in [1, 2]]
+    paths = [os.path.join(base, f"build/src/cutfem/heat_eqn", folder, f"errors-d2o{d}.csv") for d in [1, 2]]
     plot_for = ["\kappa(A)"]
     element_orders = [1, 2]
     conv_plots2(paths, plot_for, element_orders, expected_degrees=[-2, -2], domain_length=2.2,
@@ -44,8 +46,8 @@ def condition_number_plot():
 
 def time_error_plot():
     for d in [1, 2]:
-        paths = [os.path.join(base, f"build/src/cutfem/heat_eqn/errors-time-d2o{d}r{r}.csv") for r in range(2, 8)]
-        time_error_plots(paths, end_time=1.1/8, data_indices=[1, 2], font_size=12, label_size="large",
+        paths = [os.path.join(base, f"build/src/cutfem/heat_eqn", folder, f"errors-time-d2o{d}r{r}.csv") for r in range(2, 8)]
+        time_error_plots(paths, end_time=1.1, data_indices=[1, 2], font_size=12, label_size="large",
                          title=f"Heat equation time error, element order {d}", save_fig=True, identifier=d)
 
 
@@ -64,10 +66,10 @@ if __name__ == '__main__':
     # exit()
 
     skip = 0
-    domain_length = 1.1 / 8
+    domain_length = 1.1
     xlabel = "M"
     for poly_order in [1, 2]:
-        full_path = os.path.join(base, f"build/src/cutfem/heat_eqn/errors-d2o{poly_order}.csv")
+        full_path = os.path.join(base, f"build/src/cutfem/heat_eqn", folder, f"errors-d2o{poly_order}.csv")
 
         head = list(map(str.strip, open(full_path).readline().split(",")))[1:-1]
         data = np.genfromtxt(full_path, delimiter=",", skip_header=True)

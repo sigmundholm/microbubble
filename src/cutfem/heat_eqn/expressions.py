@@ -6,7 +6,7 @@ nu, tau = sp.var("nu tau")
 
 
 def get_u():
-    return sp.sin(pi * x) * sp.sin(pi * y) * sp.exp(-t)
+    return sp.sin(pi * x) * sp.sin(pi * y) * (2 + sp.sin(pi * t))
 
 
 def get_f(u):

@@ -23,7 +23,7 @@ void solve_for_element_order(int element_order, int max_refinement,
     double half_length = 1.1;
 
     const double nu = 2;
-    const double end_time = 1.1/8;
+    const double end_time = 1.1;
 
     BoundaryValues<dim> bdd;
     AnalyticalSolution<dim> soln;

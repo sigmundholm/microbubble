@@ -19,8 +19,8 @@ namespace examples::cut::HeatEquation {
         double x = p[0] - center_x;
         double y = p[1] - center_y;
         double t = this->get_time();
-        return 2 * nu * pi * pi * exp(-t) * sin(pi * x) * sin(pi * y) -
-               exp(-t) * sin(pi * x) * sin(pi * y);
+        return 2 * nu * pi * pi * (sin(pi * t) + 2) * sin(pi * x) *
+               sin(pi * y) + pi * sin(pi * x) * sin(pi * y) * cos(pi * t);
     }
 
 
@@ -35,7 +35,7 @@ namespace examples::cut::HeatEquation {
         double x = p[0] - center_x;
         double y = p[1] - center_y;
         double t = this->get_time();
-        return sin(pi * x) * sin(pi * y) * exp(-t);
+        return sin(pi * x) * sin(pi * y) * (sin(pi * t) + 2);
     }
 
 
@@ -51,7 +51,7 @@ namespace examples::cut::HeatEquation {
         double x = p[0] - center_x;
         double y = p[1] - center_y;
         double t = this->get_time();
-        return sin(pi * x) * sin(pi * y) * exp(-t);
+        return sin(pi * x) * sin(pi * y) * (sin(pi * t) + 2);
     }
 
     template<int dim>
@@ -62,8 +62,8 @@ namespace examples::cut::HeatEquation {
         double y = p[1] - center_y;
         double t = this->get_time();
         Tensor<1, dim> value;
-        value[0] = pi * sin(pi * y) * cos(pi * x) * exp(-t);
-        value[1] = pi * sin(pi * x) * cos(pi * y) * exp(-t);
+        value[0] = pi * sin(pi * y) * cos(pi * x) * (sin(pi * t) + 2);
+        value[1] = pi * sin(pi * x) * cos(pi * y) * (sin(pi * t) + 2);
 
         return value;
     }
