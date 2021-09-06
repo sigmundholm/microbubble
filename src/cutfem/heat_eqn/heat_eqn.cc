@@ -778,6 +778,8 @@ namespace examples::cut::HeatEquation {
                 phi = fe_values.shape_value(i, q);
                 grad_phi = fe_values.shape_grad(i, q);
                 bdd_values_sum = bdd_values[q] + bdd_values_prev[q];
+                prev_value = prev_solution_values[q];
+                prev_grad = prev_solution_grads[q];
 
                 local_rhs(i) += 0.5 * tau * nu * (
                         mu * bdd_values_sum * phi // mu (g, v)
