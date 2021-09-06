@@ -23,7 +23,7 @@ void solve_for_element_order(int element_order, int max_refinement,
     double half_length = 1.1;
 
     const double nu = 2;
-    const double end_time = 1.1;
+    const double end_time = 1;
 
     BoundaryValues<dim> bdd;
     AnalyticalSolution<dim> soln;
@@ -51,8 +51,8 @@ void solve_for_element_order(int element_order, int max_refinement,
         // BDF-1
         HeatEqn<dim> heat(nu, tau, radius, half_length, n_refines, element_order,
                              write_output,
-                             rhs, bdd, soln, domain);
-        Error error = heat.run(1, time_steps);
+                             rhs, bdd, soln, domain, true, true);
+        Error error = heat.run(1, 1);
 
         std::cout << "|| u - u_h ||_L2 = " << error.l2_error << std::endl;
         std::cout << "|| u - u_h ||_H1 = " << error.h1_error << std::endl;

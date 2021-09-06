@@ -57,11 +57,12 @@ namespace examples::cut::HeatEquation {
                 Function<dim> &bdd_values,
                 Function<dim> &analytical_soln,
                 Function<dim> &domain_func,
-                const bool stabilized = true);
+                const bool stabilized = true,
+                const bool crank_nicholson = false);
 
         virtual Error
         run(unsigned int bdf_type, unsigned int steps,
-                Vector<double> &supplied_solution);
+            Vector<double> &supplied_solution);
 
         virtual Error
         run(unsigned int bdf_type, unsigned int steps);
@@ -111,16 +112,27 @@ namespace examples::cut::HeatEquation {
                 const std::vector<types::global_dof_index> &loc2glb);
 
         void
-        assemble_rhs();
+        assemble_rhs(int time_step);
 
         void
         assemble_rhs_local_over_cell(const FEValues<dim> &fe_values,
                                      const std::vector<types::global_dof_index> &loc2glb);
 
         void
+        assemble_rhs_local_over_cell_cn(const FEValues<dim> &fe_values,
+                                        const std::vector<types::global_dof_index> &loc2glb,
+                                        const int time_step);
+
+        void
         assemble_rhs_local_over_surface(
                 const FEValuesBase<dim> &fe_values,
                 const std::vector<types::global_dof_index> &loc2glob);
+
+        void
+        assemble_rhs_local_over_surface_cn(
+                const FEValuesBase<dim> &fe_values,
+                const std::vector<types::global_dof_index> &loc2glob,
+                const int time_step);
 
         void
         solve();
@@ -194,6 +206,7 @@ namespace examples::cut::HeatEquation {
         Vector<double> solution;
         std::vector<Vector<double>> solutions;
         std::vector<double> bdf_coeffs;
+        const bool crank_nicholson;
 
         AffineConstraints<double> constraints;
     };

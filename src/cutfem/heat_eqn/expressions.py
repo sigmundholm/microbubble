@@ -13,8 +13,15 @@ def get_f(u):
     return sp.diff(u, t) - nu * laplace(u)
 
 
+def get_f_stationary(u):
+    u0 = u.subs(t, 0)
+    u1 = u.subs(t, 1)
+    return (u1 - u0) - 0.5 * nu * (laplace(u1) + laplace(u0))
+
+
 u = get_u()
 f = get_f(u)
 
 print("u =", u)
 print(" f =", f)
+print("stat f =", get_f_stationary(u))

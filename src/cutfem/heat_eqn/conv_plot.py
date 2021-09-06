@@ -13,7 +13,7 @@ color1 = cmap(0.5)
 color2 = cmap(0.7)
 color3 = cmap(0.9)
 
-folder = "e_tau_h_01"
+folder = ""
 
 
 def convergence_plot_report():

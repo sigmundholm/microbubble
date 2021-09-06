@@ -23,6 +23,7 @@
 
 #include <boost/optional.hpp>
 
+#include <assert.h>
 #include <cmath>
 #include <fstream>
 
@@ -50,7 +51,8 @@ namespace examples::cut::HeatEquation {
                           Function<dim> &bdd_values,
                           Function<dim> &analytical_soln,
                           Function<dim> &domain_func,
-                          const bool stabilized)
+                          const bool stabilized,
+                          const bool crank_nicholson)
             : nu(nu), tau(tau),
               radius(radius), half_length(half_length), n_refines(n_refines),
               write_output(write_output), stabilized(stabilized),
@@ -58,7 +60,8 @@ namespace examples::cut::HeatEquation {
               fe(element_order), fe_levelset(element_order),
               levelset_dof_handler(triangulation), dof_handler(triangulation),
               cut_mesh_classifier(triangulation, levelset_dof_handler,
-                                  levelset) {
+                                  levelset),
+              crank_nicholson(crank_nicholson) {
         // Use no constraints when projecting.
         constraints.close();
 
@@ -90,6 +93,10 @@ namespace examples::cut::HeatEquation {
             cut_mesh_classifier.reclassify();
             distribute_dofs();
             initialize_matrices();
+        }
+
+        if (crank_nicholson) {
+            assert(bdf_type == 1);
         }
 
         std::vector<Error> errors(steps + 1);
@@ -138,7 +145,7 @@ namespace examples::cut::HeatEquation {
             boundary_values->set_time(k * tau);
             analytical_solution->set_time(k * tau);
 
-            assemble_rhs();
+            assemble_rhs(k);
             solve();
             errors[k] = compute_error();
             errors[k].time_step = k;
@@ -416,6 +423,8 @@ namespace examples::cut::HeatEquation {
         std::vector<double> phi(dofs_per_cell);
         std::vector<Tensor<1, dim>> grad_phi(dofs_per_cell);
 
+        double cn_factor = crank_nicholson ? 0.5 : 1;
+
         for (unsigned int q = 0; q < fe_values.n_quadrature_points; ++q) {
             for (const unsigned int k : fe_values.dof_indices()) {
                 grad_phi[k] = fe_values.shape_grad(k, q);
@@ -427,7 +436,8 @@ namespace examples::cut::HeatEquation {
                     local_matrix(i, j) += (bdf_coeffs[solutions.size()]
                                            * phi[j] * phi[i]
                                            +
-                                           tau * nu * grad_phi[j] * grad_phi[i]
+                                           cn_factor * tau * nu * grad_phi[j] *
+                                           grad_phi[i]
                                           ) * fe_values.JxW(q); // dx
                 }
             }
@@ -458,6 +468,7 @@ namespace examples::cut::HeatEquation {
         double gamma = 20 * element_order * (element_order + 1);
         double mu = gamma / h;
         Tensor<1, dim> normal;
+        double cn_factor = crank_nicholson ? 0.5 : 1;
 
         for (unsigned int q : fe_values.quadrature_point_indices()) {
             normal = fe_values.normal_vector(q);
@@ -470,13 +481,12 @@ namespace examples::cut::HeatEquation {
             for (const unsigned int i : fe_values.dof_indices()) {
                 for (const unsigned int j : fe_values.dof_indices()) {
                     local_matrix(i, j) +=
-                            tau * nu * (mu * phi[j] * phi[i]  // mu (u, v)
-                                        -
-                                        grad_phi[j] * normal *
-                                        phi[i] // (∂_n u,v)
-                                        -
-                                        phi[j] * grad_phi[i] *
-                                        normal // (u,∂_n v)
+                            cn_factor * tau * nu * (
+                                    mu * phi[j] * phi[i]  // mu (u, v)
+                                    -
+                                    grad_phi[j] * normal * phi[i] // (∂_n u,v)
+                                    -
+                                    phi[j] * grad_phi[i] * normal // (u,∂_n v)
                             ) * fe_values.JxW(q); // ds
                 }
             }
@@ -486,7 +496,7 @@ namespace examples::cut::HeatEquation {
 
     template<int dim>
     void
-    HeatEqn<dim>::assemble_rhs() {
+    HeatEqn<dim>::assemble_rhs(int time_step) {
         std::cout << "Assembling RHS" << std::endl;
 
         rhs = 0;
@@ -533,7 +543,12 @@ namespace examples::cut::HeatEquation {
                     cut_fe_values.get_inside_fe_values();
 
             if (fe_values_bulk) {
-                assemble_rhs_local_over_cell(*fe_values_bulk, loc2glb);
+                if (crank_nicholson) {
+                    assemble_rhs_local_over_cell_cn(*fe_values_bulk, loc2glb,
+                                                    time_step);
+                } else {
+                    assemble_rhs_local_over_cell(*fe_values_bulk, loc2glb);
+                }
             }
 
             // Retrieve an FEValues object with quadrature points
@@ -541,8 +556,16 @@ namespace examples::cut::HeatEquation {
             const boost::optional<const FEImmersedSurfaceValues<dim> &>
                     fe_values_surface = cut_fe_values.get_surface_fe_values();
 
-            if (fe_values_surface)
-                assemble_rhs_local_over_surface(*fe_values_surface, loc2glb);
+            if (fe_values_surface) {
+                if (crank_nicholson) {
+                    assemble_rhs_local_over_surface_cn(*fe_values_surface,
+                                                       loc2glb, time_step);
+                } else {
+                    assemble_rhs_local_over_surface(*fe_values_surface,
+                                                    loc2glb);
+                }
+
+            }
         }
     }
 
@@ -555,21 +578,15 @@ namespace examples::cut::HeatEquation {
         //  bør det heller gjøres i funksjonen før og sendes som argumenter? hvis
         //  det er mulig mtp cellene som blir cut da
 
-        // Matrix and vector for the contribution of each cell
+        // Vector for the contribution of each cell
         const unsigned int dofs_per_cell = fe_values.get_fe().dofs_per_cell;
-        // FullMatrix<double> local_matrix(dofs_per_cell, dofs_per_cell);
         Vector<double> local_rhs(dofs_per_cell);
 
         // Vector for values of the RightHandSide for all quadrature points on a cell.
         std::vector<double> rhs_values(fe_values.n_quadrature_points);
         rhs_function->value_list(fe_values.get_quadrature_points(), rhs_values);
 
-        // Calculate often used terms in the beginning of each cell-loop
-        // std::vector<double> phi(dofs_per_cell);
-        // std::vector<Tensor<1, dim>> grad_phi(dofs_per_cell);
-
         // Create vector of the previous solutions values
-        // std::vector<double> val(fe_values.n_quadrature_points);
         std::vector<double> val(fe_values.n_quadrature_points, 0);
         std::vector<std::vector<double>> prev_solution_values(solutions.size(),
                                                               val);
@@ -587,7 +604,6 @@ namespace examples::cut::HeatEquation {
 
                 prev_values = 0;
                 for (unsigned long k = 0; k < solutions.size(); ++k) {
-                    // std::cout << "bdf_coeffs[" << k << "] = " << bdf_coeffs[k] << std::endl;
                     prev_values += bdf_coeffs[k] * prev_solution_values[k][q];
                 }
 
@@ -595,7 +611,77 @@ namespace examples::cut::HeatEquation {
                 local_rhs(i) += (tau * rhs_values[q] * phi_iq // (f, v)
                                  - prev_values * phi_iq       // (u_n, v)
                                 ) * fe_values.JxW(q);         // dx
-                // TODO add interpolation of the previous steps here, based on the length of solutions vector.
+            }
+        }
+        rhs.add(loc2glb, local_rhs);
+    }
+
+
+    /**
+     * This calculates the RHS terms that are needed when using
+     * Crank-Nicholson as the time stepping method.
+     *
+     * @tparam dim
+     * @param fe_values
+     * @param loc2glb
+     * @param time_step
+     */
+    template<int dim>
+    void
+    HeatEqn<dim>::assemble_rhs_local_over_cell_cn(
+            const FEValues<dim> &fe_values,
+            const std::vector<types::global_dof_index> &loc2glb,
+            const int time_step) {
+        // Crank-Nicholson can only be used when a one step method is run.
+        assert(solutions.size() == 1 && bdf_coeffs.size() == 2);
+
+        // std::cout << "  rhs cell k = " << time_step << std::endl;
+
+        // Matrix and vector for the contribution of each cell
+        const unsigned int dofs_per_cell = fe_values.get_fe().dofs_per_cell;
+        Vector<double> local_rhs(dofs_per_cell);
+
+        // Vector for values of the RightHandSide for all quadrature points on a cell.
+        std::vector<double> rhs_values(fe_values.n_quadrature_points);
+        rhs_function->value_list(fe_values.get_quadrature_points(), rhs_values);
+
+        // Compute the rhs values from the previous time step.
+        rhs_function->set_time((time_step - 1) * tau);
+        std::vector<double> rhs_values_prev(fe_values.n_quadrature_points);
+        rhs_function->value_list(fe_values.get_quadrature_points(),
+                                 rhs_values_prev);
+
+        // Get the previous solution values.
+        std::vector<double> prev_solution_values(fe_values.n_quadrature_points,
+                                                 0);
+        fe_values.get_function_values(solution, prev_solution_values);
+
+        // Get the previous solution gradients.
+        std::vector<Tensor<1, dim>> prev_solution_grads(
+                fe_values.n_quadrature_points, Tensor<1, dim>());
+        fe_values.get_function_gradients(solution, prev_solution_grads);
+
+        double phi;
+        Tensor<1, dim> grad_phi;
+        double prev_value;
+        Tensor<1, dim> prev_grad;
+        double rhs_values_sum;
+
+        for (unsigned int q = 0; q < fe_values.n_quadrature_points; ++q) {
+            for (const unsigned int i : fe_values.dof_indices()) {
+
+                phi = fe_values.shape_value(i, q);
+                grad_phi = fe_values.shape_grad(i, q);
+                prev_value = prev_solution_values[q];
+                prev_grad = prev_solution_grads[q];
+                rhs_values_sum = rhs_values[q] + rhs_values_prev[q];
+
+
+                local_rhs(i) += (0.5 * tau * (
+                        rhs_values_sum * phi          // (f_n+1 + f_n, v)
+                        - nu * prev_grad * grad_phi)  // -ν(∇u_n, ∇v)
+                                 + prev_value * phi   // (u_n, v)
+                                ) * fe_values.JxW(q); // dx
             }
         }
         rhs.add(loc2glb, local_rhs);
@@ -637,6 +723,73 @@ namespace examples::cut::HeatEquation {
                                     bdd_values[q] * grad_phi[i] *
                                     normal // (g, n ∂_n v)
                         ) * fe_values.JxW(q);        // ds
+            }
+        }
+        rhs.add(loc2glb, local_rhs);
+    }
+
+
+    template<int dim>
+    void
+    HeatEqn<dim>::assemble_rhs_local_over_surface_cn(
+            const FEValuesBase<dim> &fe_values,
+            const std::vector<types::global_dof_index> &loc2glb,
+            const int time_step) {
+        // Matrix and vector for the contribution of each cell
+        const unsigned int dofs_per_cell = fe_values.get_fe().dofs_per_cell;
+        FullMatrix<double> local_matrix(dofs_per_cell, dofs_per_cell);
+        Vector<double> local_rhs(dofs_per_cell);
+
+        // std::cout << "  rhs surf k = " << time_step << std::endl;
+
+        // Evaluate the boundary function for all quadrature points on this face.
+        std::vector<double> bdd_values(fe_values.n_quadrature_points);
+        boundary_values->value_list(fe_values.get_quadrature_points(),
+                                    bdd_values);
+
+        std::vector<double> bdd_values_prev(fe_values.n_quadrature_points);
+        boundary_values->set_time((time_step - 1) * tau);
+        boundary_values->value_list(fe_values.get_quadrature_points(),
+                                    bdd_values_prev);
+
+        // Get the previous solution values.
+        std::vector<double> prev_solution_values(fe_values.n_quadrature_points,
+                                                 0);
+        fe_values.get_function_values(solution, prev_solution_values);
+
+        // Get the previous solution gradients.
+        std::vector<Tensor<1, dim>> prev_solution_grads(
+                fe_values.n_quadrature_points, Tensor<1, dim>());
+        fe_values.get_function_gradients(solution, prev_solution_grads);
+
+        double gamma = 20 * element_order * (element_order + 1);
+        double mu = gamma / h;
+
+        Tensor<1, dim> normal;
+        double bdd_values_sum;
+        double phi;
+        Tensor<1, dim> grad_phi;
+        double prev_value;
+        Tensor<1, dim> prev_grad;
+
+        for (unsigned int q : fe_values.quadrature_point_indices()) {
+            normal = fe_values.normal_vector(q);
+            for (const unsigned int i : fe_values.dof_indices()) {
+                phi = fe_values.shape_value(i, q);
+                grad_phi = fe_values.shape_grad(i, q);
+                bdd_values_sum = bdd_values[q] + bdd_values_prev[q];
+
+                local_rhs(i) += 0.5 * tau * nu * (
+                        mu * bdd_values_sum * phi // mu (g, v)
+                        -
+                        bdd_values_sum * grad_phi * normal // (g, n ∂_n v)
+                        +
+                        prev_grad * normal * phi
+                        +
+                        prev_value * grad_phi * normal
+                        -
+                        mu * prev_value * phi
+                ) * fe_values.JxW(q);        // ds
             }
         }
         rhs.add(loc2glb, local_rhs);
