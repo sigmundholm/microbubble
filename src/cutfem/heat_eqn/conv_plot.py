@@ -53,9 +53,9 @@ def time_error_plot():
 
 if __name__ == '__main__':
     base = split(split(split(os.getcwd())[0])[0])[0]
-    time_error_plot()
+    # time_error_plot()
 
-    convergence_plot_report()
+    # convergence_plot_report()
 
     # plt.show()
     # exit()

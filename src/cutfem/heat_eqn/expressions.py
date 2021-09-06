@@ -16,7 +16,7 @@ def get_f(u):
 def get_f_stationary(u):
     u0 = u.subs(t, 0)
     u1 = u.subs(t, 1)
-    return (u1 - u0) - 0.5 * nu * (laplace(u1) + laplace(u0))
+    return (u1 - u0)/tau - 0.5 * nu * (laplace(u1) + laplace(u0))
 
 
 u = get_u()
