@@ -21,7 +21,7 @@ def convergence_plot_report():
     paths = [os.path.join(base, f"build/src/cutfem/heat_eqn", folder, f"errors-d2o{d}.csv") for d in [1, 2]]
     plot_for = ["\|u\|_{L^2}", "\|u\|_{H^1}", "\|u\|_{l^\infty L^2}", "\|u\|_{l^\infty H^1}"]
     element_orders = [1, 2]
-    conv_plots2(paths, plot_for, element_orders, expected_degrees=[[2, 3], [1, 2], [2, 3], [1, 2]], domain_length=2.2,
+    conv_plots2(paths, plot_for, element_orders, expected_degrees=[[2, 2], [1, 2], [2, 2], [1, 2]], domain_length=2.2,
                 colors=[color2, color1, color0], save_figs=True, font_size=12, label_size="large", skip=0, guess_degree=False)
 
 

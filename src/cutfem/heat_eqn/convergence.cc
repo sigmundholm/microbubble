@@ -52,7 +52,7 @@ void solve_for_element_order(int element_order, int max_refinement,
         HeatEqn<dim> heat(nu, tau, radius, half_length, n_refines, element_order,
                              write_output,
                              rhs, bdd, soln, domain, true, true);
-        Error error = heat.run(1, time_steps);
+        Error error = heat.run(1, 1);
 
         std::cout << "|| u - u_h ||_L2 = " << error.l2_error << std::endl;
         std::cout << "|| u - u_h ||_H1 = " << error.h1_error << std::endl;
@@ -61,7 +61,6 @@ void solve_for_element_order(int element_order, int max_refinement,
         Vector<double> u1 = heat.get_solution();
 
         // BDF-2
-        /*
         HeatEqn<dim> heat2(nu, tau, radius, half_length, n_refines, element_order,
                            write_output,
                            rhs, bdd, soln, domain, true, false);
@@ -70,8 +69,8 @@ void solve_for_element_order(int element_order, int max_refinement,
         std::cout << "|| u - u_h ||_L2 = " << error2.l2_error << std::endl;
         std::cout << "|| u - u_h ||_H1 = " << error2.h1_error << std::endl;
         std::cout << "| u - u_h |_H1 = " << error2.h1_semi << std::endl;
-         */
-        HeatEqn<dim>::write_error_to_file(error, file);
+
+        HeatEqn<dim>::write_error_to_file(error2, file);
     }
 }
 

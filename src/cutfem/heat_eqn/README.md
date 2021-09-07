@@ -1,12 +1,16 @@
-# Generalised Poisson -> Heat Equation
+# Heat Equation
 
-The goal of this program is to solve the Heat Equation. The time discretisation method will be BDF-1 and BDF-2. The Heat equation is given by
+This program solves the Heat Equation,
 ```math
   ∂_t u - νΔu  = f   in Ω
-             u = g   on ∂Ω.
+             u = g   on ∂Ω,
 ```
-As a first step the generalised Poisson equation will be solved, given by
-```math
-  u - τνΔu  = τf   in Ω
-          u = g   on ∂Ω.
-```
+using CutFEM.
+
+The implemented time step methods are
+ - BDF-1 (Implicit Euler)
+ - Crank-Nicholson
+ - BDF-2
+ - BDF-3 (?)
+
+Note that when using BDF-2, the implementation does not attain full convergence when the first step is computed using BDF-1. When the first step is computed using Crank-Nicholson, the expected 2. order convergence is achieved.
