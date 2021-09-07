@@ -85,7 +85,12 @@ namespace examples::cut::HeatEquation {
     HeatEqn<dim>::run(unsigned int bdf_type, unsigned int steps,
                       Vector<double> &supplied_solution) {
         // TODO imlement bdf2
-        std::cout << "\nBDF-" << bdf_type << std::endl;
+        if (crank_nicholson) {
+            std::cout << "\nCrank-Nicholson" << std::endl;
+        } else {
+            std::cout << "\nBDF-" << bdf_type << std::endl;
+        }
+
         if (!triangulation_exists) {
             make_grid();
             setup_quadrature();
@@ -133,7 +138,6 @@ namespace examples::cut::HeatEquation {
                       << ", || u - u_h ||_H1 = " << errors[k].h1_error
                       << std::endl;
         }
-
 
         for (unsigned int k = bdf_type; k <= steps; ++k) {
             std::cout << "\nk = " << std::to_string(k)
@@ -415,10 +419,6 @@ namespace examples::cut::HeatEquation {
         FullMatrix<double> local_matrix(dofs_per_cell, dofs_per_cell);
         Vector<double> local_rhs(dofs_per_cell);
 
-        // Vector for values of the RightHandSide for all quadrature points on a cell.
-        std::vector<double> rhs_values(fe_values.n_quadrature_points);
-        rhs_function->value_list(fe_values.get_quadrature_points(), rhs_values);
-
         // Calculate often used terms in the beginning of each cell-loop
         std::vector<double> phi(dofs_per_cell);
         std::vector<Tensor<1, dim>> grad_phi(dofs_per_cell);
@@ -455,11 +455,6 @@ namespace examples::cut::HeatEquation {
         const unsigned int dofs_per_cell = fe_values.get_fe().dofs_per_cell;
         FullMatrix<double> local_matrix(dofs_per_cell, dofs_per_cell);
         Vector<double> local_rhs(dofs_per_cell);
-
-        // Evaluate the boundary function for all quadrature points on this face.
-        std::vector<double> bdd_values(fe_values.n_quadrature_points);
-        boundary_values->value_list(fe_values.get_quadrature_points(),
-                                    bdd_values);
 
         // Calculate often used terms in the beginning of each cell-loop
         std::vector<Tensor<1, dim>> grad_phi(dofs_per_cell);
@@ -643,6 +638,7 @@ namespace examples::cut::HeatEquation {
 
         // Vector for values of the RightHandSide for all quadrature points on a cell.
         std::vector<double> rhs_values(fe_values.n_quadrature_points);
+        rhs_function->set_time(time_step * tau);
         rhs_function->value_list(fe_values.get_quadrature_points(), rhs_values);
 
         // Compute the rhs values from the previous time step.
@@ -744,6 +740,7 @@ namespace examples::cut::HeatEquation {
 
         // Evaluate the boundary function for all quadrature points on this face.
         std::vector<double> bdd_values(fe_values.n_quadrature_points);
+        boundary_values->set_time(time_step * tau);
         boundary_values->value_list(fe_values.get_quadrature_points(),
                                     bdd_values);
 

@@ -53,9 +53,9 @@ def time_error_plot():
 
 if __name__ == '__main__':
     base = split(split(split(os.getcwd())[0])[0])[0]
-    # time_error_plot()
+    time_error_plot()
 
-    # convergence_plot_report()
+    convergence_plot_report()
 
     # plt.show()
     # exit()
@@ -82,7 +82,7 @@ if __name__ == '__main__':
         # Create a EOC-plot
         eoc_plot(data, head,
                  title=r"\textrm{Heat Equation (CutFEM) EOC, element order: " + str(poly_order) + "}",
-                 domain_lenght=domain_length, lines_at=np.array([1, 2]), xlabel=xlabel)
+                 domain_lenght=domain_length, lines_at=np.array([0, 1]) + poly_order, xlabel=xlabel)
         plt.savefig(f"eoc-o{poly_order}.pdf")
 
     plt.show()
