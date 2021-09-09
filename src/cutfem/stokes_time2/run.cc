@@ -35,7 +35,7 @@ int main() {
 
     Vector<double> u1;
     u1.reinit(1);
-    Error error = stokes.run(u1, 2, n_steps);
+    Error error = stokes.run(2, n_steps, u1);
 
     std::cout << "Mesh size: " << error.mesh_size << std::endl;
     std::cout << "|| u - u_h ||_L2 = " << error.l2_error_u << std::endl;

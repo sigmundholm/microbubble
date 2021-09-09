@@ -57,7 +57,8 @@ namespace TimeDependentStokesBDF2 {
                        TensorFunction<1, dim> &analytic_vel,
                        Function<dim> &analytic_pressure,
                        const double sphere_radius,
-                       const double sphere_x_coord);
+                       const double sphere_x_coord,
+                       const bool crank_nicholson = false);
 
         /**
          * Run BDF-2.
@@ -72,7 +73,14 @@ namespace TimeDependentStokesBDF2 {
          * @return an Error object.
          */
         virtual Error
-        run(Vector<double> &u1, unsigned int bdf_type, unsigned int steps);
+        run(unsigned int bdf_type, unsigned int steps,
+            Vector<double> &supplied_solution);
+
+        virtual Error
+        run(unsigned int bdf_type, unsigned int steps);
+
+        Vector<double>
+        get_solution();
 
         static void
         write_header_to_file(std::ofstream &file);
@@ -80,14 +88,13 @@ namespace TimeDependentStokesBDF2 {
         static void
         write_error_to_file(Error &error, std::ofstream &file);
 
-        Vector<double> solution;    // u = u^(n+1)
-
     protected:
         void
-        set_bdf_constants(unsigned int bdf_type);
+        set_bdf_coefficients(unsigned int bdf_type);
 
         void
-        interpolate_first_steps(std::vector<Error> &errors, Vector<double> &u1, unsigned int bdf_type);
+        interpolate_first_steps(unsigned int bdf_type,
+                                std::vector<Error> &errors);
 
         void
         make_grid();
@@ -134,7 +141,12 @@ namespace TimeDependentStokesBDF2 {
         solve();
 
         void
-        output_results(int time_step) const;
+        output_results(std::string &suffix,
+                       bool output_levelset = true) const;
+
+        void
+        output_results(int time_step,
+                       bool output_levelset = true) const;
 
         Error compute_error();
 
@@ -151,14 +163,6 @@ namespace TimeDependentStokesBDF2 {
         const double radius;
         const double half_length;
         const unsigned int n_refines;
-
-        // Constants used for the time discretization, defined as:
-        //   u_t = (δu^(n+1) + ηu^n + λu^(n-1))/τ
-        // Initially set for implicit Euler. Then reset to BDF-2 for the
-        // next iterations.
-        double delta = 1.0;
-        double eta = -1.0;
-        double lambda = 0;
 
         const double nu;
         const double tau;
@@ -202,8 +206,14 @@ namespace TimeDependentStokesBDF2 {
         SparseMatrix<double> stiffness_matrix;
 
         Vector<double> rhs;         // f
-        Vector<double> solution_u1; // u^n
-        Vector<double> solution_u0; // u^(n-1)
+        Vector<double> solution;    // u = u^(n+1)
+        std::vector<Vector<double>> solutions; // (u0, u1) when BDF-2 is used.
+
+        // Constants used for the time discretization, defined as:
+        //   u_t = (au^(n+1) + bu^n + cu^(n-1))/τ, where u = u^(n+1)
+        // For BDF-1: (b, a), and (c, b, a) for BDF-2.
+        std::vector<double> bdf_coeffs;
+        const bool crank_nicholson; // TODO implement
 
         AffineConstraints<double> constraints;
     };

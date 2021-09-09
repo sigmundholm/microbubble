@@ -54,7 +54,8 @@ namespace TimeDependentStokesBDF2 {
                    TensorFunction<1, dim> &analytic_vel,
                    Function<dim> &analytic_pressure,
                    const double sphere_radius,
-                   const double sphere_x_coord)
+                   const double sphere_x_coord,
+                   const bool crank_nicholson)
             : radius(radius), half_length(half_length), n_refines(n_refines),
               nu(nu), tau(tau),
               write_output(write_output), sphere_radius(sphere_radius),
@@ -66,7 +67,8 @@ namespace TimeDependentStokesBDF2 {
                         1), fe_levelset(element_order),
               levelset_dof_handler(triangulation), dof_handler(triangulation),
               cut_mesh_classifier(triangulation, levelset_dof_handler,
-                                  levelset) {
+                                  levelset),
+              crank_nicholson(crank_nicholson) {
         h = 0;
         // Use no constraints when projecting.
         constraints.close();
@@ -88,11 +90,10 @@ namespace TimeDependentStokesBDF2 {
 
     template<int dim>
     Error StokesCylinder<dim>::
-    run(Vector<double> &u1, unsigned int bdf_type, unsigned int steps) {
+    run(unsigned int bdf_type, unsigned int steps,
+        Vector<double> &supplied_solution) {
 
         std::cout << "BDF-" << bdf_type << ", steps=" << steps << std::endl;
-
-        set_bdf_constants(bdf_type);
 
         make_grid();
         setup_quadrature();
@@ -101,17 +102,20 @@ namespace TimeDependentStokesBDF2 {
         distribute_dofs();
         initialize_matrices();
 
-        solution_u1.reinit(solution.size());
-        solution_u0.reinit(solution.size());
-
-        assemble_system();
-
         // Vector for the computed error for each time step.
         std::vector<Error> errors(steps + 1);
 
         // If u1 is a vector of length 1, then u1 is interpolated from
         // boundary_values too.
-        interpolate_first_steps(errors, u1, bdf_type);
+        interpolate_first_steps(bdf_type, errors);
+
+        set_bdf_coefficients(bdf_type);
+
+        assemble_system();
+
+        // TODO write time error to file
+
+        // TODO set the supplied solution.
 
         double time;
         for (unsigned int k = bdf_type; k <= steps; ++k) {
@@ -119,10 +123,6 @@ namespace TimeDependentStokesBDF2 {
             std::cout << "\nTime Step = " << k
                       << ", time = " << time << std::endl;
 
-            std::cout << "run: delta = " << delta << ", eta = " << eta
-                      << ", lambda = " << lambda << std::endl;
-
-            // TODO use advance_time instead?
             rhs_function->set_time(time);
             boundary_values->set_time(time);
             analytical_velocity->set_time(time);
@@ -134,21 +134,22 @@ namespace TimeDependentStokesBDF2 {
 
             assemble_rhs();
             solve();
+            errors[k] = compute_error();
+            errors[k].time_step = k;
+
             if (write_output) {
-                output_results(k);
+                output_results(k, false);
             }
 
-            // Set u^n and u^(n-1)
-            solution_u0 = solution_u1;
-            solution_u1 = solution;
-
-            errors[k] = compute_error();
+            for (unsigned long i = 1; i < solutions.size(); ++i) {
+                solutions[i - 1] = solutions[i];
+            }
+            solutions[solutions.size() - 1] = solution;
         }
 
         std::cout << std::endl;
-        for (unsigned k = 0; k < errors.size(); ++k) {
-            Error err = errors[k];
-            std::cout << k << " u-l2= " << err.l2_error_u
+        for (Error err : errors) {
+            std::cout << err.time_step << " u-l2= " << err.l2_error_u
                       << "    u-h1= " << err.h1_error_u
                       << "    p-l2= " << err.l2_error_p
                       << "    p-h1= " << err.h1_error_p << std::endl;
@@ -157,19 +158,41 @@ namespace TimeDependentStokesBDF2 {
         return compute_time_error(errors);
     }
 
+
+    template<int dim>
+    Error StokesCylinder<dim>::
+    run(unsigned int bdf_type, unsigned int steps) {
+        Vector<double> empty(1);
+        return run(bdf_type, steps, empty);
+    }
+
+
+    template<int dim>
+    Vector<double> StokesCylinder<dim>::
+    get_solution() {
+        return solution;
+    }
+
+
     template<int dim>
     void StokesCylinder<dim>::
-    set_bdf_constants(unsigned int bdf_type) {
+    set_bdf_coefficients(unsigned int bdf_type) {
+        bdf_coeffs = std::vector<double>(bdf_type + 1);
+
         if (bdf_type == 1) {
             // BDF-1 (implicit Euler).
-            delta = 1;
-            eta = -1;
-            lambda = 0;
+            bdf_coeffs[0] = -1;
+            bdf_coeffs[1] = 1;
         } else if (bdf_type == 2) {
             // BDF-2.
-            delta = 1.5;
-            eta = -2;
-            lambda = 0.5;
+            bdf_coeffs[0] = 0.5;
+            bdf_coeffs[1] = -2;
+            bdf_coeffs[2] = 1.5;
+        } else if (bdf_type == 3) {
+            bdf_coeffs[0] = -1.0 / 3;
+            bdf_coeffs[1] = 1.5;
+            bdf_coeffs[2] = -3;
+            bdf_coeffs[3] = 11.0 / 6;
         } else {
             throw std::invalid_argument(
                     "bdf_type has to be either 1 or 2, not " +
@@ -192,77 +215,42 @@ namespace TimeDependentStokesBDF2 {
      */
     template<int dim>
     void StokesCylinder<dim>::
-    interpolate_first_steps(std::vector<Error> &errors, Vector<double> &u1,
-                            unsigned int bdf_type) {
+    interpolate_first_steps(unsigned int bdf_type, std::vector<Error> &errors) {
+        solutions = std::vector<Vector<double>>(bdf_type);
 
-        // Important that the boundary_values function uses t=0, when
-        // we interpolate the initial value from it.
-        boundary_values->set_time(0);
+        std::cout << "Interpolate first step(s)." << std::endl;
 
-        // Use the boundary_values as initial values. Interpolate the
-        // boundary_values function into the finite element space.
-        const unsigned int n_components_on_element = dim + 1;
-        FEValuesExtractors::Vector velocities(0);
-        VectorFunctionFromTensorFunction<dim> adapter(
-                *boundary_values,
-                velocities.first_vector_component,
-                n_components_on_element);
+        for (unsigned int k = 0; k < bdf_type; ++k) {
+            analytical_velocity->set_time(k * tau);
+            analytical_pressure->set_time(k * tau);
+
+            Utils::AnalyticalSolutionWrapper<dim> wrapper(*analytical_velocity,
+                                                          *analytical_pressure);
+            VectorTools::interpolate(dof_handler, wrapper, solution);
+
+            errors[k] = compute_error();
+            errors[k].time_step = k;
+            std::string suffix = "-" + std::to_string(k) + "-inter";
+            output_results(suffix);
+
+            solutions[k] = solution;
+        }
 
         // TODO burde kanskje heller interpolere boundary_values for
         //  initial verdier?
-        analytical_velocity->set_time(0);
-        analytical_pressure->set_time(0);
-        Utils::AnalyticalSolutionWrapper<dim> wrapper2(*analytical_velocity,
-                                                       *analytical_pressure);
-        VectorTools::interpolate(
-                dof_handler,
-                wrapper2,
-                solution);
+        // Important that the boundary_values function uses t=0, when
+        // we interpolate the initial value from it.
+        // boundary_values->set_time(0);
 
-        output_results(0);
-        errors[0] = compute_error();
+        // Use the boundary_values as initial values. Interpolate the
+        // boundary_values function into the finite element space.
+        // const unsigned int n_components_on_element = dim + 1;
+        // FEValuesExtractors::Vector velocities(0);
+        //VectorFunctionFromTensorFunction<dim> adapter(
+        //        *boundary_values,
+        //        velocities.first_vector_component,
+        //        n_components_on_element);
 
-        if (bdf_type == 1) {
-            // BDF-1 (implicit Euler)
-            // Set the interpolated u0 as u1 (since this is the n-1 step)
-            solution_u1 = solution;
-        } else if (bdf_type == 2) {
-            // BDF-2
-            // Set the interpolated u0 as u0 (since this is the n-2 step when
-            // using BDF-2)
-            solution_u0 = solution;
-
-            // Set the time for the analytical solutions, so that the
-            // error calculation (and interpolation) is done at t=τ.
-            analytical_velocity->set_time(tau);
-            analytical_pressure->set_time(tau);
-
-            if (u1.size() == 1) { // TODO find smoother check?
-                // Interpolate the analytical solution for u_1 (step n-1)
-                Utils::AnalyticalSolutionWrapper<dim> wrapper(
-                        *analytical_velocity,
-                        *analytical_pressure);
-                VectorTools::interpolate(dof_handler, wrapper, solution);
-
-                output_results(1);
-                errors[1] = compute_error();
-                solution_u1 = solution;
-            } else {
-                solution = u1;
-                output_results(1);
-                errors[1] = compute_error();
-                std::cout << "Error u1 (supplied)" << std::endl;
-                std::cout << "u-l2= " << errors[0].l2_error_u
-                          << "    u-h1= " << errors[0].h1_error_u
-                          << "    p-l2= " << errors[0].l2_error_p
-                          << "    p-h1= " << errors[0].h1_error_p << std::endl;
-                solution_u1 = solution;
-            }
-        } else {
-            throw std::invalid_argument(
-                    "bdf_type has to be either 1 or 2, not " +
-                    std::to_string(bdf_type) + ".");
-        }
     }
 
     template<int dim>
@@ -447,7 +435,7 @@ namespace TimeDependentStokesBDF2 {
             // Compute and add the velocity stabilization.
             velocity_stab.compute_stabilization(cell);
             velocity_stab.add_stabilization_to_matrix(
-                    gamma_M * delta + gamma_A * tau * nu / (h * h),
+                    gamma_M + gamma_A * tau * nu / (h * h),
                     stiffness_matrix);
             // Compute and add the pressure stabilisation.
             pressure_stab.compute_stabilization(cell);
@@ -493,7 +481,8 @@ namespace TimeDependentStokesBDF2 {
             for (const unsigned int i : fe_values.dof_indices()) {
                 for (const unsigned int j : fe_values.dof_indices()) {
                     local_matrix(i, j) +=
-                            (delta * phi_u[j] * phi_u[i]  // (u, v)
+                            (bdf_coeffs[solutions.size()]
+                             * phi_u[j] * phi_u[i]  // (u, v)
                              +
                              (nu * scalar_product(grad_phi_u[j],
                                                   grad_phi_u[i]) // (grad u, grad v)
@@ -665,29 +654,30 @@ namespace TimeDependentStokesBDF2 {
 
         const FEValuesExtractors::Vector v(0);
 
-        // Get the values from the solution in the last time step.
-        std::vector<Tensor<1, dim>> old_solution_values(
-                fe_v.n_quadrature_points);
-        fe_v[v].get_function_values(solution_u1, old_solution_values);
+        std::vector<Tensor<1, dim>> val(fe_v.n_quadrature_points,
+                                        Tensor<1, dim>());
+        std::vector<std::vector<Tensor<1, dim>>> prev_solutions_values(
+                solutions.size(), val);
 
-        // Get the values from the solution in the timestep before that.
-        std::vector<Tensor<1, dim>> older_solution_values(
-                fe_v.n_quadrature_points);
-        fe_v[v].get_function_values(solution_u0, older_solution_values);
+        for (unsigned int k = 0; k < solutions.size(); ++k) {
+            fe_v[v].get_function_values(solutions[k], prev_solutions_values[k]);
+        }
 
         Tensor<1, dim> phi_u;
+        Tensor<1, dim> prev_values;
 
         for (unsigned int q = 0; q < fe_v.n_quadrature_points; ++q) {
             for (const unsigned int i : fe_v.dof_indices()) {
                 // RHS
+                prev_values = Tensor<1, dim>();
+                for (unsigned int k = 0; k < solutions.size(); ++k) {
+                    prev_values += bdf_coeffs[k] * prev_solutions_values[k][q];
+                }
+
                 phi_u = fe_v[v].value(i, q);
                 local_rhs(i) += (tau * rhs_values[q] * phi_u    // τ(f, v)
                                  -
-                                 eta * old_solution_values[q] *
-                                 phi_u // (u_n, v)
-                                 -
-                                 lambda * older_solution_values[q] *
-                                 phi_u // (u_n-1, v)
+                                 prev_values * phi_u
                                 ) * fe_v.JxW(q);      // dx
             }
         }
@@ -747,23 +737,23 @@ namespace TimeDependentStokesBDF2 {
 
     template<int dim>
     void StokesCylinder<dim>::
-    output_results(int time_step) const {
+    output_results(std::string &suffix, bool output_levelset) const {
         std::cout << "Output results" << std::endl;
 
         std::ofstream output("solution-d" + std::to_string(dim)
                              + "o" + std::to_string(element_order)
                              + "r" + std::to_string(n_refines)
-                             + "t" + std::to_string(time_step) + ".vtk");
+                             + suffix + ".vtk");
         Utils::writeNumericalSolution(dof_handler, solution, output);
 
         std::ofstream output_ex("analytical-d" + std::to_string(dim)
                                 + "o" + std::to_string(element_order)
                                 + "r" + std::to_string(n_refines)
-                                + "t" + std::to_string(time_step) + ".vtk");
+                                + suffix + ".vtk");
         std::ofstream file_diff("diff-d" + std::to_string(dim)
                                 + "o" + std::to_string(element_order)
                                 + "r" + std::to_string(n_refines)
-                                + "t" + std::to_string(time_step) + ".vtk");
+                                + suffix + ".vtk");
         Utils::writeAnalyticalSolutionAndDiff(dof_handler,
                                               fe_collection,
                                               solution,
@@ -772,16 +762,26 @@ namespace TimeDependentStokesBDF2 {
                                               output_ex,
                                               file_diff);
 
-        // Output levelset function.
-        DataOut<dim, DoFHandler<dim>> data_out_levelset;
-        data_out_levelset.attach_dof_handler(levelset_dof_handler);
-        data_out_levelset.add_data_vector(levelset, "levelset");
-        data_out_levelset.build_patches();
-        std::ofstream output_ls("levelset-d" + std::to_string(dim)
-                                + "o" + std::to_string(element_order)
-                                + "r" + std::to_string(n_refines)
-                                + "t" + std::to_string(time_step) + ".vtk");
-        data_out_levelset.write_vtk(output_ls);
+        if (output_levelset) {
+            // Output levelset function.
+            DataOut<dim, DoFHandler<dim>> data_out_levelset;
+            data_out_levelset.attach_dof_handler(levelset_dof_handler);
+            data_out_levelset.add_data_vector(levelset, "levelset");
+            data_out_levelset.build_patches();
+            std::ofstream output_ls("levelset-d" + std::to_string(dim)
+                                    + "o" + std::to_string(element_order)
+                                    + "r" + std::to_string(n_refines)
+                                    + suffix + ".vtk");
+            data_out_levelset.write_vtk(output_ls);
+        }
+    }
+
+
+    template<int dim>
+    void StokesCylinder<dim>::
+    output_results(int time_step, bool output_levelset) const {
+        std::string suffix = "-" + std::to_string(time_step);
+        output_results(suffix, output_levelset);
     }
 
 
