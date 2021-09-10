@@ -87,5 +87,5 @@ void run_convergence_test(std::vector<int> orders, int max_refinement,
 
 
 int main() {
-    run_convergence_test<2>({1, 2, 3}, 7, true);
+    run_convergence_test<2>({1, 2}, 7, true);
 }
