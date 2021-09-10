@@ -15,14 +15,18 @@ color3 = cmap(0.9)
 
 folder = ""
 
+degrees = [1, 2]
+
 
 def convergence_plot_report():
     # A report ready convergence plot
-    paths = [os.path.join(base, f"build/src/cutfem/heat_eqn", folder, f"errors-d2o{d}.csv") for d in [1, 2]]
+    paths = [os.path.join(base, f"build/src/cutfem/heat_eqn", folder, f"errors-d2o{d}.csv") for d in degrees]
     plot_for = ["\|u\|_{L^2}", "\|u\|_{H^1}", "\|u\|_{l^\infty L^2}", "\|u\|_{l^\infty H^1}"]
-    element_orders = [1, 2]
-    conv_plots2(paths, plot_for, element_orders, expected_degrees=[[2, 2], [1, 2], [2, 2], [1, 2]], domain_length=2.2,
-                colors=[color2, color1, color0], save_figs=True, font_size=12, label_size="large", skip=0, guess_degree=False)
+    element_orders = degrees
+    conv_plots2(paths, plot_for, element_orders, expected_degrees=[[2, 2, 2], [1, 2, 2], [2, 2, 2], [1, 2, 2]],
+                domain_length=2.2,
+                colors=[color2, color1, color0], save_figs=True, font_size=12, label_size="large", skip=0,
+                guess_degree=False)
 
 
 def condition_number_sensitivity_plot():
@@ -36,18 +40,19 @@ def condition_number_sensitivity_plot():
 
 
 def condition_number_plot():
-    paths = [os.path.join(base, f"build/src/cutfem/heat_eqn", folder, f"errors-d2o{d}.csv") for d in [1, 2]]
+    paths = [os.path.join(base, f"build/src/cutfem/heat_eqn", folder, f"errors-d2o{d}.csv") for d in degrees]
     plot_for = ["\kappa(A)"]
-    element_orders = [1, 2]
+    element_orders = degrees
     conv_plots2(paths, plot_for, element_orders, expected_degrees=[-2, -2], domain_length=2.2,
                 colors=[color2, color1], save_figs=True, font_size=12, label_size="large",
                 skip=4, ylabel=f"${plot_for[0]}$", guess_degree=False)
 
 
 def time_error_plot():
-    for d in [1, 2]:
-        paths = [os.path.join(base, f"build/src/cutfem/heat_eqn", folder, f"errors-time-d2o{d}r{r}.csv") for r in range(2, 8)]
-        time_error_plots(paths, end_time=1.1, data_indices=[1, 2], font_size=12, label_size="large",
+    for d in degrees:
+        paths = [os.path.join(base, f"build/src/cutfem/heat_eqn", folder, f"errors-time-d2o{d}r{r}.csv") for r in
+                 range(2, 8)]
+        time_error_plots(paths, end_time=1.1, data_indices=degrees, font_size=12, label_size="large",
                          title=f"Heat equation time error, element order {d}", save_fig=True, identifier=d)
 
 
@@ -68,7 +73,7 @@ if __name__ == '__main__':
     skip = 0
     domain_length = 1.1
     xlabel = "M"
-    for poly_order in [1, 2]:
+    for poly_order in degrees:
         full_path = os.path.join(base, f"build/src/cutfem/heat_eqn", folder, f"errors-d2o{poly_order}.csv")
 
         head = list(map(str.strip, open(full_path).readline().split(",")))[1:-1]
@@ -82,7 +87,7 @@ if __name__ == '__main__':
         # Create a EOC-plot
         eoc_plot(data, head,
                  title=r"\textrm{Heat Equation (CutFEM) EOC, element order: " + str(poly_order) + "}",
-                 domain_lenght=domain_length, lines_at=np.array([0, 1]) + poly_order, xlabel=xlabel)
+                 domain_lenght=domain_length, lines_at=np.array([1, 2]), xlabel=xlabel)
         plt.savefig(f"eoc-o{poly_order}.pdf")
 
     plt.show()
