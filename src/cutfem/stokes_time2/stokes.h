@@ -160,6 +160,12 @@ namespace TimeDependentStokesBDF2 {
 
         Error compute_time_error(std::vector<Error> errors);
 
+        void
+        write_time_header_to_file(std::ofstream &file);
+
+        void
+        write_time_error_to_file(Error &error, std::ofstream &file);
+
         const double radius;
         const double half_length;
         const unsigned int n_refines;

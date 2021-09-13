@@ -93,7 +93,7 @@ namespace TimeDependentStokesBDF2 {
     run(unsigned int bdf_type, unsigned int steps,
         Vector<double> &supplied_solution) {
 
-        std::cout << "BDF-" << bdf_type << ", steps=" << steps << std::endl;
+        std::cout << "\nBDF-" << bdf_type << ", steps=" << steps << std::endl;
 
         make_grid();
         setup_quadrature();
@@ -113,9 +113,36 @@ namespace TimeDependentStokesBDF2 {
 
         assemble_system();
 
-        // TODO write time error to file
+        std::ofstream file("errors-time-d" + std::to_string(dim)
+                           + "o" + std::to_string(element_order)
+                           + "r" + std::to_string(n_refines) + ".csv");
+        write_time_header_to_file(file);
 
-        // TODO set the supplied solution.
+        // Overwrite the interpolated solution if the supplied_solution is a
+        // vector of lenght longer than one.
+        if (supplied_solution.size() == solution.size()) {
+            std::cout << "BDF-" << bdf_type << ", supplied solution set."
+                      << std::endl;
+            solutions[bdf_type - 1] = supplied_solution;
+            solution = supplied_solution;
+            analytical_velocity->set_time((bdf_type - 1) * tau);
+            analytical_pressure->set_time((bdf_type - 1) * tau);
+            errors[bdf_type - 1] = compute_error();
+            errors[bdf_type - 1].time_step = bdf_type - 1;
+        }
+
+        // Write the interpolation errors to file.
+        // TODO note that this results in both the interpolation error and the
+        //  fem error to be written when u1 is supplied to bdf-2.
+        for (unsigned int k = 0; k < bdf_type; ++k) {
+            write_time_error_to_file(errors[k], file);
+            std::cout << "k = " << k << ", "
+                      << "\n - || u - u_h ||_L2 = " << errors[k].l2_error_u
+                      << ", || u - u_h ||_H1 = " << errors[k].h1_error_u
+                      << "\n - || p - p_h ||_L2 = " << errors[k].l2_error_p
+                      << ", || p - p_h ||_H1 = " << errors[k].h1_error_p
+                      << std::endl;
+        }
 
         double time;
         for (unsigned int k = bdf_type; k <= steps; ++k) {
@@ -136,6 +163,7 @@ namespace TimeDependentStokesBDF2 {
             solve();
             errors[k] = compute_error();
             errors[k].time_step = k;
+            write_time_error_to_file(errors[k], file);
 
             if (write_output) {
                 output_results(k, false);
@@ -843,6 +871,7 @@ namespace TimeDependentStokesBDF2 {
 
         Error error;
         error.mesh_size = h;
+        error.time_step = tau;
         error.l2_error_u = pow(l2_error_integral_u, 0.5);
         error.h1_error_u = pow(l2_error_integral_u + h1_error_integral_u, 0.5);
         error.h1_semi_u = pow(h1_error_integral_u, 0.5);
@@ -974,7 +1003,7 @@ namespace TimeDependentStokesBDF2 {
     write_header_to_file(std::ofstream &file) {
         file << "\\tau, h, \\|u\\|_{L^2L^2}, \\|u\\|_{L^2H^1}, |u|_{L^2H^1}, "
                 "\\|p\\|_{L^2L^2}, \\|p\\|_{L^2H^1}, |p|_{L^2H^1}, "
-                "\\|u\\|_{l^{\\infty}L^2}, \\|u\\|_{l^{\\infty}H^1},"
+                "\\|u\\|_{l^\\infty L^2}, \\|u\\|_{l^\\infty H^1},"
              << std::endl;
     }
 
@@ -992,6 +1021,29 @@ namespace TimeDependentStokesBDF2 {
              << error.h1_semi_p << ","
              << error.l_inf_l2_error_u << ","
              << error.l_inf_h1_error_u << std::endl;
+    }
+
+
+    template<int dim>
+    void StokesCylinder<dim>::
+    write_time_header_to_file(std::ofstream &file) {
+        file << "\\tau, h, \\|u\\|_{L^2}, \\|u\\|_{H^1}, |u|_{H^1}, "
+                "\\|p\\|_{L^2}, \\|p\\|_{H^1}, |p|_{H^1}, "
+             << std::endl;
+    }
+
+
+    template<int dim>
+    void StokesCylinder<dim>::
+    write_time_error_to_file(Error &error, std::ofstream &file) {
+        file << error.time_step << ","
+             << error.mesh_size << ","
+             << error.l2_error_u << ","
+             << error.h1_error_u << ","
+             << error.h1_semi_u << ","
+             << error.l2_error_p << ","
+             << error.h1_error_p << ","
+             << error.h1_semi_p << std::endl;
     }
 
 

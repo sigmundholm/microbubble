@@ -11,8 +11,8 @@ void solve_for_element_order(int element_order, int max_refinement,
                              bool write_output) {
     using namespace TimeDependentStokesBDF2;
 
-    double radius = 0.205;
-    double half_length = 0.205;
+    double radius = 0.0625;
+    double half_length = radius;
 
     double nu = 0.4;
 
@@ -62,7 +62,7 @@ void solve_for_element_order(int element_order, int max_refinement,
                 radius, half_length, n_refines, nu, tau, element_order,
                 write_output, rhs, boundary_values, analytical_velocity,
                 analytical_pressure, sphere_radius, sphere_x_coord);
-        Error error = stokes_bdf1.run(1, time_steps);
+        Error error = stokes_bdf1.run(1, 1);
 
         // std::cout << std::endl << "BDF-2" << std::endl << std::endl;
         StokesCylinder<dim> stokes_bdf2(
@@ -74,15 +74,17 @@ void solve_for_element_order(int element_order, int max_refinement,
                 sphere_radius, sphere_x_coord);
 
         Vector<double> u1 = stokes_bdf1.get_solution();
-        // TimeDependentStokesBDF2::Error error = stokes_bdf2.run(2, n_steps, u1);
+        TimeDependentStokesBDF2::Error error2 = stokes_bdf2.run(2, time_steps,
+                                                                u1);
 
         std::cout << std::endl;
-        std::cout << "|| u - u_h ||_L2 = " << error.l2_error_u << std::endl;
-        std::cout << "|| u - u_h ||_H1 = " << error.h1_error_u << std::endl;
-        std::cout << "|| p - p_h ||_L2 = " << error.l2_error_p << std::endl;
-        std::cout << "|| p - p_h ||_H1 = " << error.h1_error_p << std::endl;
-        TimeDependentStokesBDF2::StokesCylinder<dim>::write_error_to_file(error,
-                                                                          file);
+        std::cout << "|| u - u_h ||_L2 = " << error2.l2_error_u << std::endl;
+        std::cout << "|| u - u_h ||_H1 = " << error2.h1_error_u << std::endl;
+        std::cout << "|| p - p_h ||_L2 = " << error2.l2_error_p << std::endl;
+        std::cout << "|| p - p_h ||_H1 = " << error2.h1_error_p << std::endl;
+        TimeDependentStokesBDF2::StokesCylinder<dim>::write_error_to_file(
+                error2,
+                file);
     }
 }
 
@@ -99,6 +101,6 @@ void run_convergence_test(std::vector<int> orders, int max_refinement,
 
 int main() {
 
-    run_convergence_test<2>({1}, 9, true);
+    run_convergence_test<2>({1, 2}, 7, true);
 
 }
