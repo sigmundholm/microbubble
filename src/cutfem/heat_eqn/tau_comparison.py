@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 
-from utils.plot import conv_plots, conv_plots2, eoc_plot, condnum_sensitivity_plot, time_error_plots
+from utils.plot import eoc_plot
 
 # Use colours from the Plasma colour map.
 cmap = matplotlib.cm.get_cmap("plasma")
@@ -44,21 +44,21 @@ def get_data():
                 cut_data = data[end_step:, ]
 
                 cut_off_norms = np.sqrt((cut_data ** 2 * tau).sum(axis=0))
-                aggregated_data.append(np.array([h, *cut_off_norms[1:-1]]))
-
-                print("\ntau =", tau)
-                print("end_step =", end_step)
+                l2 = cut_data[:, 1].max()
+                h1 = cut_data[:, 2].max()
+                aggregated_data.append(np.array([h, *cut_off_norms[1:-1], l2, h1]))
 
             # Use the aggregated_data to calculate a new values for EOC
-            calc_eocs(head[1:-1], aggregated_data, poly_order, factor)
+            create_eoc_plot(["h", *head[1:-1], r'\|u\|_{l^\infty L^2}', r'\|u\|_{l^\infty H^1}'], aggregated_data,
+                            poly_order,
+                            factor)
 
 
-def calc_eocs(head, aggregated_data, poly_order, tau_factor):
+def create_eoc_plot(head, aggregated_data, poly_order, tau_factor):
     data_cols = np.array(aggregated_data)
-    mesh_size = data_cols[:, 0]
+    print("\n", head)
 
     end_time = 1.1
-    ns = end_time / mesh_size
     xlabel = "M"
 
     eoc_plot(data_cols, head,
