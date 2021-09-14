@@ -230,6 +230,10 @@ def conv_plots2(paths, norm_names, element_orders, expected_degrees, domain_leng
     matplotlib.rcParams['ytick.minor.size'] = 0
     matplotlib.rcParams['ytick.minor.width'] = 0
 
+    cmap = matplotlib.cm.get_cmap("plasma")
+    colors = colors if colors is not None else [cmap((i + 1) / (len(element_orders) + 1)) for i in
+                                                range(len(element_orders))]
+
     matplotlib.rc('xtick', labelsize=font_size)
     matplotlib.rc('ytick', labelsize=font_size)
     plt.rcParams.update({'axes.labelsize': label_size})

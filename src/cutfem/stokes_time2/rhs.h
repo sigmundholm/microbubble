@@ -10,8 +10,9 @@ using namespace dealii;
 namespace TimeDependentStokesBDF2 {
 
     struct Error {
-        double mesh_size = 0;
         double time_step = 0;
+        double tau = 0;
+        double mesh_size = 0;
         double l2_error_u = 0;
         double h1_error_u = 0;
         double h1_semi_u = 0;
