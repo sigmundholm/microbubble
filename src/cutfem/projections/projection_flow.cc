@@ -42,19 +42,13 @@ namespace examples::cut::projections {
     ProjectionFlow<dim>::ProjectionFlow(const double radius,
                                         const double half_length,
                                         const unsigned int n_refines,
-                                        const double delta,
-                                        const double nu,
-                                        const double tau,
                                         const int element_order,
                                         const bool write_output,
-                                        TensorFunction<1, dim> &rhs,
-                                        TensorFunction<1, dim> &bdd_values,
                                         TensorFunction<1, dim> &analytic_vel,
                                         Function<dim> &analytic_pressure,
                                         const double sphere_radius,
                                         const double sphere_x_coord)
             : radius(radius), half_length(half_length), n_refines(n_refines),
-              delta(delta), nu(nu), tau(tau),
               write_output(write_output), sphere_radius(sphere_radius),
               sphere_x_coord(sphere_x_coord),
               element_order(element_order),
@@ -72,8 +66,6 @@ namespace examples::cut::projections {
         // Use Dirichlet boundary conditions everywhere.
         do_nothing_id = 10;
 
-        rhs_function = &rhs;
-        boundary_values = &bdd_values;
         analytical_velocity = &analytic_vel;
         analytical_pressure = &analytic_pressure;
 
@@ -107,6 +99,13 @@ namespace examples::cut::projections {
             output_results();
         }
         return compute_error();
+    }
+
+
+    template<int dim>
+    Vector<double>
+    ProjectionFlow<dim>::get_solution() {
+        return solution;
     }
 
     template<int dim>
@@ -216,7 +215,6 @@ namespace examples::cut::projections {
 
         // TODO sett disse litt ordentlig.
         double beta_0 = 0.1;
-        double gamma_A = beta_0 * element_order * element_order;
         double gamma_M = beta_0 * element_order * element_order;
 
         NonMatching::RegionUpdateFlags region_update_flags;
@@ -263,34 +261,10 @@ namespace examples::cut::projections {
             if (fe_values_bulk)
                 assemble_local_over_bulk(*fe_values_bulk, loc2glb);
 
-            // Loop through all faces that constitutes the outer boundary of the
-            // domain.
-            for (const auto &face : cell->face_iterators()) {
-                if (face->at_boundary() &&
-                    face->boundary_id() != do_nothing_id) {
-                    fe_face_values.reinit(cell, face);
-                    assemble_local_over_surface(fe_face_values, loc2glb);
-                }
-            }
-
-            // Retrieve an FEValues object with quadrature points
-            // on the immersed surface.
-            const boost::optional<const FEImmersedSurfaceValues<dim> &>
-                    fe_values_surface = cut_fe_values.get_surface_fe_values();
-
-            if (fe_values_surface)
-                assemble_local_over_surface(*fe_values_surface, loc2glb);
-
             // Compute and add the velocity stabilization.
             velocity_stab.compute_stabilization(cell);
             velocity_stab.add_stabilization_to_matrix(
-                    gamma_M * delta + gamma_A * tau * nu / (h * h),
-                    stiffness_matrix);
-            // Compute and add the pressure stabilisation.
-            pressure_stab.compute_stabilization(cell);
-            pressure_stab.add_stabilization_to_matrix(-gamma_A,
-                                                      stiffness_matrix);
-            // TODO et stabilierings ledd til for trykket også?
+                    gamma_M,stiffness_matrix);
         }
     }
 
@@ -306,114 +280,38 @@ namespace examples::cut::projections {
         Vector<double> local_rhs(dofs_per_cell);
 
         // Vector for values of the RightHandSide for all quadrature points on a cell.
-        std::vector<Tensor<1, dim>> rhs_values(fe_values.n_quadrature_points,
+        std::vector<Tensor<1, dim>> u_0_values(fe_values.n_quadrature_points,
                                                Tensor<1, dim>());
-        rhs_function->value_list(fe_values.get_quadrature_points(), rhs_values);
+        analytical_velocity->value_list(fe_values.get_quadrature_points(), u_0_values);
+
+        std::vector<double> p_0_values(fe_values.n_quadrature_points, 0);
+        analytical_pressure->value_list(fe_values.get_quadrature_points(), p_0_values);
 
         const FEValuesExtractors::Vector velocities(0);
         const FEValuesExtractors::Scalar pressure(dim);
 
         // Calculate often used terms in the beginning of each cell-loop
-        std::vector<Tensor<2, dim>> grad_phi_u(dofs_per_cell);
-        std::vector<double> div_phi_u(dofs_per_cell);
         std::vector<Tensor<1, dim>> phi_u(dofs_per_cell, Tensor<1, dim>());
         std::vector<double> phi_p(dofs_per_cell);
 
         for (unsigned int q = 0; q < fe_values.n_quadrature_points; ++q) {
             for (const unsigned int k : fe_values.dof_indices()) {
-                grad_phi_u[k] = fe_values[velocities].gradient(k, q);
-                div_phi_u[k] = fe_values[velocities].divergence(k, q);
                 phi_u[k] = fe_values[velocities].value(k, q);
                 phi_p[k] = fe_values[pressure].value(k, q);
             }
 
             for (const unsigned int i : fe_values.dof_indices()) {
                 for (const unsigned int j : fe_values.dof_indices()) {
-                    local_matrix(i, j) +=
-                            (delta * phi_u[j] * phi_u[i]  // (u, v)
-                             +
-                             (nu * scalar_product(grad_phi_u[j],
-                                                  grad_phi_u[i]) // (grad u, grad v)
-                              - (div_phi_u[i] * phi_p[j])   // -(div v, p)
-                              - (div_phi_u[j] * phi_p[i])   // -(div u, q)
-                             ) * tau) *
-                            fe_values.JxW(q); // dx
+                    local_matrix(i, j) += (phi_u[j] * phi_u[i]  // (u, v)
+                                           +
+                                           phi_p[j] * phi_p[i]  // (p, q)
+                                          ) * fe_values.JxW(q); // dx
                 }
                 // RHS
-                local_rhs(i) += rhs_values[q] * phi_u[i] // (f, v)
-                                * fe_values.JxW(q);      // dx
-            }
-        }
-        stiffness_matrix.add(loc2glb, local_matrix);
-        rhs.add(loc2glb, local_rhs);
-    }
-
-
-    template<int dim>
-    void
-    ProjectionFlow<dim>::assemble_local_over_surface(
-            const FEValuesBase<dim> &fe_values,
-            const std::vector<types::global_dof_index> &loc2glb) {
-        // Matrix and vector for the contribution of each cell
-        const unsigned int dofs_per_cell = fe_values.get_fe().dofs_per_cell;
-        FullMatrix<double> local_matrix(dofs_per_cell, dofs_per_cell);
-        Vector<double> local_rhs(dofs_per_cell);
-
-        // Evaluate the boundary function for all quadrature points on this face.
-        std::vector<Tensor<1, dim>> bdd_values(fe_values.n_quadrature_points,
-                                               Tensor<1, dim>());
-        boundary_values->value_list(fe_values.get_quadrature_points(),
-                                    bdd_values);
-
-        const FEValuesExtractors::Vector velocities(0);
-        const FEValuesExtractors::Scalar pressure(dim);
-
-        // Calculate often used terms in the beginning of each cell-loop
-        std::vector<Tensor<2, dim>> grad_phi_u(dofs_per_cell);
-        std::vector<double> div_phi_u(dofs_per_cell);
-        std::vector<Tensor<1, dim>> phi_u(dofs_per_cell, Tensor<1, dim>());
-        std::vector<double> phi_p(dofs_per_cell);
-
-        // TODO denne skal vel avhenge av element_order?
-        double mu = 50 / h; // Nitsche penalty parameter
-        Tensor<1, dim> normal;
-
-        for (unsigned int q : fe_values.quadrature_point_indices()) {
-            normal = fe_values.normal_vector(q);
-
-            for (const unsigned int k : fe_values.dof_indices()) {
-                grad_phi_u[k] = fe_values[velocities].gradient(k, q);
-                div_phi_u[k] = fe_values[velocities].divergence(k, q);
-                phi_u[k] = fe_values[velocities].value(k, q);
-                phi_p[k] = fe_values[pressure].value(k, q);
-            }
-
-            for (const unsigned int i : fe_values.dof_indices()) {
-                for (const unsigned int j : fe_values.dof_indices()) {
-                    local_matrix(i, j) +=
-                            (-nu * (grad_phi_u[j] * normal) *
-                             phi_u[i]  // -(grad u * n, v)
-                             -
-                             (grad_phi_u[i] * normal) *
-                             phi_u[j] // -(grad v * n, u) [Nitsche]
-                             + mu * (phi_u[j] * phi_u[i]) // mu (u, v) [Nitsche]
-                             + (normal * phi_u[i]) *
-                               phi_p[j]                  // (n * v, p) [from ∇p]
-                             + (normal * phi_u[j]) *
-                               phi_p[i]                  // (q*n, u) [Nitsche]
-                            ) * tau *  // Multiply all terms with the time step
-                            fe_values.JxW(q); // ds
-                }
-
-                // These terms comes from Nitsches method.
-                Tensor<1, dim> prod_r =
-                        mu * phi_u[i] - grad_phi_u[i] * normal +
-                        phi_p[i] * normal;
-
-                local_rhs(i) +=
-                        tau * prod_r *
-                        bdd_values[q] // (g, mu v - n grad v + q * n)
-                        * fe_values.JxW(q);    // ds
+                local_rhs(i) += (u_0_values[q] * phi_u[i] // (u_0, v)
+                                 +
+                                 p_0_values[q] * phi_p[i]
+                                ) * fe_values.JxW(q);      // dx
             }
         }
         stiffness_matrix.add(loc2glb, local_matrix);
@@ -519,7 +417,7 @@ namespace examples::cut::projections {
         }
 
         Error error;
-        error.mesh_size = h;
+        error.h = h;
         error.l2_error_u = pow(l2_error_integral_u, 0.5);
         error.h1_error_u = pow(l2_error_integral_u + h1_error_integral_u, 0.5);
         error.h1_semi_u = pow(h1_error_integral_u, 0.5);
@@ -610,7 +508,7 @@ namespace examples::cut::projections {
     template<int dim>
     void ProjectionFlow<dim>::
     write_error_to_file(Error &error, std::ofstream &file) {
-        file << error.mesh_size << ","
+        file << error.h << ","
              << error.l2_error_u << ","
              << error.h1_error_u << ","
              << error.h1_semi_u << ","

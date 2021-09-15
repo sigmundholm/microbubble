@@ -48,13 +48,8 @@ namespace examples::cut::projections {
         ProjectionFlow(const double radius,
                        const double half_length,
                        const unsigned int n_refines,
-                       const double delta,
-                       const double nu,
-                       const double tau,
                        const int element_order,
                        const bool write_output,
-                       TensorFunction<1, dim> &rhs,
-                       TensorFunction<1, dim> &bdd_values,
                        TensorFunction<1, dim> &analytic_vel,
                        Function<dim> &analytic_pressure,
                        const double sphere_radius,
@@ -62,6 +57,9 @@ namespace examples::cut::projections {
 
         virtual Error
         run();
+
+        Vector<double>
+        get_solution();
 
         static void
         write_header_to_file(std::ofstream &file);
@@ -93,11 +91,6 @@ namespace examples::cut::projections {
                                  const std::vector<types::global_dof_index> &loc2glb);
 
         void
-        assemble_local_over_surface(
-                const FEValuesBase<dim> &fe_values,
-                const std::vector<types::global_dof_index> &loc2glb);
-
-        void
         solve();
 
         void
@@ -117,18 +110,12 @@ namespace examples::cut::projections {
         const double half_length;
         const unsigned int n_refines;
 
-        const double delta;
-        const double nu;
-        const double tau;
-
         bool write_output;
 
         double sphere_radius;
         double sphere_x_coord;
         Point<dim> center;
 
-        TensorFunction<1, dim> *rhs_function;
-        TensorFunction<1, dim> *boundary_values;
         TensorFunction<1, dim> *analytical_velocity;
         Function<dim> *analytical_pressure;
 

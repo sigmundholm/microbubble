@@ -7,24 +7,25 @@ from utils.plot import conv_plots, eoc_plot
 
 if __name__ == '__main__':
     base = split(split(split(os.getcwd())[0])[0])[0]
+    domain_length = 1
 
     skip = 0
     for poly_order in [1, 2]:
-        full_path = os.path.join(base, f"build/src/cutfem/stokes_gen/errors-d2o{poly_order}.csv")
+        full_path = os.path.join(base, f"build/src/cutfem/projections/errors-d2o{poly_order}.csv")
 
         head = list(map(str.strip, open(full_path).readline().split(",")))
         data = np.genfromtxt(full_path, delimiter=",", skip_header=True)
         data = data[skip:, :]
 
-        conv_plots(data, head, title=r"$\textrm{Generalized Stokes (cutFEM), element order: (" + str(
-            poly_order + 1) + ", " + str(poly_order) + ")}$", domain_length=0.41)
+        conv_plots(data, head, title=r"$\textrm{$L^2$-projection (CutFEM), element order: (" + str(
+            poly_order + 1) + ", " + str(poly_order) + ")}$", domain_length=domain_length)
         # plt.savefig(f"figure-o{poly_order}.pdf")
 
         # Create a EOC-plot
         eoc_plot(data, head,
-                 title=r"\textrm{Generalized Stokes (cutFEM) EOC, element order: (" + str(poly_order + 1) + ", " + str(
+                 title=r"\textrm{$L^2$-projections (CutFEM) EOC, element order: (" + str(poly_order + 1) + ", " + str(
                      poly_order) + ")}",
-                 domain_lenght=0.41, lines_at=np.array([0, 1, 2]) + poly_order)
+                 domain_lenght=domain_length, lines_at=np.array([0, 1, 2]) + poly_order)
         # plt.savefig(f"eoc-o{poly_order}.pdf")
 
     plt.show()
