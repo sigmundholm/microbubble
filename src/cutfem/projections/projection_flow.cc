@@ -36,10 +36,10 @@
 
 using namespace cutfem;
 
-namespace GeneralizedStokes {
+namespace examples::cut::projections {
 
     template<int dim>
-    StokesCylinder<dim>::StokesCylinder(const double radius,
+    ProjectionFlow<dim>::ProjectionFlow(const double radius,
                                         const double half_length,
                                         const unsigned int n_refines,
                                         const double delta,
@@ -86,7 +86,7 @@ namespace GeneralizedStokes {
 
     template<int dim>
     void
-    StokesCylinder<dim>::setup_quadrature() {
+    ProjectionFlow<dim>::setup_quadrature() {
         const unsigned int quadOrder = 2 * element_order + 1;
         q_collection.push_back(QGauss<dim>(quadOrder));
         q_collection1D.push_back(QGauss<1>(quadOrder));
@@ -94,7 +94,7 @@ namespace GeneralizedStokes {
 
     template<int dim>
     Error
-    StokesCylinder<dim>::run() {
+    ProjectionFlow<dim>::run() {
         make_grid();
         setup_quadrature();
         setup_level_set();
@@ -111,7 +111,7 @@ namespace GeneralizedStokes {
 
     template<int dim>
     void
-    StokesCylinder<dim>::make_grid() {
+    ProjectionFlow<dim>::make_grid() {
         std::cout << "Creating triangulation" << std::endl;
 
         GridGenerator::cylinder(triangulation, radius, half_length);
@@ -128,7 +128,7 @@ namespace GeneralizedStokes {
 
     template<int dim>
     void
-    StokesCylinder<dim>::setup_level_set() {
+    ProjectionFlow<dim>::setup_level_set() {
         std::cout << "Setting up level set" << std::endl;
 
         // The level set function lives on the whole background mesh.
@@ -148,7 +148,7 @@ namespace GeneralizedStokes {
 
     template<int dim>
     void
-    StokesCylinder<dim>::distribute_dofs() {
+    ProjectionFlow<dim>::distribute_dofs() {
         std::cout << "Distributing dofs" << std::endl;
 
         // We want to types of elements on the mesh
@@ -174,7 +174,7 @@ namespace GeneralizedStokes {
 
     template<int dim>
     void
-    StokesCylinder<dim>::initialize_matrices() {
+    ProjectionFlow<dim>::initialize_matrices() {
         std::cout << "Initialize marices" << std::endl;
         solution.reinit(dof_handler.n_dofs());
         rhs.reinit(dof_handler.n_dofs());
@@ -186,7 +186,7 @@ namespace GeneralizedStokes {
 
     template<int dim>
     void
-    StokesCylinder<dim>::assemble_system() {
+    ProjectionFlow<dim>::assemble_system() {
         std::cout << "Assembling" << std::endl;
 
         // Use a helper object to compute the stabilisation for both the velocity
@@ -296,7 +296,7 @@ namespace GeneralizedStokes {
 
     template<int dim>
     void
-    StokesCylinder<dim>::assemble_local_over_bulk(
+    ProjectionFlow<dim>::assemble_local_over_bulk(
             const FEValues<dim> &fe_values,
             const std::vector<types::global_dof_index> &loc2glb) {
 
@@ -351,7 +351,7 @@ namespace GeneralizedStokes {
 
     template<int dim>
     void
-    StokesCylinder<dim>::assemble_local_over_surface(
+    ProjectionFlow<dim>::assemble_local_over_surface(
             const FEValuesBase<dim> &fe_values,
             const std::vector<types::global_dof_index> &loc2glb) {
         // Matrix and vector for the contribution of each cell
@@ -423,7 +423,7 @@ namespace GeneralizedStokes {
 
     template<int dim>
     void
-    StokesCylinder<dim>::solve() {
+    ProjectionFlow<dim>::solve() {
         std::cout << "Solving system" << std::endl;
         SparseDirectUMFPACK inverse;
         inverse.initialize(stiffness_matrix);
@@ -432,7 +432,7 @@ namespace GeneralizedStokes {
 
     template<int dim>
     void
-    StokesCylinder<dim>::output_results() const {
+    ProjectionFlow<dim>::output_results() const {
         std::cout << "Output results" << std::endl;
         // Output results, see step-22
         std::vector<std::string> solution_names(dim, "velocity");
@@ -467,7 +467,7 @@ namespace GeneralizedStokes {
 
 
     template<int dim>
-    Error StokesCylinder<dim>::
+    Error ProjectionFlow<dim>::
     compute_error() {
         std::cout << "Compute error" << std::endl;
         NonMatching::RegionUpdateFlags region_update_flags;
@@ -531,7 +531,7 @@ namespace GeneralizedStokes {
 
 
     template<int dim>
-    void StokesCylinder<dim>::
+    void ProjectionFlow<dim>::
     integrate_cell(const FEValues<dim> &fe_v,
                    double &l2_error_integral_u,
                    double &h1_error_integral_u,
@@ -600,7 +600,7 @@ namespace GeneralizedStokes {
 
 
     template<int dim>
-    void StokesCylinder<dim>::
+    void ProjectionFlow<dim>::
     write_header_to_file(std::ofstream &file) {
         file << "h, \\|u\\|_{L^2}, \\|u\\|_{H^1}, |u|_{H^1}, "
                 "\\|p\\|_{L^2}, \\|p\\|_{H^1}, |p|_{H^1}" << std::endl;
@@ -608,7 +608,7 @@ namespace GeneralizedStokes {
 
 
     template<int dim>
-    void StokesCylinder<dim>::
+    void ProjectionFlow<dim>::
     write_error_to_file(Error &error, std::ofstream &file) {
         file << error.mesh_size << ","
              << error.l2_error_u << ","
@@ -621,9 +621,9 @@ namespace GeneralizedStokes {
 
 
     template
-    class StokesCylinder<2>;
+    class ProjectionFlow<2>;
 
     template
-    class StokesCylinder<3>;
+    class ProjectionFlow<3>;
 
-} // namespace GeneralizedStokes
+} // namespace examples::cut::projections

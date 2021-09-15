@@ -2,7 +2,7 @@
 
 
 int main() {
-    using namespace GeneralizedStokes;
+    using namespace examples::cut::projections;
 
     const unsigned int n_refines = 4;
     const unsigned int elementOrder = 1;
@@ -28,7 +28,7 @@ int main() {
     AnalyticalVelocity<dim> analytical_velocity;
     AnalyticalPressure<dim> analytical_pressure;
 
-    StokesCylinder<dim> stokes(radius, half_length, n_refines, delta, nu, tau,
+    ProjectionFlow<dim> stokes(radius, half_length, n_refines, delta, nu, tau,
                                elementOrder, write_vtk, rhs, boundary,
                                analytical_velocity, analytical_pressure,
                                sphere_radius, sphere_x_coord);

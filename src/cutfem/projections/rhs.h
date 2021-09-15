@@ -1,5 +1,5 @@
-#ifndef MICROBUBBLE_RHS_GEN_H
-#define MICROBUBBLE_RHS_GEN_H
+#ifndef MICROBUBBLE_PROJECTIONS_RHS_H
+#define MICROBUBBLE_PROJECTIONS_RHS_H
 
 #include <deal.II/base/function.h>
 #include <deal.II/base/point.h>
@@ -7,7 +7,7 @@
 
 using namespace dealii;
 
-namespace GeneralizedStokes {
+namespace examples::cut::projections {
 
     struct Error {
         double mesh_size = 0;
@@ -63,7 +63,7 @@ namespace GeneralizedStokes {
                  const unsigned int component) const override;
     };
 
-}
+} // namespace examples::cut::projections
 
 
-#endif // MICROBUBBLE_RHS_GEN_H
+#endif // MICROBUBBLE_PROJECTIONS_RHS_H

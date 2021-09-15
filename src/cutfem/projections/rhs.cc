@@ -10,7 +10,7 @@
 #define pi 3.141592653589793
 
 
-namespace GeneralizedStokes {
+namespace examples::cut::projections {
 
 
     template<int dim>
@@ -103,4 +103,4 @@ namespace GeneralizedStokes {
     template
     class AnalyticalPressure<2>;
 
-} // namespace GeneralizedStokes
+} // namespace examples::cut::projections

@@ -1,5 +1,5 @@
-#ifndef MICROBUBBLE_STOKES_GEN_H
-#define MICROBUBBLE_STOKES_GEN_H
+#ifndef MICROBUBBLE_PROJECTIONS_PROJECTION_FLOW_H
+#define MICROBUBBLE_PROJECTIONS_PROJECTION_FLOW_H
 
 #include <deal.II/base/function.h>
 #include <deal.II/base/tensor_function.h>
@@ -38,14 +38,14 @@
 using namespace dealii;
 using namespace cutfem;
 
-namespace GeneralizedStokes {
+namespace examples::cut::projections {
 
     using NonMatching::LocationToLevelSet;
 
     template<int dim>
-    class StokesCylinder {
+    class ProjectionFlow {
     public:
-        StokesCylinder(const double radius,
+        ProjectionFlow(const double radius,
                        const double half_length,
                        const unsigned int n_refines,
                        const double delta,
@@ -165,7 +165,7 @@ namespace GeneralizedStokes {
         AffineConstraints<double> constraints;
     };
 
-} // namespace GeneralizedStokes
+} // namespace examples::cut::projections
 
 
-#endif // MICROBUBBLE_STOKES_GEN_H
+#endif // MICROBUBBLE_PROJECTIONS_PROJECTION_FLOW_H
