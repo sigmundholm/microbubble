@@ -74,7 +74,7 @@ namespace TimeDependentStokesBDF2 {
          */
         virtual Error
         run(unsigned int bdf_type, unsigned int steps,
-            Vector<double> &supplied_solution);
+            std::vector<Vector<double>> &supplied_solutions);
 
         virtual Error
         run(unsigned int bdf_type, unsigned int steps);
@@ -95,6 +95,11 @@ namespace TimeDependentStokesBDF2 {
         void
         interpolate_first_steps(unsigned int bdf_type,
                                 std::vector<Error> &errors);
+
+        void
+        set_supplied_solutions(unsigned int bdf_type,
+                               std::vector<Vector<double>> &supplied_solutions,
+                               std::vector<Error> &errors);
 
         void
         make_grid();

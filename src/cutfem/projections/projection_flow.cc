@@ -87,6 +87,7 @@ namespace examples::cut::projections {
     template<int dim>
     Error
     ProjectionFlow<dim>::run() {
+        std::cout << "L^2 projection" << std::endl;
         make_grid();
         setup_quadrature();
         setup_level_set();
