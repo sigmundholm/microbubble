@@ -2,6 +2,8 @@
 #include <iostream>
 #include <vector>
 
+#include "cutfem/geometry/SignedDistanceSphere.h"
+
 #include "stokes.h"
 
 #include "../stokes_time/stokes_gen.h"
@@ -28,6 +30,11 @@ void solve_for_element_order(int element_order, int max_refinement,
                        + "o" + std::to_string(element_order) + ".csv");
     StokesCylinder<dim>::write_header_to_file(file);
 
+    Point<dim> center;
+    center = Point<dim>(sphere_x_coord, 0); // TODO trengs ny constructor for 3D?
+    cutfem::geometry::SignedDistanceSphere<dim> signed_distance_sphere(
+            sphere_radius, center, -1);
+
     BoundaryValues<dim> boundary_values(nu);
     AnalyticalVelocity<dim> analytical_velocity(nu);
     AnalyticalPressure<dim> analytical_pressure(nu);
@@ -50,7 +57,7 @@ void solve_for_element_order(int element_order, int max_refinement,
         analytical_pressure.set_time(0);
         projections::ProjectionFlow<dim> u0_proj(
                 radius, half_length, n_refines, element_order, write_output,
-                analytical_velocity, analytical_pressure,
+                signed_distance_sphere, analytical_velocity, analytical_pressure,
                 sphere_radius, sphere_x_coord);
         projections::Error error_proj = u0_proj.run();
         std::cout << "  || u - u_h ||_L2 = " << error_proj.l2_error_u << std::endl;

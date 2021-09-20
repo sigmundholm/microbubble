@@ -30,7 +30,7 @@
 
 #include <vector>
 
-#include "cutfem/errors/error_calculator.h"
+#include "../utils/flow_problem.h"
 
 #include "rhs.h"
 
@@ -41,115 +41,44 @@ using namespace cutfem;
 namespace examples::cut::projections {
 
     using NonMatching::LocationToLevelSet;
+    using namespace utils::problems::flow;
 
     template<int dim>
-    class ProjectionFlow {
+    class ProjectionFlow : public FlowProblem<dim> {
     public:
         ProjectionFlow(const double radius,
                        const double half_length,
                        const unsigned int n_refines,
                        const int element_order,
                        const bool write_output,
+                       Function<dim> &levelset_func,
                        TensorFunction<1, dim> &analytic_vel,
                        Function<dim> &analytic_pressure,
                        const double sphere_radius,
                        const double sphere_x_coord);
 
-        virtual Error
-        run();
-
         Vector<double>
         get_solution();
 
-        static void
-        write_header_to_file(std::ofstream &file);
-
-        static void
-        write_error_to_file(Error &error, std::ofstream &file);
-
     protected:
         void
-        make_grid();
+        make_grid(Triangulation<dim> &tria) override;
 
         void
-        setup_level_set();
-
-        void
-        setup_quadrature();
-
-        void
-        distribute_dofs();
-
-        void
-        initialize_matrices();
-
-        void
-        assemble_system();
+        assemble_system() override;
 
         void
         assemble_local_over_bulk(const FEValues<dim> &fe_values,
-                                 const std::vector<types::global_dof_index> &loc2glb);
+                                 const std::vector<types::global_dof_index> &loc2glb) override;
 
         void
-        solve();
-
-        void
-        output_results() const;
-
-        Error compute_error();
-
-        void integrate_cell(const FEValues<dim> &fe_v,
-                            double &l2_error_integral_u,
-                            double &h1_error_integral_u,
-                            double &l2_error_integral_p,
-                            double &h1_error_integral_p,
-                            const double &mean_numerical_pressure,
-                            const double &mean_exact_pressure) const;
+        assemble_local_over_surface(
+                const FEValuesBase<dim> &fe_values,
+                const std::vector<types::global_dof_index> &loc2glb) override;
 
         const double radius;
         const double half_length;
-        const unsigned int n_refines;
 
-        bool write_output;
-
-        double sphere_radius;
-        double sphere_x_coord;
-        Point<dim> center;
-
-        TensorFunction<1, dim> *analytical_velocity;
-        Function<dim> *analytical_pressure;
-
-        // Cell side-length.
-        double h;
-        const unsigned int element_order;
-
-        unsigned int do_nothing_id = 2;
-
-        Triangulation<dim> triangulation;
-        FESystem<dim> stokes_fe;
-
-        hp::FECollection<dim> fe_collection;
-        hp::MappingCollection<dim> mapping_collection;
-        hp::QCollection<dim> q_collection;
-        hp::QCollection<1> q_collection1D;
-
-        // Object managing degrees of freedom for the level set function.
-        FE_Q<dim> fe_levelset;
-        DoFHandler<dim> levelset_dof_handler;
-        Vector<double> levelset;
-
-        // Object managing degrees of freedom for the cutfem method.
-        hp::DoFHandler<dim> dof_handler;
-
-        NonMatching::CutMeshClassifier<dim> cut_mesh_classifier;
-
-        SparsityPattern sparsity_pattern;
-        SparseMatrix<double> stiffness_matrix;
-
-        Vector<double> rhs;
-        Vector<double> solution;
-
-        AffineConstraints<double> constraints;
     };
 
 } // namespace examples::cut::projections

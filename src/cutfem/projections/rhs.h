@@ -9,6 +9,7 @@ using namespace dealii;
 
 namespace examples::cut::projections {
 
+    /*
     struct Error {
         double h = 0;
         double l2_error_u = 0;
@@ -18,6 +19,7 @@ namespace examples::cut::projections {
         double h1_error_p = 0;
         double h1_semi_p = 0;
     };
+     */
 
 
     template<int dim>

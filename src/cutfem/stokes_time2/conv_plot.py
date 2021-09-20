@@ -34,9 +34,9 @@ domain_length = 2 * radius
 if __name__ == '__main__':
     base = split(split(split(os.getcwd())[0])[0])[0]
 
-    convergence_plot_report()
+    # convergence_plot_report()
 
-    time_error_plot()
+    # time_error_plot()
 
     skip = 0
     for poly_order in [1, 2]:
