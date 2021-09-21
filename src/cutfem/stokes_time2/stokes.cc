@@ -91,7 +91,7 @@ namespace TimeDependentStokesBDF2 {
     template<int dim>
     Error StokesCylinder<dim>::
     run(unsigned int bdf_type, unsigned int steps,
-        Vector<double> &supplied_solution) {
+        std::vector<Vector<double>> &supplied_solutions) {
 
         std::cout << "\nBDF-" << bdf_type << ", steps=" << steps << std::endl;
 
@@ -105,31 +105,15 @@ namespace TimeDependentStokesBDF2 {
         // Vector for the computed error for each time step.
         std::vector<Error> errors(steps + 1);
 
-        // If u1 is a vector of length 1, then u1 is interpolated from
-        // boundary_values too.
         interpolate_first_steps(bdf_type, errors);
-
+        set_supplied_solutions(bdf_type, supplied_solutions, errors);
         set_bdf_coefficients(bdf_type);
-
         assemble_system();
 
         std::ofstream file("errors-time-d" + std::to_string(dim)
                            + "o" + std::to_string(element_order)
                            + "r" + std::to_string(n_refines) + ".csv");
         write_time_header_to_file(file);
-
-        // Overwrite the interpolated solution if the supplied_solution is a
-        // vector of lenght longer than one.
-        if (supplied_solution.size() == solution.size()) {
-            std::cout << "BDF-" << bdf_type << ", supplied solution set."
-                      << std::endl;
-            solutions[bdf_type - 1] = supplied_solution;
-            solution = supplied_solution;
-            analytical_velocity->set_time((bdf_type - 1) * tau);
-            analytical_pressure->set_time((bdf_type - 1) * tau);
-            errors[bdf_type - 1] = compute_error();
-            errors[bdf_type - 1].time_step = bdf_type - 1;
-        }
 
         // Write the interpolation errors to file.
         // TODO note that this results in both the interpolation error and the
@@ -191,7 +175,9 @@ namespace TimeDependentStokesBDF2 {
     template<int dim>
     Error StokesCylinder<dim>::
     run(unsigned int bdf_type, unsigned int steps) {
-        Vector<double> empty(1);
+        // Invoking this method will result in a pure BDF-k method, where all
+        // the initial steps will be interpolated.
+        std::vector<Vector<double>> empty;
         return run(bdf_type, steps, empty);
     }
 
@@ -280,6 +266,36 @@ namespace TimeDependentStokesBDF2 {
         //        velocities.first_vector_component,
         //        n_components_on_element);
 
+    }
+
+    template<int dim>
+    void StokesCylinder<dim>::
+    set_supplied_solutions(unsigned int bdf_type,
+                           std::vector<Vector<double>> &supplied_solutions,
+                           std::vector<Error> &errors) {
+        std::cout << "Set supplied solutions" << std::endl;
+
+        std::vector<Vector<double>> full_vector(bdf_type, Vector<double>(1));
+
+        unsigned int size_diff = full_vector.size() - supplied_solutions.size();
+        assert(size_diff >= 0);
+        for (unsigned int k = 0; k < supplied_solutions.size(); ++k) {
+            full_vector[size_diff + k] = supplied_solutions[k];
+        }
+
+        // The the supplied solutions in the solutions vector, and compute
+        // the errors.
+        for (unsigned int k = 0; k < bdf_type; ++k) {
+            if (full_vector[k].size() == solution.size()) {
+                std::cout << " - Set supplied for k = " << k << std::endl;
+                solutions[k] = full_vector[k];
+                analytical_velocity->set_time(k * tau);
+                analytical_pressure->set_time(k * tau);
+                solution = full_vector[k];
+                errors[k] = compute_error();
+                errors[k].time_step = k;
+            }
+        }
     }
 
     template<int dim>
