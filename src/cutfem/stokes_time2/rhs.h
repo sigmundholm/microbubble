@@ -39,12 +39,25 @@ namespace TimeDependentStokesBDF2 {
     template<int dim>
     class BoundaryValues : public TensorFunction<1, dim> {
     public:
-        BoundaryValues(const double nu);
+        BoundaryValues(const double nu, const double radius);
 
         Tensor<1, dim>
         value(const Point<dim> &p) const override;
 
         const double nu;
+        const double radius;
+    };
+
+
+    template<int dim>
+    class SpherePath : public TensorFunction<1, dim> {
+    public:
+        SpherePath(const double radius);
+
+        Tensor<1, dim>
+        value(const Point<dim> &p) const override;
+
+        const double radius;
     };
 
 

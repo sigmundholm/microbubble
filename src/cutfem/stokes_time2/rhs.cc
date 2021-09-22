@@ -34,8 +34,8 @@ namespace TimeDependentStokesBDF2 {
 
 
     template<int dim>
-    BoundaryValues<dim>::BoundaryValues(const double nu)
-            : TensorFunction<1, dim>(), nu(nu) {}
+    BoundaryValues<dim>::BoundaryValues(const double nu, const double radius)
+            : TensorFunction<1, dim>(), nu(nu), radius(radius) {}
 
     template<int dim>
     Tensor<1, dim> BoundaryValues<dim>::
@@ -45,8 +45,30 @@ namespace TimeDependentStokesBDF2 {
         double t = this->get_time();
 
         Tensor<1, dim> val;
-        val[0] = -exp(-2 * pi * pi * nu * t) * sin(pi * y) * cos(pi * x);
-        val[1] = exp(-2 * pi * pi * nu * t) * sin(pi * x) * cos(pi * y);
+        if (x == radius || y == radius) {
+            val[0] = 0;
+            val[1] = 0;
+        } else {
+            val[0] = 0.25 * radius * cos(t);
+            val[1] = 0;
+        }
+        return val;
+    }
+
+
+    template<int dim>
+    SpherePath<dim>::SpherePath(const double radius)
+            : TensorFunction<1, dim>(), radius(radius) {}
+
+    template<int dim>
+    Tensor<1, dim> SpherePath<dim>::
+    value(const Point<dim> &p) const {
+        (void) p;
+        double t = this->get_time();
+
+        Tensor<1, dim> val;
+        val[0] = 0.25 * radius * sin(t);
+        val[1] = 0;
         return val;
     }
 
@@ -123,6 +145,9 @@ namespace TimeDependentStokesBDF2 {
 
     template
     class BoundaryValues<2>;
+
+    template
+    class SpherePath<2>;
 
     template
     class AnalyticalVelocity<2>;

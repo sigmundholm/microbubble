@@ -16,14 +16,14 @@ void solve_for_element_order(int element_order, int max_refinement,
     using namespace examples::cut;
     // using namespace examples::cut;
 
-    double radius = 0.0625;
+    double radius = 0.5;
     double half_length = radius;
 
     double nu = 0.4;
 
     double end_time = radius;
 
-    double sphere_radius = radius * 0.9;
+    double sphere_radius = radius * 0.5;
     double sphere_x_coord = 0;
 
     std::ofstream file("errors-d" + std::to_string(dim)
@@ -35,7 +35,8 @@ void solve_for_element_order(int element_order, int max_refinement,
     cutfem::geometry::SignedDistanceSphere<dim> signed_distance_sphere(
             sphere_radius, center, -1);
 
-    BoundaryValues<dim> boundary_values(nu);
+    BoundaryValues<dim> boundary_values(nu, radius);
+    SpherePath<dim> sphere_path(radius);
     AnalyticalVelocity<dim> analytical_velocity(nu);
     AnalyticalPressure<dim> analytical_pressure(nu);
 
@@ -59,7 +60,7 @@ void solve_for_element_order(int element_order, int max_refinement,
                 radius, half_length, n_refines, element_order, write_output,
                 signed_distance_sphere, analytical_velocity, analytical_pressure,
                 sphere_radius, sphere_x_coord);
-        projections::Error error_proj = u0_proj.run();
+        projections::Error error_proj = u0_proj.run_step();
         std::cout << "  || u - u_h ||_L2 = " << error_proj.l2_error_u << std::endl;
         std::cout << "  || u - u_h ||_H1 = " << error_proj.h1_error_u << std::endl;
         std::cout << "  || p - p_h ||_L2 = " << error_proj.l2_error_p << std::endl;
@@ -70,7 +71,7 @@ void solve_for_element_order(int element_order, int max_refinement,
         StokesCylinder<dim> stokes_bdf1(
                 radius, half_length, n_refines, nu, tau, element_order,
                 write_output, rhs, boundary_values, analytical_velocity,
-                analytical_pressure, sphere_radius, sphere_x_coord);
+                analytical_pressure, sphere_radius, sphere_path);
 
         std::vector<Vector<double>> initial(1, Vector<double>());
         initial[0] = u0;
@@ -83,7 +84,7 @@ void solve_for_element_order(int element_order, int max_refinement,
                 rhs,
                 boundary_values, analytical_velocity,
                 analytical_pressure,
-                sphere_radius, sphere_x_coord);
+                sphere_radius, sphere_path);
 
         Vector<double> u1 = stokes_bdf1.get_solution();
         std::vector<Vector<double>> initial2 = {u0, u1};

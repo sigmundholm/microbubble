@@ -28,6 +28,8 @@
 #include <deal.II/lac/sparsity_pattern.h>
 #include <deal.II/lac/vector.h>
 
+#include <deal.II/numerics/solution_transfer.h>
+
 #include <vector>
 
 #include "cutfem/errors/error_calculator.h"
@@ -57,7 +59,7 @@ namespace TimeDependentStokesBDF2 {
                        TensorFunction<1, dim> &analytic_vel,
                        Function<dim> &analytic_pressure,
                        const double sphere_radius,
-                       const double sphere_x_coord,
+                       TensorFunction<1, dim> &sphere_path_func,
                        const bool crank_nicholson = false);
 
         /**
@@ -100,6 +102,9 @@ namespace TimeDependentStokesBDF2 {
         set_supplied_solutions(unsigned int bdf_type,
                                std::vector<Vector<double>> &supplied_solutions,
                                std::vector<Error> &errors);
+
+        void
+        interpolate_solutions_onto_updated_grid();
 
         void
         make_grid();
@@ -182,10 +187,10 @@ namespace TimeDependentStokesBDF2 {
 
         double sphere_radius;
         double sphere_x_coord;
-        Point<dim> center;
 
         TensorFunction<1, dim> *rhs_function;
         TensorFunction<1, dim> *boundary_values;
+        TensorFunction<1, dim> *sphere_path;
         TensorFunction<1, dim> *analytical_velocity;
         Function<dim> *analytical_pressure;
 
@@ -212,6 +217,7 @@ namespace TimeDependentStokesBDF2 {
         hp::DoFHandler<dim> dof_handler;
 
         NonMatching::CutMeshClassifier<dim> cut_mesh_classifier;
+        SolutionTransfer<dim, Vector<double>> solution_transfer;
 
         SparsityPattern sparsity_pattern;
         SparseMatrix<double> stiffness_matrix;

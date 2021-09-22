@@ -54,7 +54,7 @@ namespace TimeDependentStokesBDF2 {
                    TensorFunction<1, dim> &analytic_vel,
                    Function<dim> &analytic_pressure,
                    const double sphere_radius,
-                   const double sphere_x_coord,
+                   TensorFunction<1, dim> &sphere_path_func,
                    const bool crank_nicholson)
             : radius(radius), half_length(half_length), n_refines(n_refines),
               nu(nu), tau(tau),
@@ -68,6 +68,7 @@ namespace TimeDependentStokesBDF2 {
               levelset_dof_handler(triangulation), dof_handler(triangulation),
               cut_mesh_classifier(triangulation, levelset_dof_handler,
                                   levelset),
+              solution_transfer(dof_handler),
               crank_nicholson(crank_nicholson) {
         h = 0;
         // Use no constraints when projecting.
@@ -78,14 +79,11 @@ namespace TimeDependentStokesBDF2 {
 
         rhs_function = &rhs;
         boundary_values = &bdd_values;
+        sphere_path = &sphere_path_func;
         analytical_velocity = &analytic_vel;
         analytical_pressure = &analytic_pressure;
 
-        if (dim == 2) {
-            this->center = Point<dim>(sphere_x_coord, 0);
-        } else if (dim == 3) {
-            this->center = Point<dim>(sphere_x_coord, 0, 0);
-        }
+        // solution_transfer(*dof_handler);
     }
 
     template<int dim>
@@ -97,6 +95,8 @@ namespace TimeDependentStokesBDF2 {
 
         make_grid();
         setup_quadrature();
+
+        sphere_path->set_time(0);
         setup_level_set();
         cut_mesh_classifier.reclassify();
         distribute_dofs();
@@ -108,7 +108,7 @@ namespace TimeDependentStokesBDF2 {
         interpolate_first_steps(bdf_type, errors);
         set_supplied_solutions(bdf_type, supplied_solutions, errors);
         set_bdf_coefficients(bdf_type);
-        assemble_system();
+        // assemble_system();
 
         std::ofstream file("errors-time-d" + std::to_string(dim)
                            + "o" + std::to_string(element_order)
@@ -139,10 +139,19 @@ namespace TimeDependentStokesBDF2 {
             boundary_values->set_time(time);
             analytical_velocity->set_time(time);
             analytical_pressure->set_time(time);
+            sphere_path->set_time(time);
 
-            // TODO nødvendig??
-            solution.reinit(solution.size());
-            rhs.reinit(solution.size());
+            setup_level_set();
+            cut_mesh_classifier.reclassify();
+
+            // Redistribute the dofs after the level set was updated
+            distribute_dofs();
+            // Reinitialize the matrices and vectors after the number of dofs
+            // was updated.
+            initialize_matrices();
+
+            assemble_system();
+            interpolate_solutions_onto_updated_grid();
 
             assemble_rhs();
             solve();
@@ -151,7 +160,7 @@ namespace TimeDependentStokesBDF2 {
             write_time_error_to_file(errors[k], file);
 
             if (write_output) {
-                output_results(k, false);
+                output_results(k, true);
             }
 
             for (unsigned long i = 1; i < solutions.size(); ++i) {
@@ -234,15 +243,23 @@ namespace TimeDependentStokesBDF2 {
         solutions = std::vector<Vector<double>>(bdf_type);
 
         std::cout << "Interpolate first step(s)." << std::endl;
-
         for (unsigned int k = 0; k < bdf_type; ++k) {
             analytical_velocity->set_time(k * tau);
             analytical_pressure->set_time(k * tau);
 
-            Utils::AnalyticalSolutionWrapper<dim> wrapper(*analytical_velocity,
-                                                          *analytical_pressure);
-            VectorTools::interpolate(dof_handler, wrapper, solution);
-
+            if (k == 0) {
+                // Interpolate initial values from the boundary values function.
+                boundary_values->set_time(0);
+                Utils::AnalyticalSolutionWrapper<dim> wrapper0(
+                        *boundary_values, *analytical_pressure);
+                VectorTools::interpolate(dof_handler, wrapper0, solution);
+            } else {
+                // Interpolate initial values from the given analytical
+                // solution.
+                Utils::AnalyticalSolutionWrapper<dim> wrapper1(
+                        *analytical_velocity, *analytical_pressure);
+                VectorTools::interpolate(dof_handler, wrapper1, solution);
+            }
             errors[k] = compute_error();
             errors[k].time_step = k;
             std::string suffix = "-" + std::to_string(k) + "-inter";
@@ -298,6 +315,22 @@ namespace TimeDependentStokesBDF2 {
         }
     }
 
+
+    template<int dim>
+    void StokesCylinder<dim>::
+    interpolate_solutions_onto_updated_grid() {
+        std::cout << "Interpolate old solutions to new grid" << std::endl;
+
+        std::vector<Vector<double>> solutions_refined(solutions.size());
+        for (auto &soln : solutions_refined) {
+            soln.reinit(dof_handler.n_dofs());
+        }
+
+        solution_transfer.interpolate(solutions, solutions_refined);
+        solutions = solutions_refined;
+    }
+
+
     template<int dim>
     void StokesCylinder<dim>::
     setup_quadrature() {
@@ -327,13 +360,14 @@ namespace TimeDependentStokesBDF2 {
     void StokesCylinder<dim>::
     setup_level_set() {
         std::cout << "Setting up level set" << std::endl;
-
         // The level set function lives on the whole background mesh.
         levelset_dof_handler.distribute_dofs(fe_levelset);
         printf("leveset dofs: %d\n", levelset_dof_handler.n_dofs());
         levelset.reinit(levelset_dof_handler.n_dofs());
 
         // Project the geometry onto the mesh.
+        Tensor<1, dim> center_tensor = sphere_path->value(Point<dim>());
+        Point<dim> center = Point<dim>(center_tensor);
         cutfem::geometry::SignedDistanceSphere<dim> signed_distance_sphere(
                 sphere_radius, center, -1);
         VectorTools::project(levelset_dof_handler,
@@ -350,10 +384,14 @@ namespace TimeDependentStokesBDF2 {
 
         // We want to types of elements on the mesh
         // Lagrange elements and elements that are constant zero..
-        fe_collection.push_back(stokes_fe);
-        fe_collection.push_back(FESystem<dim>(
-                FESystem<dim>(FE_Nothing<dim>(), dim), 1, FE_Nothing<dim>(),
-                1));
+        bool is_first_run = false;
+        if (fe_collection.size() == 0) {
+            is_first_run = true;
+            fe_collection.push_back(stokes_fe);
+            fe_collection.push_back(FESystem<dim>(
+                    FESystem<dim>(FE_Nothing<dim>(), dim), 1, FE_Nothing<dim>(),
+                    1));
+        }
 
         // Set outside finite elements to stokes_fe, and inside to FE_nothing
         for (const auto &cell : dof_handler.active_cell_iterators()) {
@@ -366,7 +404,17 @@ namespace TimeDependentStokesBDF2 {
                 cell->set_active_fe_index(0);
             }
         }
+
+        std::cout << "ndofs = " << dof_handler.n_dofs() << std::endl;
+        if (!is_first_run) {
+            // Prepare the transfer of old solutions to the new grid when
+            // the levelset is updated for each time step.
+            triangulation.prepare_coarsening_and_refinement();
+            solution_transfer.prepare_for_coarsening_and_refinement(solutions);
+            triangulation.execute_coarsening_and_refinement();
+        }
         dof_handler.distribute_dofs(fe_collection);
+        std::cout << "after ndofs = " << dof_handler.n_dofs() << std::endl;
     }
 
     template<int dim>
@@ -639,7 +687,7 @@ namespace TimeDependentStokesBDF2 {
                                          update_JxW_values);
 
         // TODO setter dette alle elementene i rhs til 0?
-        // rhs = 0;
+        rhs = 0;
 
         for (const auto &cell : dof_handler.active_cell_iterators()) {
             const unsigned int n_dofs = cell->get_fe().dofs_per_cell;
