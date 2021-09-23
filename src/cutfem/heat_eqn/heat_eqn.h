@@ -59,26 +59,37 @@ namespace examples::cut::HeatEquation {
                 const bool stabilized = true,
                 const bool crank_nicholson = false);
 
-        virtual Error
+        /*
+        virtual ErrorScalar
         run(unsigned int bdf_type, unsigned int steps,
             Vector<double> &supplied_solution);
 
-        virtual Error
+        virtual ErrorScalar
         run(unsigned int bdf_type, unsigned int steps);
+         */
 
         static void
         write_header_to_file(std::ofstream &file);
 
         static void
-        write_error_to_file(Error &error, std::ofstream &file);
+        write_error_to_file(ErrorBase &error, std::ofstream &file);
 
     protected:
+        /*
         void
         set_bdf_coefficients(unsigned int bdf_type);
 
         void
         interpolate_first_steps(unsigned int bdf_type,
                                 std::vector<Error> &errors);
+
+        void
+        set_function_times(double time);
+
+        void
+        interpolate_solution(int time_step);
+         */
+
 
         void
         make_grid(Triangulation<dim> &tria) override;
@@ -93,51 +104,42 @@ namespace examples::cut::HeatEquation {
                 const std::vector<types::global_dof_index> &loc2glb) override;
 
         void
-        assemble_matrix();
+        assemble_matrix() override;
 
         void
         assemble_matrix_local_over_cell(const FEValues<dim> &fe_values,
-                                        const std::vector<types::global_dof_index> &loc2glb);
+                                        const std::vector<types::global_dof_index> &loc2glb) override;
 
         void
         assemble_matrix_local_over_surface(
                 const FEValuesBase<dim> &fe_values,
-                const std::vector<types::global_dof_index> &loc2glb);
+                const std::vector<types::global_dof_index> &loc2glb) override;
 
         void
-        assemble_rhs(int time_step);
+        assemble_rhs(int time_step) override;
 
         void
         assemble_rhs_local_over_cell(const FEValues<dim> &fe_values,
-                                     const std::vector<types::global_dof_index> &loc2glb);
+                                     const std::vector<types::global_dof_index> &loc2glb) override;
 
         void
         assemble_rhs_local_over_cell_cn(const FEValues<dim> &fe_values,
                                         const std::vector<types::global_dof_index> &loc2glb,
-                                        const int time_step);
+                                        const int time_step) override;
 
         void
         assemble_rhs_local_over_surface(
                 const FEValuesBase<dim> &fe_values,
-                const std::vector<types::global_dof_index> &loc2glob);
+                const std::vector<types::global_dof_index> &loc2glob) override;
 
         void
         assemble_rhs_local_over_surface_cn(
                 const FEValuesBase<dim> &fe_values,
                 const std::vector<types::global_dof_index> &loc2glob,
-                const int time_step);
-
-        Error
-        compute_time_error(std::vector<Error> errors);
+                const int time_step) override;
 
         void
         compute_condition_number();
-
-        void
-        write_time_header_to_file(std::ofstream &file);
-
-        void
-        write_time_error_to_file(Error &error, std::ofstream &file);
 
         const double nu;
         const double tau;

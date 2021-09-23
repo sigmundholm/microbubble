@@ -52,7 +52,8 @@ void solve_for_element_order(int element_order, int max_refinement,
         HeatEqn<dim> heat(nu, tau, radius, half_length, n_refines, element_order,
                              write_output,
                              rhs, bdd, soln, domain, true, false);
-        Error error = heat.run(1, 1);
+        ErrorBase err = heat.run_time(1, 1);
+        auto &error = dynamic_cast<ErrorScalar&>(err);
 
         std::cout << "|| u - u_h ||_L2 = " << error.l2_error << std::endl;
         std::cout << "|| u - u_h ||_H1 = " << error.h1_error << std::endl;
@@ -64,7 +65,10 @@ void solve_for_element_order(int element_order, int max_refinement,
         HeatEqn<dim> heat2(nu, tau, radius, half_length, n_refines, element_order,
                            write_output,
                            rhs, bdd, soln, domain, true, false);
-        Error error2 = heat2.run(2, time_steps, u1);
+
+        std::vector<Vector<double>> initial = {u1};
+        err = heat2.run_time(2, time_steps, initial);
+        auto &error2 = dynamic_cast<ErrorScalar&>(err);
 
         std::cout << "|| u - u_h ||_L2 = " << error2.l2_error << std::endl;
         std::cout << "|| u - u_h ||_H1 = " << error2.h1_error << std::endl;

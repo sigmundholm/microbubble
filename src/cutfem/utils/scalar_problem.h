@@ -33,18 +33,21 @@
 #include "cutfem/nla/sparsity_pattern.h"
 #include "cutfem/stabilization/jump_stabilization.h"
 
+#include "cutfem_problem.h"
+
 
 using namespace dealii;
 using namespace cutfem;
-
 
 
 namespace utils::problems::scalar {
 
     using NonMatching::LocationToLevelSet;
 
+    using namespace utils::problems;
 
-    struct Error {
+
+    struct ErrorScalar : ErrorBase {
         double h = 0;
         double tau = 0;
         double time_step = 0;
@@ -54,11 +57,29 @@ namespace utils::problems::scalar {
         double l_inf_l2_error = 0;
         double l_inf_h1_error = 0;
         double cond_num = 0;
+
+        void output() override {
+            std::cout << "  k = " << time_step << ", "
+                      << "|| u - u_h ||_L2 = " << l2_error
+                      << ", || u - u_h ||_H1 = " << h1_error
+                      << std::endl;
+        }
+
+        // TODO these or delete
+        void file_header(std::ofstream &file, bool time_dependent) {
+        }
+
+        void file_output(std::ofstream &file, bool time_dependent) {
+            if (time_dependent) {
+
+            }
+        }
+
     };
 
 
     template<int dim>
-    class ScalarProblem {
+    class ScalarProblem : public CutFEMProblem<dim> {
     public:
         ScalarProblem(const unsigned int n_refines,
                       const int element_order,
@@ -67,105 +88,47 @@ namespace utils::problems::scalar {
                       Function<dim> &analytical_soln,
                       const bool stabilized = true);
 
-        virtual Error
-        run_step();
-
-        Vector<double>
-        get_solution();
-
         static void
         write_header_to_file(std::ofstream &file);
 
         static void
-        write_error_to_file(Error &error, std::ofstream &file);
+        write_error_to_file(ErrorBase &error, std::ofstream &file);
 
     protected:
-        virtual void
-        make_grid(Triangulation<dim> &tria) = 0;
-
         void
-        setup_quadrature();
-
-        void
-        setup_level_set();
-
-        void
-        distribute_dofs();
-
-        void
-        initialize_matrices();
+        distribute_dofs() override;
 
         virtual void
-        assemble_system();
+        assemble_system() override;
 
-        virtual void
-        assemble_local_over_cell(const FEValues<dim> &fe_values,
-                                 const std::vector<types::global_dof_index> &loc2glb) = 0;
 
-        virtual void
-        assemble_local_over_surface(
-                const FEValuesBase<dim> &fe_values,
-                const std::vector<types::global_dof_index> &loc2glb) = 0;
+        ErrorBase
+        compute_error() override;
 
-        void
-        solve();
-
-        void
-        output_results(std::string &suffix, bool minimal_output = false) const;
-
-        void
-        output_results(bool minimal_output = false) const;
-
-        Error
-        compute_error();
-
-        Error
-        compute_time_error(std::vector<Error> errors);
+        ErrorBase
+        compute_time_error(std::vector<ErrorBase> errors);
 
         void
         integrate_cell(const FEValues<dim> &fe_v,
                        double &l2_error_integral,
                        double &h1_error_integral) const;
 
-        const unsigned int n_refines;
-        bool write_output;
 
-        Function<dim> *rhs_function;
-        Function<dim> *boundary_values;
-        Function<dim> *analytical_solution;
-        Function<dim> *levelset_function;
+        void
+        write_time_header_to_file(std::ofstream &file);
 
-        // Cell side-length.
-        double h;
-        double tau;
-        const unsigned int element_order;
+        void
+        write_time_error_to_file(ErrorBase &error, std::ofstream &file);
 
-        const bool stabilized;
 
-        Triangulation<dim> triangulation;
+        void
+        output_results(std::string &suffix, bool minimal_output = false) const override;
+
+
         FE_Q<dim> fe;
 
-        hp::FECollection<dim> fe_collection;
-        hp::MappingCollection<dim> mapping_collection;
-        hp::QCollection<dim> q_collection;
-        hp::QCollection<1> q_collection1D;
+        Function<dim> *analytical_solution;
 
-        // Object managing degrees of freedom for the level set function.
-        FE_Q<dim> fe_levelset;
-        DoFHandler<dim> levelset_dof_handler;
-        Vector<double> levelset;
-
-        // Object managing degrees of freedom for the cutfem method.
-        hp::DoFHandler<dim> dof_handler;
-
-        NonMatching::CutMeshClassifier<dim> cut_mesh_classifier;
-
-        SparsityPattern sparsity_pattern;
-        SparseMatrix<double> stiffness_matrix;
-        Vector<double> rhs;
-        Vector<double> solution;
-
-        AffineConstraints<double> constraints;
     };
 
 } // namespace utils::problems::scalar

@@ -60,11 +60,15 @@ namespace examples::cut::HeatEquation {
         // Use no constraints when projecting.
         this->constraints.close();
 
+        // this->tau = tau;
+
         this->rhs_function = &rhs;
         this->boundary_values = &bdd_values;
     }
 
 
+
+    /*
     template<int dim>
     Error HeatEqn<dim>::
     run(unsigned int bdf_type, unsigned int steps,
@@ -218,6 +222,7 @@ namespace examples::cut::HeatEquation {
             solutions[i] = this->solution;
         }
     }
+     */
 
 
     template<int dim>
@@ -763,39 +768,6 @@ namespace examples::cut::HeatEquation {
 
 
     template<int dim>
-    Error HeatEqn<dim>::
-    compute_time_error(std::vector<Error> errors) {
-        double l2_error_integral = 0;
-        double h1_error_integral = 0;
-
-        double l_inf_l2 = 0;
-        double l_inf_h1 = 0;
-
-        for (Error error : errors) {
-            l2_error_integral += tau * pow(error.l2_error, 2);
-            h1_error_integral += tau * pow(error.h1_semi, 2);
-
-            if (error.l2_error > l_inf_l2)
-                l_inf_l2 = error.l2_error;
-            if (error.h1_error > l_inf_h1)
-                l_inf_h1 = error.h1_error;
-        }
-
-        Error error;
-        error.h = this->h;
-        error.tau = tau;
-
-        error.l2_error = pow(l2_error_integral, 0.5);
-        error.h1_error = pow(l2_error_integral + h1_error_integral, 0.5);
-        error.h1_semi = pow(h1_error_integral, 0.5);
-
-        error.l_inf_l2_error = l_inf_l2;
-        error.l_inf_h1_error = l_inf_h1;
-        return error;
-    }
-
-
-    template<int dim>
     void HeatEqn<dim>::
     write_header_to_file(std::ofstream &file) {
         file
@@ -806,34 +778,16 @@ namespace examples::cut::HeatEquation {
 
     template<int dim>
     void HeatEqn<dim>::
-    write_error_to_file(Error &error, std::ofstream &file) {
-        file << error.h << ","
-             << error.tau << ","
-             << error.l2_error << ","
-             << error.h1_error << ","
-             << error.h1_semi << ","
-             << error.l_inf_l2_error << ","
-             << error.l_inf_h1_error << ","
-             << error.cond_num << std::endl;
-    }
-
-
-    template<int dim>
-    void HeatEqn<dim>::
-    write_time_header_to_file(std::ofstream &file) {
-        file << "k, \\|u\\|_{L^2}, \\|u\\|_{H^1}, |u|_{H^1}, \\kappa(A)"
-             << std::endl;
-    }
-
-
-    template<int dim>
-    void HeatEqn<dim>::
-    write_time_error_to_file(Error &error, std::ofstream &file) {
-        file << error.time_step << ","
-             << error.l2_error << ","
-             << error.h1_error << ","
-             << error.h1_semi << ","
-             << error.cond_num << std::endl;
+    write_error_to_file(ErrorBase &error, std::ofstream &file) {
+        auto &err = dynamic_cast<ErrorScalar&>(error);
+        file << err.h << ","
+             << err.tau << ","
+             << err.l2_error << ","
+             << err.h1_error << ","
+             << err.h1_semi << ","
+             << err.l_inf_l2_error << ","
+             << err.l_inf_h1_error << ","
+             << err.cond_num << std::endl;
     }
 
 
