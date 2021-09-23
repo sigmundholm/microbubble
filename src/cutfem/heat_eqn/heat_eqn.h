@@ -1,5 +1,5 @@
-#ifndef MICROBUBBLE_CUTFEM_POISSON_POISSON_H
-#define MICROBUBBLE_CUTFEM_POISSON_POISSON_H
+#ifndef MICROBUBBLE_CUTFEM_HEAT_EQUATION_H
+#define MICROBUBBLE_CUTFEM_HEAT_EQUATION_H
 
 #include <deal.II/base/function.h>
 #include <deal.II/base/point.h>
@@ -82,14 +82,13 @@ namespace examples::cut::HeatEquation {
         void
         interpolate_first_steps(unsigned int bdf_type,
                                 std::vector<Error> &errors);
-
-        void
-        set_function_times(double time);
-
-        void
-        interpolate_solution(int time_step);
          */
 
+        void
+        set_function_times(double time) override;
+
+        virtual void
+        interpolate_solution(int time_step) override;
 
         void
         make_grid(Triangulation<dim> &tria) override;
@@ -138,8 +137,6 @@ namespace examples::cut::HeatEquation {
                 const std::vector<types::global_dof_index> &loc2glob,
                 const int time_step) override;
 
-        void
-        compute_condition_number();
 
         const double nu;
         const double tau;
@@ -159,4 +156,4 @@ namespace examples::cut::HeatEquation {
 
 } // namespace examples::cut::HeatEquation
 
-#endif //MICROBUBBLE_CUTFEM_POISSON_POISSON_H
+#endif //MICROBUBBLE_CUTFEM_HEAT_EQUATION_H

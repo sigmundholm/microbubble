@@ -52,6 +52,14 @@ namespace utils::problems::scalar {
 
 
     template<int dim>
+    void ScalarProblem<dim>::interpolate_solution(int time_step) {
+        VectorTools::interpolate(this->dof_handler,
+                                 *(this->analytical_solution),
+                                 this->solution);
+    }
+
+
+    template<int dim>
     void ScalarProblem<dim>::
     distribute_dofs() {
         std::cout << "Distributing dofs" << std::endl;
@@ -80,7 +88,7 @@ namespace utils::problems::scalar {
     template<int dim>
     void ScalarProblem<dim>::
     assemble_system() {
-        std::cout << "Assembling" << std::endl;
+        std::cout << "Assembling scalar" << std::endl;
 
         this->stiffness_matrix = 0;
         this->rhs = 0;
@@ -167,38 +175,6 @@ namespace utils::problems::scalar {
                         gamma_M + gamma_A / (this->h * this->h),
                         this->stiffness_matrix);
             }
-        }
-    }
-
-
-    template<int dim>
-    void ScalarProblem<dim>::
-    output_results(std::string &suffix,
-                   bool minimal_output) const {
-        std::cout << "Output results" << std::endl;
-        // Output results, see step-22
-        DataOut<dim> data_out;
-        data_out.attach_dof_handler(this->dof_handler);
-        data_out.add_data_vector(this->solution, "solution");
-        data_out.build_patches();
-        std::ofstream out("solution-d" + std::to_string(dim)
-                          + "o" + std::to_string(this->element_order)
-                          + "r" + std::to_string(this->n_refines) + suffix +
-                          ".vtk");
-        data_out.write_vtk(out);
-
-        // Output levelset function.
-        if (!minimal_output) {
-            DataOut<dim, DoFHandler<dim>> data_out_levelset;
-            data_out_levelset.attach_dof_handler(this->levelset_dof_handler);
-            data_out_levelset.add_data_vector(this->levelset, "levelset");
-            data_out_levelset.build_patches();
-            std::ofstream output_ls("levelset-d" + std::to_string(dim)
-                                    + "o" + std::to_string(this->element_order)
-                                    + "r" + std::to_string(this->n_refines) +
-                                    suffix +
-                                    ".vtk");
-            data_out_levelset.write_vtk(output_ls);
         }
     }
 
@@ -360,6 +336,38 @@ namespace utils::problems::scalar {
              << err.h1_error << ","
              << err.h1_semi << ","
              << err.cond_num << std::endl;
+    }
+
+
+    template<int dim>
+    void ScalarProblem<dim>::
+    output_results(std::string &suffix,
+                   bool minimal_output) const {
+        std::cout << "Output results" << std::endl;
+        // Output results, see step-22
+        DataOut<dim> data_out;
+        data_out.attach_dof_handler(this->dof_handler);
+        data_out.add_data_vector(this->solution, "solution");
+        data_out.build_patches();
+        std::ofstream out("solution-d" + std::to_string(dim)
+                          + "o" + std::to_string(this->element_order)
+                          + "r" + std::to_string(this->n_refines) + suffix +
+                          ".vtk");
+        data_out.write_vtk(out);
+
+        // Output levelset function.
+        if (!minimal_output) {
+            DataOut<dim, DoFHandler<dim>> data_out_levelset;
+            data_out_levelset.attach_dof_handler(this->levelset_dof_handler);
+            data_out_levelset.add_data_vector(this->levelset, "levelset");
+            data_out_levelset.build_patches();
+            std::ofstream output_ls("levelset-d" + std::to_string(dim)
+                                    + "o" + std::to_string(this->element_order)
+                                    + "r" + std::to_string(this->n_refines) +
+                                    suffix +
+                                    ".vtk");
+            data_out_levelset.write_vtk(output_ls);
+        }
     }
 
 

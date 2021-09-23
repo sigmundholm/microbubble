@@ -60,8 +60,6 @@ namespace examples::cut::HeatEquation {
         // Use no constraints when projecting.
         this->constraints.close();
 
-        // this->tau = tau;
-
         this->rhs_function = &rhs;
         this->boundary_values = &bdd_values;
     }
@@ -209,7 +207,7 @@ namespace examples::cut::HeatEquation {
             std::cout << "  Interpolate step k = " << i
                       << ", time = " << i * tau << std::endl;
             this->analytical_solution->set_time(i * tau);
-            VectorTools::interpolate(this->dof_handler,
+            VectorTools::interpolate(this->dof_handler
                                      *(this->analytical_solution),
                                      this->solution);
             solutions[i].reinit(this->solution.size());
@@ -223,6 +221,22 @@ namespace examples::cut::HeatEquation {
         }
     }
      */
+
+    template<int dim>
+    void HeatEqn<dim>::set_function_times(double time) {
+        this->rhs_function->set_time(time);
+        this->boundary_values->set_time(time);
+        this->analytical_solution->set_time(time);
+    }
+
+
+    template<int dim>
+    void HeatEqn<dim>::interpolate_solution(int time_step) {
+        // TODO if k = 0, interpolate the boundary_values function
+        VectorTools::interpolate(this->dof_handler,
+                                 *(this->analytical_solution),
+                                 this->solution);
+    }
 
 
     template<int dim>
@@ -743,27 +757,6 @@ namespace examples::cut::HeatEquation {
             }
         }
         this->rhs.add(loc2glb, local_rhs);
-    }
-
-
-    template<int dim>
-    void HeatEqn<dim>::
-    compute_condition_number() {
-        std::cout << "Compute condition number" << std::endl;
-
-        // Invert the stiffness_matrix
-        FullMatrix<double> stiffness_matrix_full(this->solution.size());
-        stiffness_matrix_full.copy_from(this->stiffness_matrix);
-        FullMatrix<double> inverse(this->solution.size());
-        inverse.invert(stiffness_matrix_full);
-
-        double norm = this->stiffness_matrix.frobenius_norm();
-        double inverse_norm = inverse.frobenius_norm();
-
-        condition_number = norm * inverse_norm;
-        std::cout << "  cond_num = " << condition_number << std::endl;
-
-        // TODO bruk eigenvalues istedet
     }
 
 

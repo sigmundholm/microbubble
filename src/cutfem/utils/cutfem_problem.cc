@@ -35,11 +35,13 @@ namespace utils::problems {
                   Function<dim> &levelset_func,
                   const bool stabilized)
             : n_refines(n_refines), element_order(element_order),
-              write_output(write_output), stabilized(stabilized),
+              write_output(write_output),
               fe_levelset(element_order),
-              levelset_dof_handler(triangulation), dof_handler(triangulation),
+              levelset_dof_handler(triangulation),
+              dof_handler(triangulation),
               cut_mesh_classifier(triangulation, levelset_dof_handler,
-                                  levelset) {
+                                  levelset),
+              stabilized(stabilized) {
 
         levelset_function = &levelset_func;
     }
@@ -345,6 +347,28 @@ namespace utils::problems {
 
 
     template<int dim>
+    double CutFEMProblem<dim>::
+    compute_condition_number() {
+        std::cout << "Compute condition number" << std::endl;
+
+        // Invert the stiffness_matrix
+        FullMatrix<double> stiffness_matrix_full(this->solution.size());
+        stiffness_matrix_full.copy_from(this->stiffness_matrix);
+        FullMatrix<double> inverse(this->solution.size());
+        inverse.invert(stiffness_matrix_full);
+
+        double norm = this->stiffness_matrix.frobenius_norm();
+        double inverse_norm = inverse.frobenius_norm();
+
+        double condition_number = norm * inverse_norm;
+        std::cout << "  cond_num = " << condition_number << std::endl;
+
+        // TODO bruk eigenvalues istedet
+        return condition_number;
+    }
+
+
+    template<int dim>
     void CutFEMProblem<dim>::
     output_results(bool minimal_output) const {
         std::string empty = "";
@@ -406,31 +430,13 @@ namespace utils::problems {
         return error;
     }
 
-
-    template<int dim>
-    void TimeProblem<dim>::
-    write_time_header_to_file(std::ofstream &file) {
-        file << "k, \\tau, h, \\|u\\|_{L^2}, \\|u\\|_{H^1}, |u|_{H^1}, "
-                "\\|p\\|_{L^2}, \\|p\\|_{H^1}, |p|_{H^1}" << std::endl;
-    }
-
-
-    template<int dim>
-    void TimeProblem<dim>::
-    write_time_error_to_file(Error &error, std::ofstream &file) {
-        file << error.time_step << ","
-             << error.tau << ","
-             << error.mesh_size << ","
-             << error.l2_error_u << ","
-             << error.h1_error_u << ","
-             << error.h1_semi_u << ","
-             << error.l2_error_p << ","
-             << error.h1_error_p << ","
-             << error.h1_semi_p << std::endl;
-    }
-
      */
 
+    template
+    class CutFEMProblem<2>;
+
+    template
+    class CutFEMProblem<3>;
 
 }
 

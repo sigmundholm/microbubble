@@ -1,5 +1,5 @@
-#ifndef MICROBUBBLE_FEM_PROBLEM_H
-#define MICROBUBBLE_FEM_PROBLEM_H
+#ifndef MICROBUBBLE_CUTFEM_PROBLEM_H
+#define MICROBUBBLE_CUTFEM_PROBLEM_H
 
 #include <deal.II/base/function.h>
 #include <deal.II/base/point.h>
@@ -48,11 +48,13 @@ namespace utils::problems {
         double time_step = 0;
         double cond_num = 0;
 
-        virtual void output();
+        virtual void output() {
+            std::cout << "h = " << h << std::endl;
+        }
 
-        virtual void file_header(std::ofstream &file, bool time_dependent);
+        // virtual void file_header(std::ofstream &file, bool time_dependent);
 
-        virtual void file_output(std::ofstream &file, bool time_dependent);
+        // virtual void file_output(std::ofstream &file, bool time_dependent);
     };
 
 
@@ -192,6 +194,13 @@ namespace utils::problems {
         virtual ErrorBase
         compute_time_error(std::vector<ErrorBase> errors) = 0;
 
+        virtual void
+        integrate_cell(const FEValues<dim> &fe_v,
+                       double &l2_error_integral,
+                       double &h1_error_integral) const = 0;
+
+        double
+        compute_condition_number();
 
 
         virtual void
@@ -211,7 +220,6 @@ namespace utils::problems {
 
         virtual void
         output_results(bool minimal_output = false) const;
-
 
         const unsigned int n_refines;
         const unsigned int element_order;
@@ -256,10 +264,11 @@ namespace utils::problems {
         //   u_t = (au^(n+1) + bu^n + cu^(n-1))/τ, where u = u^(n+1)
         // For BDF-1: (b, a), and (c, b, a) for BDF-2.
         std::vector<double> bdf_coeffs;
-        const bool crank_nicholson;
+        bool crank_nicholson;
+
         const bool stabilized;
 
     };
 }
 
-#endif //MICROBUBBLE_FEM_PROBLEM_H
+#endif //MICROBUBBLE_CUTFEM_PROBLEM_H

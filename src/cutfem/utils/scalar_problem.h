@@ -65,6 +65,7 @@ namespace utils::problems::scalar {
                       << std::endl;
         }
 
+        /*
         // TODO these or delete
         void file_header(std::ofstream &file, bool time_dependent) {
         }
@@ -74,6 +75,7 @@ namespace utils::problems::scalar {
 
             }
         }
+         */
 
     };
 
@@ -95,6 +97,9 @@ namespace utils::problems::scalar {
         write_error_to_file(ErrorBase &error, std::ofstream &file);
 
     protected:
+        virtual void
+        interpolate_solution(int time_step) override;
+
         void
         distribute_dofs() override;
 
@@ -106,24 +111,24 @@ namespace utils::problems::scalar {
         compute_error() override;
 
         ErrorBase
-        compute_time_error(std::vector<ErrorBase> errors);
+        compute_time_error(std::vector<ErrorBase> errors) override;
 
         void
         integrate_cell(const FEValues<dim> &fe_v,
                        double &l2_error_integral,
-                       double &h1_error_integral) const;
+                       double &h1_error_integral) const override;
 
 
-        void
-        write_time_header_to_file(std::ofstream &file);
+        virtual void
+        write_time_header_to_file(std::ofstream &file) override;
 
-        void
-        write_time_error_to_file(ErrorBase &error, std::ofstream &file);
+        virtual void
+        write_time_error_to_file(ErrorBase &error, std::ofstream &file) override;
 
 
-        void
-        output_results(std::string &suffix, bool minimal_output = false) const override;
-
+        virtual void
+        output_results(std::string &suffix,
+                       bool minimal_output = false) const override;
 
         FE_Q<dim> fe;
 
