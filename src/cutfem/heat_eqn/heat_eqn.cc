@@ -14,10 +14,8 @@
 #include <deal.II/lac/solver_control.h>
 #include <deal.II/lac/sparse_direct.h>
 
-#include <deal.II/non_matching/cut_mesh_classifier.h>
 #include <deal.II/non_matching/fe_values.h>
 
-#include <deal.II/numerics/data_out.h>
 #include <deal.II/numerics/data_out_dof_data.h>
 #include <deal.II/numerics/vector_tools.h>
 
@@ -55,172 +53,17 @@ namespace examples::cut::HeatEquation {
                           const bool crank_nicholson)
             : ScalarProblem<dim>(n_refines, element_order, write_output,
                                  levelset_func, analytical_soln, stabilized),
-              nu(nu), tau(tau), radius(radius), half_length(half_length),
-              crank_nicholson(crank_nicholson) {
+              nu(nu), radius(radius), half_length(half_length) {
         // Use no constraints when projecting.
         this->constraints.close();
+
+        this->tau = tau;
+        this->crank_nicholson = crank_nicholson;
 
         this->rhs_function = &rhs;
         this->boundary_values = &bdd_values;
     }
 
-
-
-    /*
-    template<int dim>
-    Error HeatEqn<dim>::
-    run(unsigned int bdf_type, unsigned int steps,
-        Vector<double> &supplied_solution) {
-        // TODO imlement bdf2
-        if (crank_nicholson) {
-            std::cout << "\nCrank-Nicholson" << std::endl;
-        } else {
-            std::cout << "\nBDF-" << bdf_type << std::endl;
-        }
-
-        if (!triangulation_exists) {
-            make_grid(this->triangulation);
-            this->setup_quadrature();
-            this->setup_level_set();
-            this->cut_mesh_classifier.reclassify();
-            this->distribute_dofs();
-            this->initialize_matrices();
-        }
-
-        if (crank_nicholson) {
-            assert(bdf_type == 1);
-        }
-
-        std::vector<Error> errors(steps + 1);
-        interpolate_first_steps(bdf_type, errors);
-        set_bdf_coefficients(bdf_type);
-
-        assemble_matrix();
-
-        // TODO BDF-2: if u1 is provided; compute the error that step.
-        std::ofstream file("errors-time-d" + std::to_string(dim)
-                           + "o" + std::to_string(this->element_order)
-                           + "r" + std::to_string(this->n_refines) + ".csv");
-        write_time_header_to_file(file);
-
-        // Overwrite the interpolated solution if the supplied_solution is a
-        // vector of lenght longer than one.
-        if (supplied_solution.size() == this->solution.size()) {
-            std::cout << "BDF-" << bdf_type << ", supplied solution set."
-                      << std::endl;
-            solutions[bdf_type - 1] = supplied_solution;
-            this->solution = supplied_solution;
-            this->analytical_solution->set_time((bdf_type - 1) * tau);
-            errors[bdf_type - 1] = this->compute_error();
-            errors[bdf_type - 1].time_step = bdf_type - 1;
-        }
-
-        // Write the interpolation errors to file.
-        // TODO note that this results in both the interpolation error and the
-        //  fem error to be written when u1 is supplied to bdf-2.
-        for (unsigned int k = 0; k < bdf_type; ++k) {
-            write_time_error_to_file(errors[k], file);
-            std::cout << "  k = " << k << ", "
-                      << "|| u - u_h ||_L2 = " << errors[k].l2_error
-                      << ", || u - u_h ||_H1 = " << errors[k].h1_error
-                      << std::endl;
-        }
-
-        for (unsigned int k = bdf_type; k <= steps; ++k) {
-            std::cout << "\nk = " << std::to_string(k)
-                      << ", time = " << std::to_string(k * tau)
-                      << ", tau = " << std::to_string(tau) << std::endl;
-            std::cout << "-------------------------" << std::endl;
-
-            this->rhs_function->set_time(k * tau);
-            this->boundary_values->set_time(k * tau);
-            this->analytical_solution->set_time(k * tau);
-
-            assemble_rhs(k);
-            this->solve();
-            errors[k] = this->compute_error();
-            errors[k].time_step = k;
-            write_time_error_to_file(errors[k], file);
-
-            std::cout << "  k = " << k << ", "
-                      << "|| u - u_h ||_L2 = " << errors[k].l2_error
-                      << ", || u - u_h ||_H1 = " << errors[k].h1_error
-                      << std::endl;
-
-            std::string suffix = "-" + std::to_string(k);
-            if (this->write_output) {
-                this->output_results(suffix, false);
-            }
-
-            for (unsigned long i = 1; i < solutions.size(); ++i) {
-                solutions[i - 1] = solutions[i];
-            }
-            solutions[solutions.size() - 1] = this->solution;
-        }
-
-        // compute_condition_number();
-        return compute_time_error(errors);
-    }
-
-
-    template<int dim>
-    Error HeatEqn<dim>::
-    run(unsigned int bdf_type, unsigned int steps) {
-        Vector<double> empty(1);
-        return run(bdf_type, steps, empty);
-    }
-
-
-    template<int dim>
-    void HeatEqn<dim>::
-    set_bdf_coefficients(unsigned int bdf_type) {
-        bdf_coeffs = std::vector<double>(bdf_type + 1);
-
-        if (bdf_type == 1) {
-            bdf_coeffs[0] = -1;
-            bdf_coeffs[1] = 1;
-        } else if (bdf_type == 2) {
-            bdf_coeffs[0] = 0.5;
-            bdf_coeffs[1] = -2;
-            bdf_coeffs[2] = 1.5;
-        } else if (bdf_type == 3) {
-            bdf_coeffs[0] = -1.0 / 3;
-            bdf_coeffs[1] = 1.5;
-            bdf_coeffs[2] = -3;
-            bdf_coeffs[3] = 11.0 / 6;
-        } else {
-            throw std::invalid_argument("Only BDF-1 is implemented for now.");
-        }
-    }
-
-
-    template<int dim>
-    void HeatEqn<dim>::
-    interpolate_first_steps(unsigned int bdf_type, std::vector<Error> &errors) {
-        solutions = std::vector<Vector<double>>(bdf_type);
-
-        std::cout << "Interpolate first step(s)" << std::endl;
-
-        for (unsigned int i = 0; i < bdf_type; ++i) {
-            // Interpolate step i (step u1 will be overwritten by bdf2 if
-            // u1 is provided).
-            std::cout << "  Interpolate step k = " << i
-                      << ", time = " << i * tau << std::endl;
-            this->analytical_solution->set_time(i * tau);
-            VectorTools::interpolate(this->dof_handler
-                                     *(this->analytical_solution),
-                                     this->solution);
-            solutions[i].reinit(this->solution.size());
-
-            // Compute the error of the interpolated step.
-            errors[i] = this->compute_error();
-            errors[i].time_step = i;
-            std::string suffix = "-" + std::to_string(i) + "-inter";
-            this->output_results(suffix);
-            solutions[i] = this->solution;
-        }
-    }
-     */
 
     template<int dim>
     void HeatEqn<dim>::set_function_times(double time) {
@@ -361,8 +204,8 @@ namespace examples::cut::HeatEquation {
                 // Compute and add the velocity stabilization.
                 velocity_stabilization.compute_stabilization(cell);
                 velocity_stabilization.add_stabilization_to_matrix(
-                        tau * gamma_M +
-                        tau * nu * gamma_A / (this->h * this->h),
+                        this->tau * gamma_M +
+                        this->tau * nu * gamma_A / (this->h * this->h),
                         this->stiffness_matrix);
             }
         }
@@ -386,7 +229,7 @@ namespace examples::cut::HeatEquation {
         std::vector<double> phi(dofs_per_cell);
         std::vector<Tensor<1, dim>> grad_phi(dofs_per_cell);
 
-        double cn_factor = crank_nicholson ? 0.5 : 1;
+        double cn_factor = this->crank_nicholson ? 0.5 : 1;
 
         for (unsigned int q = 0; q < fe_values.n_quadrature_points; ++q) {
             for (const unsigned int k : fe_values.dof_indices()) {
@@ -396,10 +239,10 @@ namespace examples::cut::HeatEquation {
 
             for (const unsigned int i : fe_values.dof_indices()) {
                 for (const unsigned int j : fe_values.dof_indices()) {
-                    local_matrix(i, j) += (bdf_coeffs[solutions.size()]
+                    local_matrix(i, j) += (this->bdf_coeffs[this->solutions.size()]
                                            * phi[j] * phi[i]
                                            +
-                                           cn_factor * tau * nu * grad_phi[j] *
+                                           cn_factor * this->tau * nu * grad_phi[j] *
                                            grad_phi[i]
                                           ) * fe_values.JxW(q); // dx
                 }
@@ -426,7 +269,7 @@ namespace examples::cut::HeatEquation {
         double gamma = 20 * this->element_order * (this->element_order + 1);
         double mu = gamma / this->h;
         Tensor<1, dim> normal;
-        double cn_factor = crank_nicholson ? 0.5 : 1;
+        double cn_factor = this->crank_nicholson ? 0.5 : 1;
 
         for (unsigned int q : fe_values.quadrature_point_indices()) {
             normal = fe_values.normal_vector(q);
@@ -439,7 +282,7 @@ namespace examples::cut::HeatEquation {
             for (const unsigned int i : fe_values.dof_indices()) {
                 for (const unsigned int j : fe_values.dof_indices()) {
                     local_matrix(i, j) +=
-                            cn_factor * tau * nu * (
+                            cn_factor * this->tau * nu * (
                                     mu * phi[j] * phi[i]  // mu (u, v)
                                     -
                                     grad_phi[j] * normal * phi[i] // (∂_n u,v)
@@ -501,7 +344,7 @@ namespace examples::cut::HeatEquation {
                     cut_fe_values.get_inside_fe_values();
 
             if (fe_values_bulk) {
-                if (crank_nicholson) {
+                if (this->crank_nicholson) {
                     assemble_rhs_local_over_cell_cn(*fe_values_bulk, loc2glb,
                                                     time_step);
                 } else {
@@ -515,7 +358,7 @@ namespace examples::cut::HeatEquation {
                     fe_values_surface = cut_fe_values.get_surface_fe_values();
 
             if (fe_values_surface) {
-                if (crank_nicholson) {
+                if (this->crank_nicholson) {
                     assemble_rhs_local_over_surface_cn(*fe_values_surface,
                                                        loc2glb, time_step);
                 } else {
@@ -547,13 +390,13 @@ namespace examples::cut::HeatEquation {
 
         // Create vector of the previous solutions values
         std::vector<double> val(fe_values.n_quadrature_points, 0);
-        std::vector<std::vector<double>> prev_solution_values(solutions.size(),
+        std::vector<std::vector<double>> prev_solution_values(this->solutions.size(),
                                                               val);
 
         // The the values of the previous solutions, and insert into the
         // matrix initialized above.
-        for (unsigned long k = 0; k < solutions.size(); ++k) {
-            fe_values.get_function_values(solutions[k],
+        for (unsigned long k = 0; k < this->solutions.size(); ++k) {
+            fe_values.get_function_values(this->solutions[k],
                                           prev_solution_values[k]);
         }
         double phi_iq;
@@ -562,12 +405,12 @@ namespace examples::cut::HeatEquation {
             for (const unsigned int i : fe_values.dof_indices()) {
 
                 prev_values = 0;
-                for (unsigned long k = 0; k < solutions.size(); ++k) {
-                    prev_values += bdf_coeffs[k] * prev_solution_values[k][q];
+                for (unsigned long k = 0; k < this->solutions.size(); ++k) {
+                    prev_values += this->bdf_coeffs[k] * prev_solution_values[k][q];
                 }
 
                 phi_iq = fe_values.shape_value(i, q);
-                local_rhs(i) += (tau * rhs_values[q] * phi_iq // (f, v)
+                local_rhs(i) += (this->tau * rhs_values[q] * phi_iq // (f, v)
                                  - prev_values * phi_iq       // (u_n, v)
                                 ) * fe_values.JxW(q);         // dx
             }
@@ -592,7 +435,7 @@ namespace examples::cut::HeatEquation {
             const std::vector<types::global_dof_index> &loc2glb,
             const int time_step) {
         // Crank-Nicholson can only be used when a one step method is run.
-        assert(solutions.size() == 1 && bdf_coeffs.size() == 2);
+        assert(this->solutions.size() == 1 && this->bdf_coeffs.size() == 2);
 
         // std::cout << "  rhs cell k = " << time_step << std::endl;
 
@@ -602,12 +445,12 @@ namespace examples::cut::HeatEquation {
 
         // Vector for values of the RightHandSide for all quadrature points on a cell.
         std::vector<double> rhs_values(fe_values.n_quadrature_points);
-        this->rhs_function->set_time(time_step * tau);
+        this->rhs_function->set_time(time_step * this->tau);
         this->rhs_function->value_list(fe_values.get_quadrature_points(),
                                        rhs_values);
 
         // Compute the rhs values from the previous time step.
-        this->rhs_function->set_time((time_step - 1) * tau);
+        this->rhs_function->set_time((time_step - 1) * this->tau);
         std::vector<double> rhs_values_prev(fe_values.n_quadrature_points);
         this->rhs_function->value_list(fe_values.get_quadrature_points(),
                                        rhs_values_prev);
@@ -638,7 +481,7 @@ namespace examples::cut::HeatEquation {
                 rhs_values_sum = rhs_values[q] + rhs_values_prev[q];
 
 
-                local_rhs(i) += (0.5 * tau * (
+                local_rhs(i) += (0.5 * this->tau * (
                         rhs_values_sum * phi          // (f_n+1 + f_n, v)
                         - nu * prev_grad * grad_phi)  // -ν(∇u_n, ∇v)
                                  + prev_value * phi   // (u_n, v)
@@ -679,7 +522,7 @@ namespace examples::cut::HeatEquation {
                 grad_phi[i] = fe_values.shape_grad(i, q);
 
                 local_rhs(i) +=
-                        tau * nu * (mu * bdd_values[q] * phi[i] // mu (g, v)
+                        this->tau * nu * (mu * bdd_values[q] * phi[i] // mu (g, v)
                                     -
                                     bdd_values[q] * grad_phi[i] *
                                     normal // (g, n ∂_n v)
@@ -705,12 +548,12 @@ namespace examples::cut::HeatEquation {
 
         // Evaluate the boundary function for all quadrature points on this face.
         std::vector<double> bdd_values(fe_values.n_quadrature_points);
-        this->boundary_values->set_time(time_step * tau);
+        this->boundary_values->set_time(time_step * this->tau);
         this->boundary_values->value_list(fe_values.get_quadrature_points(),
                                           bdd_values);
 
         std::vector<double> bdd_values_prev(fe_values.n_quadrature_points);
-        this->boundary_values->set_time((time_step - 1) * tau);
+        this->boundary_values->set_time((time_step - 1) * this->tau);
         this->boundary_values->value_list(fe_values.get_quadrature_points(),
                                           bdd_values_prev);
 
@@ -743,7 +586,7 @@ namespace examples::cut::HeatEquation {
                 prev_value = prev_solution_values[q];
                 prev_grad = prev_solution_grads[q];
 
-                local_rhs(i) += 0.5 * tau * nu * (
+                local_rhs(i) += 0.5 * this->tau * nu * (
                         mu * bdd_values_sum * phi // mu (g, v)
                         -
                         bdd_values_sum * grad_phi * normal // (g, n ∂_n v)

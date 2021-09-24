@@ -51,10 +51,6 @@ namespace utils::problems {
         virtual void output() {
             std::cout << "h = " << h << std::endl;
         }
-
-        // virtual void file_header(std::ofstream &file, bool time_dependent);
-
-        // virtual void file_output(std::ofstream &file, bool time_dependent);
     };
 
 
@@ -187,12 +183,11 @@ namespace utils::problems {
         virtual void
         solve();
 
-
         virtual ErrorBase
         compute_error() = 0;
 
         virtual ErrorBase
-        compute_time_error(std::vector<ErrorBase> errors) = 0;
+        compute_time_error(std::vector<ErrorBase> &errors) = 0;
 
         virtual void
         integrate_cell(const FEValues<dim> &fe_v,

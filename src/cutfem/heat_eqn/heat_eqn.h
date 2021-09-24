@@ -59,15 +59,6 @@ namespace examples::cut::HeatEquation {
                 const bool stabilized = true,
                 const bool crank_nicholson = false);
 
-        /*
-        virtual ErrorScalar
-        run(unsigned int bdf_type, unsigned int steps,
-            Vector<double> &supplied_solution);
-
-        virtual ErrorScalar
-        run(unsigned int bdf_type, unsigned int steps);
-         */
-
         static void
         write_header_to_file(std::ofstream &file);
 
@@ -75,15 +66,6 @@ namespace examples::cut::HeatEquation {
         write_error_to_file(ErrorBase &error, std::ofstream &file);
 
     protected:
-        /*
-        void
-        set_bdf_coefficients(unsigned int bdf_type);
-
-        void
-        interpolate_first_steps(unsigned int bdf_type,
-                                std::vector<Error> &errors);
-         */
-
         void
         set_function_times(double time) override;
 
@@ -139,18 +121,12 @@ namespace examples::cut::HeatEquation {
 
 
         const double nu;
-        const double tau;
 
         const double radius;
         const double half_length;
 
+        // TODO remove if not used
         bool triangulation_exists = false;
-
-        double condition_number = 0;
-
-        std::vector<Vector<double>> solutions;
-        std::vector<double> bdf_coeffs;
-        const bool crank_nicholson;
 
     };
 

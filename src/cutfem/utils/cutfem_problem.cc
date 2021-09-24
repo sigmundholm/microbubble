@@ -95,6 +95,7 @@ namespace utils::problems {
 
         assemble_matrix();
 
+        std::cout << "yoboi" << std::endl;
         std::ofstream file("errors-time-d" + std::to_string(dim)
                            + "o" + std::to_string(this->element_order)
                            + "r" + std::to_string(this->n_refines) + ".csv");
@@ -103,10 +104,22 @@ namespace utils::problems {
         // Write the interpolation errors to file.
         // TODO note that this results in both the interpolation error and the
         //  fem error to be written when u1 is supplied to bdf-2.
+
+        std::cout << "yoboi2" << std::endl;
+
+        errors[0].output();
+        std::cout << "type of errors: " << typeid(errors[0]).name() << std::endl;
+
+        std::cout << "yoboi3" << std::endl;
+
         for (unsigned int k = 0; k < bdf_type; ++k) {
+            std::cout << "  here somew k = " << k << std::endl;
             write_time_error_to_file(errors[k], file);
             errors[k].output();
         }
+
+        std::cout << "yoboi4" << std::endl;
+
 
         double time;
         for (unsigned int k = bdf_type; k <= steps; ++k) {
@@ -165,7 +178,8 @@ namespace utils::problems {
     template<int dim>
     void CutFEMProblem<dim>::
     set_bdf_coefficients(unsigned int bdf_type) {
-        bdf_coeffs = std::vector<double>(bdf_type + 1);
+        std::cout << "  Set BDF coefficients" << std::endl;
+        this->bdf_coeffs = std::vector<double>(bdf_type + 1);
 
         if (bdf_type == 1) {
             // BDF-1 (implicit Euler).
@@ -186,6 +200,7 @@ namespace utils::problems {
                     "bdf_type has to be either 1 or 2, not " +
                     std::to_string(bdf_type) + ".");
         }
+        std::cout << "BDF coe" << bdf_coeffs[0] << std::endl;
     }
 
     /**
@@ -205,9 +220,10 @@ namespace utils::problems {
     void CutFEMProblem<dim>::
     interpolate_first_steps(unsigned int bdf_type,
                             std::vector<ErrorBase> &errors) {
-        solutions = std::vector<Vector<double>>(bdf_type);
+        this->solutions = std::vector<Vector<double>>(bdf_type);
 
-        std::cout << "Interpolate first step(s)." << std::endl;
+        std::cout << "  Interpolate first step(s)." << std::endl;
+        std::cout << "    solutions.size() = " << this->solutions.size() << std::endl;
 
         for (unsigned int k = 0; k < bdf_type; ++k) {
             //analytical_velocity->set_time(k * tau);

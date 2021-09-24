@@ -183,6 +183,7 @@ namespace utils::problems::scalar {
     ErrorBase ScalarProblem<dim>::
     compute_error() {
         // TODO bør jeg heller returnere en peker?
+        std::cout << "Compute error" << std::endl;
 
         double l2_error_integral;
         double h1_semi_error_integral;
@@ -228,7 +229,7 @@ namespace utils::problems::scalar {
 
     template<int dim>
     ErrorBase ScalarProblem<dim>::
-    compute_time_error(std::vector<ErrorBase> errors) {
+    compute_time_error(std::vector<ErrorBase> &errors) {
         double l2_error_integral = 0;
         double h1_error_integral = 0;
 
@@ -330,7 +331,11 @@ namespace utils::problems::scalar {
     template<int dim>
     void ScalarProblem<dim>::
     write_time_error_to_file(ErrorBase &error, std::ofstream &file) {
+        std::cout << "  here" << std::endl;
+
         auto &err = dynamic_cast<ErrorScalar&>(error);
+
+        std::cout << "  but why" << std::endl;
         file << err.time_step << ","
              << err.l2_error << ","
              << err.h1_error << ","
