@@ -63,7 +63,7 @@ namespace examples::cut::HeatEquation {
         write_header_to_file(std::ofstream &file);
 
         static void
-        write_error_to_file(ErrorBase &error, std::ofstream &file);
+        write_error_to_file(ErrorBase *error, std::ofstream &file);
 
     protected:
         void

@@ -180,7 +180,7 @@ namespace utils::problems::scalar {
 
 
     template<int dim>
-    ErrorBase ScalarProblem<dim>::
+    ErrorBase* ScalarProblem<dim>::
     compute_error() {
         // TODO bør jeg heller returnere en peker?
         std::cout << "Compute error" << std::endl;
@@ -217,46 +217,46 @@ namespace utils::problems::scalar {
             }
         }
 
-        ErrorScalar error;
-        error.h = this->h;
-        error.tau = this->tau;
-        error.l2_error = pow(l2_error_integral, 0.5);
-        error.h1_semi = pow(h1_semi_error_integral, 0.5);
-        error.h1_error = pow(l2_error_integral + h1_semi_error_integral, 0.5);
+        ErrorScalar* error = new ErrorScalar();
+        error->h = this->h;
+        error->tau = this->tau;
+        error->l2_error = pow(l2_error_integral, 0.5);
+        error->h1_semi = pow(h1_semi_error_integral, 0.5);
+        error->h1_error = pow(l2_error_integral + h1_semi_error_integral, 0.5);
         return error;
     }
 
 
     template<int dim>
-    ErrorBase ScalarProblem<dim>::
-    compute_time_error(std::vector<ErrorBase> &errors) {
+    ErrorBase* ScalarProblem<dim>::
+    compute_time_error(std::vector<ErrorBase*> &errors) {
         double l2_error_integral = 0;
         double h1_error_integral = 0;
 
         double l_inf_l2 = 0;
         double l_inf_h1 = 0;
 
-        for (ErrorBase error : errors) {
-            auto &err = dynamic_cast<ErrorScalar&>(error);
-            l2_error_integral += this->tau * pow(err.l2_error, 2);
-            h1_error_integral += this->tau * pow(err.h1_semi, 2);
+        for (ErrorBase* error : errors) {
+            auto *err = dynamic_cast<ErrorScalar*>(error);
+            l2_error_integral += this->tau * pow(err->l2_error, 2);
+            h1_error_integral += this->tau * pow(err->h1_semi, 2);
 
-            if (err.l2_error > l_inf_l2)
-                l_inf_l2 = err.l2_error;
-            if (err.h1_error > l_inf_h1)
-                l_inf_h1 = err.h1_error;
+            if (err->l2_error > l_inf_l2)
+                l_inf_l2 = err->l2_error;
+            if (err->h1_error > l_inf_h1)
+                l_inf_h1 = err->h1_error;
         }
 
-        ErrorScalar error;
-        error.h = this->h;
-        error.tau = this->tau;
+        ErrorScalar* error = new ErrorScalar();
+        error->h = this->h;
+        error->tau = this->tau;
 
-        error.l2_error = pow(l2_error_integral, 0.5);
-        error.h1_error = pow(l2_error_integral + h1_error_integral, 0.5);
-        error.h1_semi = pow(h1_error_integral, 0.5);
+        error->l2_error = pow(l2_error_integral, 0.5);
+        error->h1_error = pow(l2_error_integral + h1_error_integral, 0.5);
+        error->h1_semi = pow(h1_error_integral, 0.5);
 
-        error.l_inf_l2_error = l_inf_l2;
-        error.l_inf_h1_error = l_inf_h1;
+        error->l_inf_l2_error = l_inf_l2;
+        error->l_inf_h1_error = l_inf_h1;
         return error;
     }
 
@@ -307,16 +307,16 @@ namespace utils::problems::scalar {
 
     template<int dim>
     void ScalarProblem<dim>::
-    write_error_to_file(ErrorBase &error, std::ofstream &file) {
-        auto &err = dynamic_cast<ErrorScalar&>(error);
-        file << err.h << ","
-             << err.tau << ","
-             << err.l2_error << ","
-             << err.h1_error << ","
-             << err.h1_semi << ","
-             << err.l_inf_l2_error << ","
-             << err.l_inf_h1_error << ","
-             << err.cond_num << std::endl;
+    write_error_to_file(ErrorBase *error, std::ofstream &file) {
+        auto *err = dynamic_cast<ErrorScalar*>(error);
+        file << err->h << ","
+             << err->tau << ","
+             << err->l2_error << ","
+             << err->h1_error << ","
+             << err->h1_semi << ","
+             << err->l_inf_l2_error << ","
+             << err->l_inf_h1_error << ","
+             << err->cond_num << std::endl;
     }
 
 
@@ -330,17 +330,13 @@ namespace utils::problems::scalar {
 
     template<int dim>
     void ScalarProblem<dim>::
-    write_time_error_to_file(ErrorBase &error, std::ofstream &file) {
-        std::cout << "  here" << std::endl;
-
-        auto &err = dynamic_cast<ErrorScalar&>(error);
-
-        std::cout << "  but why" << std::endl;
-        file << err.time_step << ","
-             << err.l2_error << ","
-             << err.h1_error << ","
-             << err.h1_semi << ","
-             << err.cond_num << std::endl;
+    write_time_error_to_file(ErrorBase *error, std::ofstream &file) {
+        auto *err = dynamic_cast<ErrorScalar*>(error);
+        file << err->time_step << ","
+             << err->l2_error << ","
+             << err->h1_error << ","
+             << err->h1_semi << ","
+             << err->cond_num << std::endl;
     }
 
 

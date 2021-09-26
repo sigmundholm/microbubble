@@ -614,16 +614,16 @@ namespace examples::cut::HeatEquation {
 
     template<int dim>
     void HeatEqn<dim>::
-    write_error_to_file(ErrorBase &error, std::ofstream &file) {
-        auto &err = dynamic_cast<ErrorScalar&>(error);
-        file << err.h << ","
-             << err.tau << ","
-             << err.l2_error << ","
-             << err.h1_error << ","
-             << err.h1_semi << ","
-             << err.l_inf_l2_error << ","
-             << err.l_inf_h1_error << ","
-             << err.cond_num << std::endl;
+    write_error_to_file(ErrorBase *error, std::ofstream &file) {
+        auto *err = dynamic_cast<ErrorScalar*>(error);
+        file << err->h << ","
+             << err->tau << ","
+             << err->l2_error << ","
+             << err->h1_error << ","
+             << err->h1_semi << ","
+             << err->l_inf_l2_error << ","
+             << err->l_inf_h1_error << ","
+             << err->cond_num << std::endl;
     }
 
 

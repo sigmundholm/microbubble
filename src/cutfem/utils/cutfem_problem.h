@@ -64,7 +64,7 @@ namespace utils::problems {
                       const bool stabilized = true);
 
 
-        ErrorBase
+        ErrorBase*
         run_step();
 
         Vector<double>
@@ -82,18 +82,18 @@ namespace utils::problems {
          * @param steps: the number of steps to run.
          * @return an Error object.
          */
-        ErrorBase
+        ErrorBase*
         run_time(unsigned int bdf_type, unsigned int steps,
                  std::vector<Vector<double>> &supplied_solutions);
 
-        ErrorBase
+        ErrorBase*
         run_time(unsigned int bdf_type, unsigned int steps);
 
         static void
         write_header_to_file(std::ofstream &file);
 
         static void
-        write_error_to_file(ErrorBase &error, std::ofstream &file);
+        write_error_to_file(ErrorBase *error, std::ofstream &file);
 
     protected:
         void
@@ -101,12 +101,12 @@ namespace utils::problems {
 
         void
         interpolate_first_steps(unsigned int bdf_type,
-                                std::vector<ErrorBase> &errors);
+                                std::vector<ErrorBase*> &errors);
 
         void
         set_supplied_solutions(unsigned int bdf_type,
                                std::vector<Vector<double>> &supplied_solutions,
-                               std::vector<ErrorBase> &errors);
+                               std::vector<ErrorBase*> &errors);
 
         virtual void
         set_function_times(double time);
@@ -183,11 +183,11 @@ namespace utils::problems {
         virtual void
         solve();
 
-        virtual ErrorBase
+        virtual ErrorBase*
         compute_error() = 0;
 
-        virtual ErrorBase
-        compute_time_error(std::vector<ErrorBase> &errors) = 0;
+        virtual ErrorBase*
+        compute_time_error(std::vector<ErrorBase*> &errors) = 0;
 
         virtual void
         integrate_cell(const FEValues<dim> &fe_v,
@@ -202,7 +202,7 @@ namespace utils::problems {
         write_time_header_to_file(std::ofstream &file) = 0;
 
         virtual void
-        write_time_error_to_file(ErrorBase &error, std::ofstream &file) = 0;
+        write_time_error_to_file(ErrorBase *error, std::ofstream &file) = 0;
 
 
         virtual void

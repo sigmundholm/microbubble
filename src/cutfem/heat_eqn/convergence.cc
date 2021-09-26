@@ -52,12 +52,12 @@ void solve_for_element_order(int element_order, int max_refinement,
         HeatEqn<dim> heat(nu, tau, radius, half_length, n_refines, element_order,
                              write_output,
                              rhs, bdd, soln, domain, true, false);
-        ErrorBase err = heat.run_time(1, 1);
-        auto &error = dynamic_cast<ErrorScalar&>(err);
+        ErrorBase *err = heat.run_time(1, 1);
+        auto *error = dynamic_cast<ErrorScalar*>(err);
 
-        std::cout << "|| u - u_h ||_L2 = " << error.l2_error << std::endl;
-        std::cout << "|| u - u_h ||_H1 = " << error.h1_error << std::endl;
-        std::cout << "| u - u_h |_H1 = " << error.h1_semi << std::endl;
+        std::cout << "|| u - u_h ||_L2 = " << error->l2_error << std::endl;
+        std::cout << "|| u - u_h ||_H1 = " << error->h1_error << std::endl;
+        std::cout << "| u - u_h |_H1 = " << error->h1_semi << std::endl;
 
         Vector<double> u1 = heat.get_solution();
 
@@ -67,12 +67,12 @@ void solve_for_element_order(int element_order, int max_refinement,
                            rhs, bdd, soln, domain, true, false);
 
         std::vector<Vector<double>> initial = {u1};
-        err = heat2.run_time(2, time_steps, initial);
-        auto &error2 = dynamic_cast<ErrorScalar&>(err);
+        ErrorBase *err2 = heat2.run_time(2, time_steps, initial);
+        auto *error2 = dynamic_cast<ErrorScalar*>(err);
 
-        std::cout << "|| u - u_h ||_L2 = " << error2.l2_error << std::endl;
-        std::cout << "|| u - u_h ||_H1 = " << error2.h1_error << std::endl;
-        std::cout << "| u - u_h |_H1 = " << error2.h1_semi << std::endl;
+        std::cout << "|| u - u_h ||_L2 = " << error2->l2_error << std::endl;
+        std::cout << "|| u - u_h ||_H1 = " << error2->h1_error << std::endl;
+        std::cout << "| u - u_h |_H1 = " << error2->h1_semi << std::endl;
 
         HeatEqn<dim>::write_error_to_file(error2, file);
     }

@@ -48,15 +48,11 @@ namespace utils::problems::scalar {
 
 
     struct ErrorScalar : ErrorBase {
-        // double h = 0;
-        // double tau = 0;
-        // double time_step = 0;
         double l2_error = 0;
         double h1_error = 0;
         double h1_semi = 0;
         double l_inf_l2_error = 0;
         double l_inf_h1_error = 0;
-        // double cond_num = 0;
 
         void output() override {
             std::cout << "  k = " << time_step << ", "
@@ -81,7 +77,7 @@ namespace utils::problems::scalar {
         write_header_to_file(std::ofstream &file);
 
         static void
-        write_error_to_file(ErrorBase &error, std::ofstream &file);
+        write_error_to_file(ErrorBase *error, std::ofstream &file);
 
     protected:
         virtual void
@@ -94,11 +90,11 @@ namespace utils::problems::scalar {
         assemble_system() override;
 
 
-        ErrorBase
+        ErrorBase*
         compute_error() override;
 
-        ErrorBase
-        compute_time_error(std::vector<ErrorBase> &errors) override;
+        ErrorBase*
+        compute_time_error(std::vector<ErrorBase*> &errors) override;
 
         void
         integrate_cell(const FEValues<dim> &fe_v,
@@ -110,7 +106,7 @@ namespace utils::problems::scalar {
         write_time_header_to_file(std::ofstream &file) override;
 
         virtual void
-        write_time_error_to_file(ErrorBase &error, std::ofstream &file) override;
+        write_time_error_to_file(ErrorBase *error, std::ofstream &file) override;
 
 
         virtual void

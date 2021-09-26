@@ -48,7 +48,7 @@ namespace utils::problems {
 
 
     template<int dim>
-    ErrorBase CutFEMProblem<dim>::
+    ErrorBase* CutFEMProblem<dim>::
     run_step() {
         make_grid(triangulation);
         setup_quadrature();
@@ -73,7 +73,7 @@ namespace utils::problems {
 
 
     template<int dim>
-    ErrorBase CutFEMProblem<dim>::
+    ErrorBase* CutFEMProblem<dim>::
     run_time(unsigned int bdf_type, unsigned int steps,
              std::vector<Vector<double>> &supplied_solutions) {
 
@@ -87,7 +87,7 @@ namespace utils::problems {
         initialize_matrices();
 
         // Vector for the computed error for each time step.
-        std::vector<ErrorBase> errors(steps + 1);
+        std::vector<ErrorBase*> errors(steps + 1);
 
         interpolate_first_steps(bdf_type, errors);
         set_supplied_solutions(bdf_type, supplied_solutions, errors);
@@ -95,7 +95,6 @@ namespace utils::problems {
 
         assemble_matrix();
 
-        std::cout << "yoboi" << std::endl;
         std::ofstream file("errors-time-d" + std::to_string(dim)
                            + "o" + std::to_string(this->element_order)
                            + "r" + std::to_string(this->n_refines) + ".csv");
@@ -105,21 +104,10 @@ namespace utils::problems {
         // TODO note that this results in both the interpolation error and the
         //  fem error to be written when u1 is supplied to bdf-2.
 
-        std::cout << "yoboi2" << std::endl;
-
-        errors[0].output();
-        std::cout << "type of errors: " << typeid(errors[0]).name() << std::endl;
-
-        std::cout << "yoboi3" << std::endl;
-
         for (unsigned int k = 0; k < bdf_type; ++k) {
-            std::cout << "  here somew k = " << k << std::endl;
             write_time_error_to_file(errors[k], file);
-            errors[k].output();
+            errors[k]->output();
         }
-
-        std::cout << "yoboi4" << std::endl;
-
 
         double time;
         for (unsigned int k = bdf_type; k <= steps; ++k) {
@@ -128,12 +116,6 @@ namespace utils::problems {
                       << ", tau = " << this->tau
                       << ", time = " << time << std::endl;
 
-            /*
-            this->rhs_function->set_time(time);
-            this->boundary_values->set_time(time);
-            this->analytical_velocity->set_time(time);
-            analytical_pressure->set_time(time);
-             */
             set_function_times(time);
 
             // TODO nødvendig??
@@ -143,7 +125,7 @@ namespace utils::problems {
             assemble_rhs(k);
             this->solve();
             errors[k] = this->compute_error();
-            errors[k].time_step = k;
+            errors[k]->time_step = k;
             write_time_error_to_file(errors[k], file);
 
             if (this->write_output) {
@@ -157,8 +139,8 @@ namespace utils::problems {
         }
 
         std::cout << std::endl;
-        for (ErrorBase error : errors) {
-            error.output();
+        for (ErrorBase* error : errors) {
+            error->output();
         }
 
         return compute_time_error(errors);
@@ -166,7 +148,7 @@ namespace utils::problems {
 
 
     template<int dim>
-    ErrorBase CutFEMProblem<dim>::
+    ErrorBase* CutFEMProblem<dim>::
     run_time(unsigned int bdf_type, unsigned int steps) {
         // Invoking this method will result in a pure BDF-k method, where all
         // the initial steps will be interpolated.
@@ -178,7 +160,7 @@ namespace utils::problems {
     template<int dim>
     void CutFEMProblem<dim>::
     set_bdf_coefficients(unsigned int bdf_type) {
-        std::cout << "  Set BDF coefficients" << std::endl;
+        std::cout << "Set BDF coefficients" << std::endl;
         this->bdf_coeffs = std::vector<double>(bdf_type + 1);
 
         if (bdf_type == 1) {
@@ -200,7 +182,6 @@ namespace utils::problems {
                     "bdf_type has to be either 1 or 2, not " +
                     std::to_string(bdf_type) + ".");
         }
-        std::cout << "BDF coe" << bdf_coeffs[0] << std::endl;
     }
 
     /**
@@ -219,11 +200,10 @@ namespace utils::problems {
     template<int dim>
     void CutFEMProblem<dim>::
     interpolate_first_steps(unsigned int bdf_type,
-                            std::vector<ErrorBase> &errors) {
+                            std::vector<ErrorBase*> &errors) {
         this->solutions = std::vector<Vector<double>>(bdf_type);
 
-        std::cout << "  Interpolate first step(s)." << std::endl;
-        std::cout << "    solutions.size() = " << this->solutions.size() << std::endl;
+        std::cout << "Interpolate first step(s)." << std::endl;
 
         for (unsigned int k = 0; k < bdf_type; ++k) {
             //analytical_velocity->set_time(k * tau);
@@ -238,7 +218,7 @@ namespace utils::problems {
             interpolate_solution(k);
 
             errors[k] = this->compute_error();
-            errors[k].time_step = k;
+            errors[k]->time_step = k;
             std::string suffix = "-" + std::to_string(k) + "-inter";
             this->output_results(suffix);
 
@@ -266,7 +246,7 @@ namespace utils::problems {
     void CutFEMProblem<dim>::
     set_supplied_solutions(unsigned int bdf_type,
                            std::vector<Vector<double>> &supplied_solutions,
-                           std::vector<ErrorBase> &errors) {
+                           std::vector<ErrorBase*> &errors) {
         std::cout << "Set supplied solutions" << std::endl;
 
         std::vector<Vector<double>> full_vector(bdf_type, Vector<double>(1));
@@ -289,7 +269,7 @@ namespace utils::problems {
 
                 this->solution = full_vector[k];
                 errors[k] = this->compute_error();
-                errors[k].time_step = k;
+                errors[k]->time_step = k;
             }
         }
     }
@@ -399,54 +379,6 @@ namespace utils::problems {
         output_results(k, minimal_output);
     }
 
-    /**
-     * Compute the L2 and H1 error based on the computed error from each time
-     * step.
-     *
-     * Compute the square root of the sum of the squared errors from each time
-     * steps, weighted by the time step length tau for each term in the sum.
-     */
-    /*
-    template<int dim>
-    ErrorBase TimeProblem<dim>::
-    compute_time_error(std::vector<Error> errors) {
-        double l2_error_integral_u = 0;
-        double h1_error_integral_u = 0;
-        double l2_error_integral_p = 0;
-        double h1_error_integral_p = 0;
-
-        double l_inf_l2_u = 0;
-        double l_inf_h1_u = 0;
-
-        for (Error error : errors) {
-            l2_error_integral_u += tau * pow(error.l2_error_u, 2);
-            h1_error_integral_u += tau * pow(error.h1_semi_u, 2);
-            l2_error_integral_p += tau * pow(error.l2_error_p, 2);
-            h1_error_integral_p += tau * pow(error.h1_semi_p, 2);
-
-            if (error.l2_error_u > l_inf_l2_u)
-                l_inf_l2_u = error.l2_error_u;
-            if (error.h1_error_u > l_inf_h1_u)
-                l_inf_h1_u = error.h1_error_u;
-        }
-
-        Error error;
-        error.mesh_size = h;
-        error.tau = tau;
-
-        error.l2_error_u = pow(l2_error_integral_u, 0.5);
-        error.h1_error_u = pow(l2_error_integral_u + h1_error_integral_u, 0.5);
-        error.h1_semi_u = pow(h1_error_integral_u, 0.5);
-        error.l2_error_p = pow(l2_error_integral_p, 0.5);
-        error.h1_error_p = pow(l2_error_integral_p + h1_error_integral_p, 0.5);
-        error.h1_semi_p = pow(h1_error_integral_p, 0.5);
-
-        error.l_inf_l2_error_u = l_inf_l2_u;
-        error.l_inf_h1_error_u = l_inf_h1_u;
-        return error;
-    }
-
-     */
 
     template
     class CutFEMProblem<2>;

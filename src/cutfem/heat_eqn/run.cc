@@ -37,10 +37,10 @@ int main() {
 
     HeatEqn<dim> heat(nu, tau, radius, half_length, n_refines, degree, write_output,
                       rhs, bdd, soln, domain);
-    ErrorBase err = heat.run_time(1, 40);
-    auto &error = dynamic_cast<ErrorScalar&>(err);
-    std::cout << "|| u - u_h ||_L2 = " << error.l2_error << std::endl;
-    std::cout << "|| u - u_h ||_H1 = " << error.h1_error << std::endl;
-    std::cout << "| u - u_h |_H1 = " << error.h1_semi << std::endl;
+    ErrorBase *err = heat.run_time(1, 40);
+    auto *error = dynamic_cast<ErrorScalar*>(err);
+    std::cout << "|| u - u_h ||_L2 = " << error->l2_error << std::endl;
+    std::cout << "|| u - u_h ||_H1 = " << error->h1_error << std::endl;
+    std::cout << "| u - u_h |_H1 = " << error->h1_semi << std::endl;
 }
 
