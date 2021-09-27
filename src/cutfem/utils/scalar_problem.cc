@@ -180,7 +180,7 @@ namespace utils::problems::scalar {
 
 
     template<int dim>
-    ErrorBase* ScalarProblem<dim>::
+    ErrorBase *ScalarProblem<dim>::
     compute_error() {
         // TODO bør jeg heller returnere en peker?
         std::cout << "Compute error" << std::endl;
@@ -217,7 +217,7 @@ namespace utils::problems::scalar {
             }
         }
 
-        ErrorScalar* error = new ErrorScalar();
+        ErrorScalar *error = new ErrorScalar();
         error->h = this->h;
         error->tau = this->tau;
         error->l2_error = pow(l2_error_integral, 0.5);
@@ -228,16 +228,16 @@ namespace utils::problems::scalar {
 
 
     template<int dim>
-    ErrorBase* ScalarProblem<dim>::
-    compute_time_error(std::vector<ErrorBase*> &errors) {
+    ErrorBase *ScalarProblem<dim>::
+    compute_time_error(std::vector<ErrorBase *> &errors) {
         double l2_error_integral = 0;
         double h1_error_integral = 0;
 
         double l_inf_l2 = 0;
         double l_inf_h1 = 0;
 
-        for (ErrorBase* error : errors) {
-            auto *err = dynamic_cast<ErrorScalar*>(error);
+        for (ErrorBase *error : errors) {
+            auto *err = dynamic_cast<ErrorScalar *>(error);
             l2_error_integral += this->tau * pow(err->l2_error, 2);
             h1_error_integral += this->tau * pow(err->h1_semi, 2);
 
@@ -247,7 +247,7 @@ namespace utils::problems::scalar {
                 l_inf_h1 = err->h1_error;
         }
 
-        ErrorScalar* error = new ErrorScalar();
+        ErrorScalar *error = new ErrorScalar();
         error->h = this->h;
         error->tau = this->tau;
 
@@ -308,7 +308,7 @@ namespace utils::problems::scalar {
     template<int dim>
     void ScalarProblem<dim>::
     write_error_to_file(ErrorBase *error, std::ofstream &file) {
-        auto *err = dynamic_cast<ErrorScalar*>(error);
+        auto *err = dynamic_cast<ErrorScalar *>(error);
         file << err->h << ","
              << err->tau << ","
              << err->l2_error << ","
@@ -323,16 +323,19 @@ namespace utils::problems::scalar {
     template<int dim>
     void ScalarProblem<dim>::
     write_time_header_to_file(std::ofstream &file) {
-        file << "k, \\|u\\|_{L^2}, \\|u\\|_{H^1}, |u|_{H^1}, \\kappa(A)"
-             << std::endl;
+        file
+                << "k, \\tau, h, \\|u\\|_{L^2}, \\|u\\|_{H^1}, |u|_{H^1}, \\kappa(A)"
+                << std::endl;
     }
 
 
     template<int dim>
     void ScalarProblem<dim>::
     write_time_error_to_file(ErrorBase *error, std::ofstream &file) {
-        auto *err = dynamic_cast<ErrorScalar*>(error);
+        auto *err = dynamic_cast<ErrorScalar *>(error);
         file << err->time_step << ","
+             << err->tau << ","
+             << err->h << ","
              << err->l2_error << ","
              << err->h1_error << ","
              << err->h1_semi << ","

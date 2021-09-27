@@ -330,7 +330,7 @@ def condnum_sensitivity_plot(path_stabilized, path_nonstabilized, colors=None, s
         plt.savefig(f"sensitivity-{'error' if errors else 'condnum'}.svg")
 
 
-def time_error_plots(paths, end_time, data_indices, title="", save_fig=True, identifier=1, font_size=10,
+def time_error_plots(paths, data_indices, title="", save_fig=True, identifier=1, font_size=10,
                      label_size='medium'):
     if_latex(True)
 
@@ -359,8 +359,8 @@ def time_error_plots(paths, end_time, data_indices, title="", save_fig=True, ide
             error = df[:, data_index]
 
             time_steps = df[:, 0]
-            tau = end_time / (len(error) - 1)
-            times = time_steps * tau
+            taus = df[:, 1]
+            times = time_steps * taus
 
             ax.plot(times, error, label=f"$M={len(time_steps) - 1}$", linestyle="--", marker=".",
                     color=cmap(i / len(paths)))
