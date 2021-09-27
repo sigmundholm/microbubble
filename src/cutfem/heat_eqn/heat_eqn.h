@@ -1,5 +1,5 @@
-#ifndef MICROBUBBLE_CUTFEM_POISSON_POISSON_H
-#define MICROBUBBLE_CUTFEM_POISSON_POISSON_H
+#ifndef MICROBUBBLE_CUTFEM_HEAT_EQUATION_H
+#define MICROBUBBLE_CUTFEM_HEAT_EQUATION_H
 
 #include <deal.II/base/function.h>
 #include <deal.II/base/point.h>
@@ -29,22 +29,21 @@
 
 #include <vector>
 
-#include "cutfem/errors/error_calculator.h"
-
 #include "rhs.h"
 
 
 using namespace dealii;
 using namespace cutfem;
 
-using NonMatching::LocationToLevelSet;
 
 
 namespace examples::cut::HeatEquation {
 
+    using NonMatching::LocationToLevelSet;
+
 
     template<int dim>
-    class HeatEqn {
+    class HeatEqn : public ScalarProblem<dim> {
     public:
         HeatEqn(const double nu,
                 const double tau,
@@ -56,161 +55,81 @@ namespace examples::cut::HeatEquation {
                 Function<dim> &rhs,
                 Function<dim> &bdd_values,
                 Function<dim> &analytical_soln,
-                Function<dim> &domain_func,
+                Function<dim> &levelset_func,
                 const bool stabilized = true,
                 const bool crank_nicholson = false);
-
-        virtual Error
-        run(unsigned int bdf_type, unsigned int steps,
-            Vector<double> &supplied_solution);
-
-        virtual Error
-        run(unsigned int bdf_type, unsigned int steps);
-
-        Vector<double>
-        get_solution();
 
         static void
         write_header_to_file(std::ofstream &file);
 
         static void
-        write_error_to_file(Error &error, std::ofstream &file);
+        write_error_to_file(ErrorBase *error, std::ofstream &file);
 
     protected:
         void
-        set_bdf_coefficients(unsigned int bdf_type);
+        set_function_times(double time) override;
+
+        virtual void
+        interpolate_solution(int time_step) override;
 
         void
-        interpolate_first_steps(unsigned int bdf_type,
-                                std::vector<Error> &errors);
+        make_grid(Triangulation<dim> &tria) override;
+
+        virtual void
+        assemble_local_over_cell(const FEValues<dim> &fe_values,
+                                 const std::vector<types::global_dof_index> &loc2glb) override;
+
+        virtual void
+        assemble_local_over_surface(
+                const FEValuesBase<dim> &fe_values,
+                const std::vector<types::global_dof_index> &loc2glb) override;
 
         void
-        make_grid();
-
-        void
-        setup_level_set();
-
-        void
-        setup_quadrature();
-
-        void
-        distribute_dofs();
-
-        void
-        initialize_matrices();
-
-        void
-        assemble_matrix();
+        assemble_matrix() override;
 
         void
         assemble_matrix_local_over_cell(const FEValues<dim> &fe_values,
-                                        const std::vector<types::global_dof_index> &loc2glb);
+                                        const std::vector<types::global_dof_index> &loc2glb) override;
 
         void
         assemble_matrix_local_over_surface(
                 const FEValuesBase<dim> &fe_values,
-                const std::vector<types::global_dof_index> &loc2glb);
+                const std::vector<types::global_dof_index> &loc2glb) override;
 
         void
-        assemble_rhs(int time_step);
+        assemble_rhs(int time_step) override;
 
         void
         assemble_rhs_local_over_cell(const FEValues<dim> &fe_values,
-                                     const std::vector<types::global_dof_index> &loc2glb);
+                                     const std::vector<types::global_dof_index> &loc2glb) override;
 
         void
         assemble_rhs_local_over_cell_cn(const FEValues<dim> &fe_values,
                                         const std::vector<types::global_dof_index> &loc2glb,
-                                        const int time_step);
+                                        const int time_step) override;
 
         void
         assemble_rhs_local_over_surface(
                 const FEValuesBase<dim> &fe_values,
-                const std::vector<types::global_dof_index> &loc2glob);
+                const std::vector<types::global_dof_index> &loc2glob) override;
 
         void
         assemble_rhs_local_over_surface_cn(
                 const FEValuesBase<dim> &fe_values,
                 const std::vector<types::global_dof_index> &loc2glob,
-                const int time_step);
+                const int time_step) override;
 
-        void
-        solve();
-
-        void
-        output_results(std::string &suffix, bool output_levelset = true) const;
-
-        Error
-        compute_error();
-
-        Error
-        compute_time_error(std::vector<Error> errors);
-
-        void
-        compute_condition_number();
-
-        void
-        integrate_cell(const FEValues<dim> &fe_v,
-                       double &l2_error_integral,
-                       double &h1_error_integral) const;
-
-        void
-        write_time_header_to_file(std::ofstream &file);
-
-        void
-        write_time_error_to_file(Error &error, std::ofstream &file);
 
         const double nu;
-        const double tau;
 
         const double radius;
         const double half_length;
-        const unsigned int n_refines;
 
-        bool write_output;
-        const bool stabilized;
-
-        Function<dim> *rhs_function;
-        Function<dim> *boundary_values;
-        Function<dim> *analytical_solution;
-        Function<dim> *domain_function;
-
-        // Cell side-length.
-        double h = 0;
-        const unsigned int element_order;
-
+        // TODO remove if not used
         bool triangulation_exists = false;
-        Triangulation<dim> triangulation;
-        FE_Q<dim> fe;
 
-        hp::FECollection<dim> fe_collection;
-        hp::MappingCollection<dim> mapping_collection;
-        hp::QCollection<dim> q_collection;
-        hp::QCollection<1> q_collection1D;
-
-        // Object managing degrees of freedom for the level set function.
-        FE_Q<dim> fe_levelset;
-        DoFHandler<dim> levelset_dof_handler;
-        Vector<double> levelset;
-
-        // Object managing degrees of freedom for the cutfem method.
-        hp::DoFHandler<dim> dof_handler;
-
-        NonMatching::CutMeshClassifier<dim> cut_mesh_classifier;
-
-        SparsityPattern sparsity_pattern;
-        SparseMatrix<double> stiffness_matrix;
-        double condition_number = 0;
-
-        Vector<double> rhs;
-        Vector<double> solution;
-        std::vector<Vector<double>> solutions;
-        std::vector<double> bdf_coeffs;
-        const bool crank_nicholson;
-
-        AffineConstraints<double> constraints;
     };
 
 } // namespace examples::cut::HeatEquation
 
-#endif //MICROBUBBLE_CUTFEM_POISSON_POISSON_H
+#endif //MICROBUBBLE_CUTFEM_HEAT_EQUATION_H
