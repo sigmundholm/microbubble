@@ -132,65 +132,66 @@ namespace utils::problems {
 
 
         virtual void
-        assemble_system() = 0;
+        assemble_system();
 
         virtual void
         assemble_local_over_cell(const FEValues<dim> &fe_values,
-                                 const std::vector<types::global_dof_index> &loc2glb) = 0;
+                                 const std::vector<types::global_dof_index> &loc2glb);
 
         virtual void
         assemble_local_over_surface(
                 const FEValuesBase<dim> &fe_values,
-                const std::vector<types::global_dof_index> &loc2glb) = 0;
+                const std::vector<types::global_dof_index> &loc2glb);
 
 
         virtual void
-        assemble_matrix() = 0;
+        assemble_matrix();
 
         virtual void
         assemble_matrix_local_over_cell(const FEValues<dim> &fe_values,
-                                        const std::vector<types::global_dof_index> &loc2glb) = 0;
+                                        const std::vector<types::global_dof_index> &loc2glb);
 
         virtual void
         assemble_matrix_local_over_surface(
                 const FEValuesBase<dim> &fe_values,
-                const std::vector<types::global_dof_index> &loc2glb) = 0;
+                const std::vector<types::global_dof_index> &loc2glb);
 
         virtual void
-        assemble_rhs(int time_step) = 0;
+        assemble_rhs(int time_step);
 
         virtual void
         assemble_rhs_local_over_cell(const FEValues<dim> &fe_values,
-                                     const std::vector<types::global_dof_index> &loc2glb) = 0;
+                                     const std::vector<types::global_dof_index> &loc2glb);
 
         virtual void
         assemble_rhs_local_over_cell_cn(const FEValues<dim> &fe_values,
                                         const std::vector<types::global_dof_index> &loc2glb,
-                                        const int time_step) = 0;
+                                        const int time_step);
 
         virtual void
         assemble_rhs_local_over_surface(
                 const FEValuesBase<dim> &fe_values,
-                const std::vector<types::global_dof_index> &loc2glob) = 0;
+                const std::vector<types::global_dof_index> &loc2glob);
 
         virtual void
         assemble_rhs_local_over_surface_cn(
                 const FEValuesBase<dim> &fe_values,
                 const std::vector<types::global_dof_index> &loc2glob,
-                const int time_step) = 0;
+                const int time_step);
 
 
         virtual void
         solve();
 
         virtual ErrorBase*
-        compute_error() = 0;
+        compute_error(Vector<double> &solution) = 0;
 
         virtual ErrorBase*
         compute_time_error(std::vector<ErrorBase*> &errors) = 0;
 
         virtual void
         integrate_cell(const FEValues<dim> &fe_v,
+                       Vector<double> &solution,
                        double &l2_error_integral,
                        double &h1_error_integral) const = 0;
 

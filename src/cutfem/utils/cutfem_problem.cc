@@ -334,6 +334,66 @@ namespace utils::problems {
 
     template<int dim>
     void CutFEMProblem<dim>::
+    assemble_system() {}
+
+    template<int dim>
+    void CutFEMProblem<dim>::
+    assemble_local_over_cell(const FEValues<dim> &fe_values,
+                             const std::vector<types::global_dof_index> &loc2glb) {}
+
+    template<int dim>
+    void CutFEMProblem<dim>::
+    assemble_local_over_surface(
+            const FEValuesBase<dim> &fe_values,
+            const std::vector<types::global_dof_index> &loc2glb) {}
+
+
+    template<int dim>
+    void CutFEMProblem<dim>::
+    assemble_matrix() {}
+
+    template<int dim>
+    void CutFEMProblem<dim>::
+    assemble_matrix_local_over_cell(const FEValues<dim> &fe_values,
+                                    const std::vector<types::global_dof_index> &loc2glb) {}
+
+    template<int dim>
+    void CutFEMProblem<dim>::
+    assemble_matrix_local_over_surface(
+            const FEValuesBase<dim> &fe_values,
+            const std::vector<types::global_dof_index> &loc2glb) {}
+
+    template<int dim>
+    void CutFEMProblem<dim>::
+    assemble_rhs(int time_step) {}
+
+    template<int dim>
+    void CutFEMProblem<dim>::
+    assemble_rhs_local_over_cell(const FEValues<dim> &fe_values,
+                                 const std::vector<types::global_dof_index> &loc2glb) {}
+
+    template<int dim>
+    void CutFEMProblem<dim>::
+    assemble_rhs_local_over_cell_cn(const FEValues<dim> &fe_values,
+                                    const std::vector<types::global_dof_index> &loc2glb,
+                                    const int time_step) {}
+
+    template<int dim>
+    void CutFEMProblem<dim>::
+    assemble_rhs_local_over_surface(
+            const FEValuesBase<dim> &fe_values,
+            const std::vector<types::global_dof_index> &loc2glob) {}
+
+    template<int dim>
+    void CutFEMProblem<dim>::
+    assemble_rhs_local_over_surface_cn(
+            const FEValuesBase<dim> &fe_values,
+            const std::vector<types::global_dof_index> &loc2glob,
+            const int time_step) {}
+
+
+    template<int dim>
+    void CutFEMProblem<dim>::
     solve() {
         std::cout << "Solving system" << std::endl;
         SparseDirectUMFPACK inverse;
