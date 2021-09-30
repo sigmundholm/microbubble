@@ -27,6 +27,7 @@
 #include <deal.II/lac/sparsity_pattern.h>
 #include <deal.II/lac/vector.h>
 
+#include <deque>
 #include <vector>
 
 #include "cutfem/geometry/SignedDistanceSphere.h"
@@ -241,7 +242,7 @@ namespace utils::problems {
         Function<dim> *levelset_function;
 
         // Object managing degrees of freedom for the cutfem method.
-        hp::DoFHandler<dim> dof_handler;
+        std::deque<hp::DoFHandler<dim>> dof_handlers;
 
         NonMatching::CutMeshClassifier<dim> cut_mesh_classifier;
 
@@ -249,16 +250,19 @@ namespace utils::problems {
 
         SparseMatrix<double> stiffness_matrix;
         Vector<double> rhs;
-        Vector<double> solution;
+        // Vector<double> solution;
 
         AffineConstraints<double> constraints;
 
-        // Vector of previous solutions, used in the time discretization method.
-        std::vector<Vector<double>> solutions; // (u0, u1) when BDF-2 is used.
+        // Queue of current and  previous solutions, used in the time
+        // discretization method. When a new time step is solved, a new empty
+        // solution vector is pushed to the front.
+        //  - In the first iteration of BDF-2 it containts (u, u1, u0).
+        std::deque<Vector<double>> solutions;
 
         // Constants used for the time discretization, defined as:
         //   u_t = (au^(n+1) + bu^n + cu^(n-1))/τ, where u = u^(n+1)
-        // For BDF-1: (b, a), and (c, b, a) for BDF-2.
+        // For BDF-1: (a, b), and (a, b, c) for BDF-2.
         std::vector<double> bdf_coeffs;
         bool crank_nicholson;
 

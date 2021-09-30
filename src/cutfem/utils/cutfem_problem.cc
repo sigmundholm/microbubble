@@ -14,10 +14,8 @@
 #include <deal.II/lac/solver_control.h>
 #include <deal.II/lac/sparse_direct.h>
 
-#include <deal.II/non_matching/cut_mesh_classifier.h>
 #include <deal.II/non_matching/fe_values.h>
 
-#include <deal.II/numerics/data_out.h>
 #include <deal.II/numerics/data_out_dof_data.h>
 #include <deal.II/numerics/vector_tools.h>
 
@@ -38,7 +36,6 @@ namespace utils::problems {
               write_output(write_output),
               fe_levelset(element_order),
               levelset_dof_handler(triangulation),
-              dof_handler(triangulation),
               cut_mesh_classifier(triangulation, levelset_dof_handler,
                                   levelset),
               stabilized(stabilized) {
@@ -48,32 +45,35 @@ namespace utils::problems {
 
 
     template<int dim>
-    ErrorBase* CutFEMProblem<dim>::
+    ErrorBase *CutFEMProblem<dim>::
     run_step() {
         make_grid(triangulation);
         setup_quadrature();
         setup_level_set();
         cut_mesh_classifier.reclassify();
+        dof_handlers.emplace_front(triangulation);
         distribute_dofs();
         initialize_matrices();
-        assemble_system();
+        int n_dofs = dof_handlers.front().n_dofs();
+        solutions.emplace_front(n_dofs);
+        this->assemble_system();
         solve();
         if (write_output) {
             output_results();
         }
-        return compute_error();
+        return compute_error(solutions.front());
     }
 
 
     template<int dim>
     Vector<double> CutFEMProblem<dim>::
     get_solution() {
-        return solution;
+        return solutions.front();
     }
 
 
     template<int dim>
-    ErrorBase* CutFEMProblem<dim>::
+    ErrorBase *CutFEMProblem<dim>::
     run_time(unsigned int bdf_type, unsigned int steps,
              std::vector<Vector<double>> &supplied_solutions) {
 
@@ -83,16 +83,20 @@ namespace utils::problems {
         setup_quadrature();
         setup_level_set();
         cut_mesh_classifier.reclassify();
+
+        dof_handlers.emplace_front(triangulation);
         distribute_dofs();
         initialize_matrices();
 
         // Vector for the computed error for each time step.
-        std::vector<ErrorBase*> errors(steps + 1);
+        std::vector<ErrorBase *> errors(steps + 1);
 
         interpolate_first_steps(bdf_type, errors);
         set_supplied_solutions(bdf_type, supplied_solutions, errors);
         set_bdf_coefficients(bdf_type);
 
+        // TODO note that the next solution vector is not yet set in solutions,
+        //  this may lead to problems. Eg for Crank-Nicholson?
         assemble_matrix();
 
         std::ofstream file("errors-time-d" + std::to_string(dim)
@@ -116,30 +120,33 @@ namespace utils::problems {
                       << ", tau = " << this->tau
                       << ", time = " << time << std::endl;
 
+            // Advance the time for all functions.
             set_function_times(time);
 
+            // Create a new solution vector to contain the next solution.
+            int n_dofs = this->dof_handlers.front().n_dofs();
+            this->solutions.emplace_front(n_dofs);
+
             // TODO nødvendig??
-            this->solution.reinit(this->solution.size());
-            this->rhs.reinit(this->solution.size());
+            this->rhs.reinit(this->solutions.front().size());
 
             assemble_rhs(k);
             this->solve();
-            errors[k] = this->compute_error();
+            errors[k] = this->compute_error(solutions.front());
             errors[k]->time_step = k;
             write_time_error_to_file(errors[k], file);
+            errors[k]->output();
 
             if (this->write_output) {
                 this->output_results(k, false);
             }
 
-            for (unsigned long i = 1; i < solutions.size(); ++i) {
-                solutions[i - 1] = solutions[i];
-            }
-            solutions[solutions.size() - 1] = this->solution;
+            // Remove the oldest solution, since it is no longer needed.
+            solutions.pop_back();
         }
 
         std::cout << std::endl;
-        for (ErrorBase* error : errors) {
+        for (ErrorBase *error : errors) {
             error->output();
         }
 
@@ -148,7 +155,7 @@ namespace utils::problems {
 
 
     template<int dim>
-    ErrorBase* CutFEMProblem<dim>::
+    ErrorBase *CutFEMProblem<dim>::
     run_time(unsigned int bdf_type, unsigned int steps) {
         // Invoking this method will result in a pure BDF-k method, where all
         // the initial steps will be interpolated.
@@ -165,18 +172,18 @@ namespace utils::problems {
 
         if (bdf_type == 1) {
             // BDF-1 (implicit Euler).
-            bdf_coeffs[0] = -1;
-            bdf_coeffs[1] = 1;
+            bdf_coeffs[0] = 1;
+            bdf_coeffs[1] = -1;
         } else if (bdf_type == 2) {
             // BDF-2.
-            bdf_coeffs[0] = 0.5;
+            bdf_coeffs[0] = 1.5;
             bdf_coeffs[1] = -2;
-            bdf_coeffs[2] = 1.5;
+            bdf_coeffs[2] = 0.5;
         } else if (bdf_type == 3) {
-            bdf_coeffs[0] = -1.0 / 3;
-            bdf_coeffs[1] = 1.5;
-            bdf_coeffs[2] = -3;
-            bdf_coeffs[3] = 11.0 / 6;
+            bdf_coeffs[0] = 11.0 / 6;
+            bdf_coeffs[1] = -3;
+            bdf_coeffs[2] = 1.5;
+            bdf_coeffs[3] = -1.0 / 3;
         } else {
             throw std::invalid_argument(
                     "bdf_type has to be either 1 or 2, not " +
@@ -200,29 +207,28 @@ namespace utils::problems {
     template<int dim>
     void CutFEMProblem<dim>::
     interpolate_first_steps(unsigned int bdf_type,
-                            std::vector<ErrorBase*> &errors) {
-        this->solutions = std::vector<Vector<double>>(bdf_type);
+                            std::vector<ErrorBase *> &errors) {
+        // this->solutions = std::vector<Vector<double>>(bdf_type);
 
         std::cout << "Interpolate first step(s)." << std::endl;
+        // Assume the deque of solutions is empty at this point.
+        assert(solutions.size() == 0);
+
+        int n_dofs = dof_handlers.front().n_dofs();
 
         for (unsigned int k = 0; k < bdf_type; ++k) {
-            //analytical_velocity->set_time(k * tau);
-            // analytical_pressure->set_time(k * tau);
-            set_function_times(k * this->tau);
+            // Create a new solution vector.
+            solutions.emplace_front(n_dofs);
 
-            /*
-            Utils::AnalyticalSolutionWrapper<dim> wrapper(*analytical_velocity,
-                                                          *analytical_pressure);
-            VectorTools::interpolate(dof_handler, wrapper, solution);
-             */
+            // Interpolate it a the correct time.
+            set_function_times(k * this->tau);
             interpolate_solution(k);
 
-            errors[k] = this->compute_error();
+            // Compute the error for this step.
+            errors[k] = this->compute_error(solutions.front());
             errors[k]->time_step = k;
             std::string suffix = "-" + std::to_string(k) + "-inter";
             this->output_results(suffix);
-
-            solutions[k] = this->solution;
         }
 
         // TODO burde kanskje heller interpolere boundary_values for
@@ -248,27 +254,40 @@ namespace utils::problems {
                            std::vector<Vector<double>> &supplied_solutions,
                            std::vector<ErrorBase*> &errors) {
         std::cout << "Set supplied solutions" << std::endl;
+        std::cout << "  solutions.size() = " << solutions.size() << std::endl;
 
+        // At this point we assume the solution vector that are used for solving
+        // the next time step is not yet created.
+        assert(solutions.size() == bdf_type);
+
+        // Create an extended vector of supplied_solutions, with vectors of
+        // length 1 to mark the time steps where we want to keep and use the
+        // interpolated solution.
         std::vector<Vector<double>> full_vector(bdf_type, Vector<double>(1));
-
-        unsigned int size_diff = full_vector.size() - supplied_solutions.size();
+        unsigned int num_supp = supplied_solutions.size();
+        unsigned int size_diff = bdf_type - num_supp;
         assert(size_diff >= 0);
-        for (unsigned int k = 0; k < supplied_solutions.size(); ++k) {
+        for (unsigned int k = 0; k < num_supp; ++k) {
             full_vector[size_diff + k] = supplied_solutions[k];
         }
 
-        // The the supplied solutions in the solutions vector, and compute
+        // Insert the supplied solutions in the solutions deque, and compute
         // the errors.
+        unsigned int solution_index;
+        unsigned int n_dofs = this->dof_handlers.front().n_dofs();
         for (unsigned int k = 0; k < bdf_type; ++k) {
-            if (full_vector[k].size() == this->solution.size()) {
+            if (full_vector[k].size() == n_dofs) {
                 std::cout << " - Set supplied for k = " << k << std::endl;
-                solutions[k] = full_vector[k];
-                // analytical_velocity->set_time(k * tau);
-                // analytical_pressure->set_time(k * tau);
+                // Flip the index, since the solutions deque and the
+                // supplied solutions vector holds the solution vectors
+                // in opposite order.
+                solution_index = solutions.size() - 1 - k;
+                // Overwrite the interpolated solution for this step, since it
+                // was supplied to the solver.
+                solutions[solution_index] = full_vector[k];
                 set_function_times(k * this->tau);
-
-                this->solution = full_vector[k];
-                errors[k] = this->compute_error();
+                // Overwrite the error too.
+                errors[k] = this->compute_error(solutions[solution_index]);
                 errors[k]->time_step = k;
             }
         }
@@ -323,10 +342,10 @@ namespace utils::problems {
     void CutFEMProblem<dim>::
     initialize_matrices() {
         std::cout << "Initialize marices" << std::endl;
-        solution.reinit(dof_handler.n_dofs());
-        rhs.reinit(dof_handler.n_dofs());
+        int n_dofs = dof_handlers.front().n_dofs();
+        rhs.reinit(n_dofs);
 
-        cutfem::nla::make_sparsity_pattern_for_stabilized(dof_handler,
+        cutfem::nla::make_sparsity_pattern_for_stabilized(dof_handlers.front(),
                                                           sparsity_pattern);
         stiffness_matrix.reinit(sparsity_pattern);
     }
@@ -398,7 +417,7 @@ namespace utils::problems {
         std::cout << "Solving system" << std::endl;
         SparseDirectUMFPACK inverse;
         inverse.initialize(stiffness_matrix);
-        inverse.vmult(solution, rhs);
+        inverse.vmult(solutions.front(), rhs);
     }
 
 
@@ -408,12 +427,12 @@ namespace utils::problems {
         std::cout << "Compute condition number" << std::endl;
 
         // Invert the stiffness_matrix
-        FullMatrix<double> stiffness_matrix_full(this->solution.size());
-        stiffness_matrix_full.copy_from(this->stiffness_matrix);
-        FullMatrix<double> inverse(this->solution.size());
+        FullMatrix<double> stiffness_matrix_full(solutions.front().size());
+        stiffness_matrix_full.copy_from(stiffness_matrix);
+        FullMatrix<double> inverse(solutions.front().size());
         inverse.invert(stiffness_matrix_full);
 
-        double norm = this->stiffness_matrix.frobenius_norm();
+        double norm = stiffness_matrix.frobenius_norm();
         double inverse_norm = inverse.frobenius_norm();
 
         double condition_number = norm * inverse_norm;

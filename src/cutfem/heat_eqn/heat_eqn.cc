@@ -76,9 +76,9 @@ namespace examples::cut::HeatEquation {
     template<int dim>
     void HeatEqn<dim>::interpolate_solution(int time_step) {
         // TODO if k = 0, interpolate the boundary_values function
-        VectorTools::interpolate(this->dof_handler,
+        VectorTools::interpolate(this->dof_handlers.front(),
                                  *(this->analytical_solution),
-                                 this->solution);
+                                 this->solutions.front());
     }
 
 
@@ -129,7 +129,7 @@ namespace examples::cut::HeatEquation {
         // and the pressure component.
         const FEValuesExtractors::Scalar velocities(0);
         stabilization::JumpStabilization<dim, FEValuesExtractors::Scalar>
-                velocity_stabilization(this->dof_handler,
+                velocity_stabilization(this->dof_handlers.front(),
                                        this->mapping_collection,
                                        this->cut_mesh_classifier,
                                        this->constraints);
@@ -174,7 +174,7 @@ namespace examples::cut::HeatEquation {
         double gamma_M =
                 beta_0 * this->element_order * (this->element_order + 1);
 
-        for (const auto &cell : this->dof_handler.active_cell_iterators()) {
+        for (const auto &cell : this->dof_handlers.front().active_cell_iterators()) {
             const unsigned int n_dofs = cell->get_fe().dofs_per_cell;
             std::vector<types::global_dof_index> loc2glb(n_dofs);
             cell->get_dof_indices(loc2glb);
@@ -239,7 +239,7 @@ namespace examples::cut::HeatEquation {
 
             for (const unsigned int i : fe_values.dof_indices()) {
                 for (const unsigned int j : fe_values.dof_indices()) {
-                    local_matrix(i, j) += (this->bdf_coeffs[this->solutions.size()]
+                    local_matrix(i, j) += (this->bdf_coeffs[0]
                                            * phi[j] * phi[i]
                                            +
                                            cn_factor * this->tau * nu * grad_phi[j] *
@@ -329,7 +329,7 @@ namespace examples::cut::HeatEquation {
                                          update_normal_vectors |
                                          update_JxW_values);
 
-        for (const auto &cell : this->dof_handler.active_cell_iterators()) {
+        for (const auto &cell : this->dof_handlers.front().active_cell_iterators()) {
             const unsigned int n_dofs = cell->get_fe().dofs_per_cell;
             std::vector<types::global_dof_index> loc2glb(n_dofs);
             cell->get_dof_indices(loc2glb);
@@ -390,12 +390,17 @@ namespace examples::cut::HeatEquation {
 
         // Create vector of the previous solutions values
         std::vector<double> val(fe_values.n_quadrature_points, 0);
+        // Note that for e.q. BDF-2, the solutions queue will contain 3
+        // solutions at each time. The first element is the solution that will
+        // be solved in the current step, while the next ones will be the two
+        // previous solutions. Therefore, for simplicity, the first element of
+        // this vector is never used. TODO change this?
         std::vector<std::vector<double>> prev_solution_values(this->solutions.size(),
                                                               val);
 
         // The the values of the previous solutions, and insert into the
         // matrix initialized above.
-        for (unsigned long k = 0; k < this->solutions.size(); ++k) {
+        for (unsigned long k = 1; k < this->solutions.size(); ++k) {
             fe_values.get_function_values(this->solutions[k],
                                           prev_solution_values[k]);
         }
@@ -405,7 +410,7 @@ namespace examples::cut::HeatEquation {
             for (const unsigned int i : fe_values.dof_indices()) {
 
                 prev_values = 0;
-                for (unsigned long k = 0; k < this->solutions.size(); ++k) {
+                for (unsigned long k = 1; k < this->solutions.size(); ++k) {
                     prev_values += this->bdf_coeffs[k] * prev_solution_values[k][q];
                 }
 
@@ -435,9 +440,7 @@ namespace examples::cut::HeatEquation {
             const std::vector<types::global_dof_index> &loc2glb,
             const int time_step) {
         // Crank-Nicholson can only be used when a one step method is run.
-        assert(this->solutions.size() == 1 && this->bdf_coeffs.size() == 2);
-
-        // std::cout << "  rhs cell k = " << time_step << std::endl;
+        assert(this->solutions.size() == 2 && this->bdf_coeffs.size() == 2);
 
         // Matrix and vector for the contribution of each cell
         const unsigned int dofs_per_cell = fe_values.get_fe().dofs_per_cell;
@@ -458,12 +461,15 @@ namespace examples::cut::HeatEquation {
         // Get the previous solution values.
         std::vector<double> prev_solution_values(fe_values.n_quadrature_points,
                                                  0);
-        fe_values.get_function_values(this->solution, prev_solution_values);
+
+        // TODO riktig solutions index??
+        fe_values.get_function_values(this->solutions[1], prev_solution_values);
 
         // Get the previous solution gradients.
         std::vector<Tensor<1, dim>> prev_solution_grads(
                 fe_values.n_quadrature_points, Tensor<1, dim>());
-        fe_values.get_function_gradients(this->solution, prev_solution_grads);
+        // TODO samme her
+        fe_values.get_function_gradients(this->solutions[1], prev_solution_grads);
 
         double phi;
         Tensor<1, dim> grad_phi;
@@ -560,12 +566,12 @@ namespace examples::cut::HeatEquation {
         // Get the previous solution values.
         std::vector<double> prev_solution_values(fe_values.n_quadrature_points,
                                                  0);
-        fe_values.get_function_values(this->solution, prev_solution_values);
+        fe_values.get_function_values(this->solutions[1], prev_solution_values);
 
         // Get the previous solution gradients.
         std::vector<Tensor<1, dim>> prev_solution_grads(
                 fe_values.n_quadrature_points, Tensor<1, dim>());
-        fe_values.get_function_gradients(this->solution, prev_solution_grads);
+        fe_values.get_function_gradients(this->solutions[1], prev_solution_grads);
 
         double gamma = 20 * this->element_order * (this->element_order + 1);
         double mu = gamma / this->h;

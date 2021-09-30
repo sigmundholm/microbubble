@@ -91,13 +91,14 @@ namespace utils::problems::scalar {
 
 
         ErrorBase*
-        compute_error() override;
+        compute_error(Vector<double> &solution) override;
 
         ErrorBase*
         compute_time_error(std::vector<ErrorBase*> &errors) override;
 
         void
         integrate_cell(const FEValues<dim> &fe_v,
+                       Vector<double> &solution,
                        double &l2_error_integral,
                        double &h1_error_integral) const override;
 

@@ -53,9 +53,9 @@ namespace utils::problems::scalar {
 
     template<int dim>
     void ScalarProblem<dim>::interpolate_solution(int time_step) {
-        VectorTools::interpolate(this->dof_handler,
+        VectorTools::interpolate(this->dof_handlers.front(),
                                  *(this->analytical_solution),
-                                 this->solution);
+                                 this->solutions.front());
     }
 
 
@@ -71,7 +71,7 @@ namespace utils::problems::scalar {
 
         // TODO fiks dette for å få et sirkulært domene istedet.
         // Set outside finite elements to fe, and inside to FE_nothing
-        for (const auto &cell : this->dof_handler.active_cell_iterators()) {
+        for (const auto &cell : this->dof_handlers.front().active_cell_iterators()) {
             if (LocationToLevelSet::OUTSIDE ==
                 this->cut_mesh_classifier.location_to_level_set(cell)) {
                 // 1 is FE_nothing
@@ -81,7 +81,7 @@ namespace utils::problems::scalar {
                 cell->set_active_fe_index(0);
             }
         }
-        this->dof_handler.distribute_dofs(this->fe_collection);
+        this->dof_handlers.front().distribute_dofs(this->fe_collection);
     }
 
 
@@ -97,7 +97,7 @@ namespace utils::problems::scalar {
         // and the pressure component.
         const FEValuesExtractors::Scalar velocities(0);
         stabilization::JumpStabilization<dim, FEValuesExtractors::Scalar>
-                velocity_stabilization(this->dof_handler,
+                velocity_stabilization(this->dof_handlers.front(),
                                        this->mapping_collection,
                                        this->cut_mesh_classifier,
                                        this->constraints);
@@ -142,7 +142,7 @@ namespace utils::problems::scalar {
         double gamma_M =
                 beta_0 * this->element_order * (this->element_order + 1);
 
-        for (const auto &cell : this->dof_handler.active_cell_iterators()) {
+        for (const auto &cell : this->dof_handlers.front().active_cell_iterators()) {
             const unsigned int n_dofs = cell->get_fe().dofs_per_cell;
             std::vector<types::global_dof_index> loc2glb(n_dofs);
             cell->get_dof_indices(loc2glb);
@@ -181,7 +181,7 @@ namespace utils::problems::scalar {
 
     template<int dim>
     ErrorBase *ScalarProblem<dim>::
-    compute_error() {
+    compute_error(Vector<double> &solution) {
         // TODO bør jeg heller returnere en peker?
         std::cout << "Compute error" << std::endl;
 
@@ -203,7 +203,7 @@ namespace utils::problems::scalar {
                                                  this->levelset);
 
 
-        for (const auto &cell : this->dof_handler.active_cell_iterators()) {
+        for (const auto &cell : this->dof_handlers.front().active_cell_iterators()) {
             cut_fe_values.reinit(cell);
 
             // Retrieve an FEValues object with quadrature points
@@ -212,7 +212,7 @@ namespace utils::problems::scalar {
                     cut_fe_values.get_inside_fe_values();
 
             if (fe_values_bulk) {
-                integrate_cell(*fe_values_bulk, l2_error_integral,
+                integrate_cell(*fe_values_bulk, solution, l2_error_integral,
                                h1_semi_error_integral);
             }
         }
@@ -264,6 +264,7 @@ namespace utils::problems::scalar {
     template<int dim>
     void ScalarProblem<dim>::
     integrate_cell(const FEValues<dim> &fe_v,
+                   Vector<double> &solution,
                    double &l2_error_integral,
                    double &h1_error_integral) const {
 
@@ -274,8 +275,8 @@ namespace utils::problems::scalar {
         std::vector<Tensor<1, dim>> analytical_gradients(
                 fe_v.n_quadrature_points);
 
-        fe_v.get_function_values(this->solution, solution_values);
-        fe_v.get_function_gradients(this->solution, solution_gradients);
+        fe_v.get_function_values(solution, solution_values);
+        fe_v.get_function_gradients(solution, solution_gradients);
 
 
         analytical_solution->value_list(fe_v.get_quadrature_points(),
@@ -350,8 +351,8 @@ namespace utils::problems::scalar {
         std::cout << "Output results" << std::endl;
         // Output results, see step-22
         DataOut<dim> data_out;
-        data_out.attach_dof_handler(this->dof_handler);
-        data_out.add_data_vector(this->solution, "solution");
+        data_out.attach_dof_handler(this->dof_handlers.front());
+        data_out.add_data_vector(this->solutions.front(), "solution");
         data_out.build_patches();
         std::ofstream out("solution-d" + std::to_string(dim)
                           + "o" + std::to_string(this->element_order)
