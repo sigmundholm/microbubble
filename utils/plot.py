@@ -130,26 +130,29 @@ def plot3d(field, title="", latex=False, z_label="z", xs=None, ys=None):
     return ax
 
 
-def conv_plots(data, columns, title="", latex=True, domain_length=1):
+def conv_plots(data, columns, title="", latex=True, domain_length=1, xlabel="N"):
     if_latex(latex)
 
     mesh_size = data[:, 0]
-    ns = list(map(int, domain_length / mesh_size))
+    ns = list(map(round, domain_length / mesh_size))
 
     matplotlib.rcParams['xtick.minor.size'] = 0
     matplotlib.rcParams['xtick.minor.width'] = 0
     matplotlib.rcParams['ytick.minor.size'] = 0
     matplotlib.rcParams['ytick.minor.width'] = 0
 
+    cmap = matplotlib.cm.get_cmap("plasma")
+
     fig, ax = plt.subplots()
-    for col_name, data_col in zip(columns[1:], [data[:, i] for i in range(1, data.shape[1])]):
+    for k, (col_name, data_col) in enumerate(zip(columns[1:], [data[:, i] for i in range(1, data.shape[1])])):
         print()
         print(col_name, data_col)
-        ax = add_convergence_line(ax, ns, data_col, "log2", name=col_name, xlabel="$N$")
+        ax = add_convergence_line(ax, ns, data_col, "log2", name=col_name, xlabel=f"${xlabel}$",
+                                  color=cmap(k / (len(columns) - 1)))
     ax.set_title(title)
 
 
-def eoc_plot(data, columns, title="", domain_lenght=1, latex=True, lines_at=None):
+def eoc_plot(data, columns, title="", domain_lenght=1, latex=True, lines_at=None, xlabel="N"):
     if_latex(latex)
 
     mesh_size = data[:, 0]
@@ -161,6 +164,8 @@ def eoc_plot(data, columns, title="", domain_lenght=1, latex=True, lines_at=None
     matplotlib.rcParams['ytick.minor.size'] = 0
     matplotlib.rcParams['ytick.minor.width'] = 0
 
+    cmap = matplotlib.cm.get_cmap("plasma")
+
     fig, ax = plt.subplots()
     ax.set_xscale("log")
 
@@ -168,11 +173,12 @@ def eoc_plot(data, columns, title="", domain_lenght=1, latex=True, lines_at=None
         for line_val in lines_at:
             ax.plot([ns[1], ns[-1]], [line_val, line_val], linestyle='--', linewidth=1, color="gray")
 
-    for col_name, data_col in zip(columns[1:], [data[:, i] for i in range(1, data.shape[1])]):
+    for k, (col_name, data_col) in enumerate(zip(columns[1:], [data[:, i] for i in range(1, data.shape[1])])):
         eoc = np.log(data_col[:-1] / data_col[1:]) / np.log(mesh_size[:-1] / mesh_size[1:])
         print(col_name, eoc)
 
-        ax.plot(ns[1:], eoc, label=r"${" + col_name + "}$", linestyle='--', marker='.')
+        ax.plot(ns[1:], eoc, label=r"${" + col_name + "}$", linestyle='--', marker='.',
+                color=cmap(k / (len(columns) - 1)))
 
     # Remove scientific notation along x-axis
     ax.xaxis.set_major_formatter(StrMethodFormatter('{x:.0f}'))
@@ -183,7 +189,7 @@ def eoc_plot(data, columns, title="", domain_lenght=1, latex=True, lines_at=None
     ax.set_xticklabels(ns_names)
 
     ax.set_title(title)
-    ax.set_xlabel(f"$N$")
+    ax.set_xlabel(f"${xlabel}$")
     ax.set_ylabel(r"\textrm{EOC}")
     ax.legend()
 
@@ -238,14 +244,16 @@ def conv_plots2(paths, norm_names, element_orders, expected_degrees, domain_leng
             if guess_degree:
                 guess = expected_degrees[i] + degree
             else:
-                guess = expected_degrees[i]
+                guess = expected_degrees[i][deg_index]
 
             add_conv_triangle(ax, guess, color, errors[-1], ns[-2:])
 
-        ylabel = f"${norm_name}".replace("u", "u - u_h")[:-1] + r"(\Omega)}$" if ylabel is None else ylabel
-        ax.set_ylabel(ylabel)
+        ylabel_text = f"${norm_name}".replace("u", "u - u_h")[:-1] + r"(\Omega)}$" if ylabel is None else ylabel
+        ax.set_ylabel(ylabel_text)
+
         if save_figs:
             plt.savefig(f"conv-norm-{i}.svg")
+            plt.savefig(f"conv-norm-{i}.pdf")
 
 
 def add_conv_triangle(ax, degree, color, right_error, ns):
@@ -320,6 +328,94 @@ def condnum_sensitivity_plot(path_stabilized, path_nonstabilized, colors=None, s
 
     if save_figs:
         plt.savefig(f"sensitivity-{'error' if errors else 'condnum'}.svg")
+
+
+def time_error_plots(paths, data_indices, title="", save_fig=True, identifier=1, font_size=10,
+                     label_size='medium'):
+    if_latex(True)
+
+    dfs = []
+    head = ""
+    for full_path in paths:
+        head = list(map(str.strip, open(full_path).readline().split(",")))
+        data = np.genfromtxt(full_path, delimiter=",", skip_header=True)
+        dfs.append(data)
+
+    cmap = matplotlib.cm.get_cmap("plasma")
+
+    matplotlib.rcParams['xtick.minor.size'] = 0
+    matplotlib.rcParams['xtick.minor.width'] = 0
+    matplotlib.rcParams['ytick.minor.size'] = 0
+    matplotlib.rcParams['ytick.minor.width'] = 0
+
+    matplotlib.rc('xtick', labelsize=font_size)
+    matplotlib.rc('ytick', labelsize=font_size)
+    plt.rcParams.update({'axes.labelsize': label_size})
+
+    for data_index in data_indices:
+        fig, ax = plt.subplots()
+        ax.set_yscale("log")
+        for i, df in enumerate(dfs):
+            error = df[:, data_index]
+
+            time_steps = df[:, 0]
+            taus = df[:, 1]
+            times = time_steps * taus
+
+            ax.plot(times, error, label=f"$M={len(time_steps) - 1}$", linestyle="--", marker=".",
+                    color=cmap(i / len(paths)))
+
+        ax.set_xlabel(r"$t\, [s]$")
+        ax.set_ylabel(f"${head[data_index].replace('u', 'u-u_h')}$")
+        ax.set_title(r"$\textrm{" + f"{title}" + "}$")
+        ax.legend(loc='upper right')
+
+        if save_fig:
+            plt.savefig(f"{'-'.join(map(str.lower, title.split()[:2]))}-{identifier}-{data_index}.pdf")
+
+
+def eoc_plot_after_cut_off_time(build_base, factors, folder_names, end_time, cutoff_time, n_refines,
+                                columns_idx, max_norm_idx=(), max_norm_names=()):
+    for folder, factor in zip(folder_names, factors):
+        for poly_order in [1, 2]:
+            print("\nfactor =", factor, ", order =", poly_order)
+            # Errors calculated from the cutoff time
+            aggregated_data = []
+            head = []
+
+            for r in n_refines:
+                full_path = os.path.join(build_base, folder, f"errors-time-d2o{poly_order}r{r}.csv")
+                print(full_path)
+
+                head = list(map(str.strip, open(full_path).readline().split(",")))
+
+                data = np.genfromtxt(full_path, delimiter=",", skip_header=True)
+
+                tau = end_time / (pow(2, r - 1) * factor)
+                h = factor * tau
+                end_step = int(cutoff_time / tau)
+
+                cut_data = data[end_step:, :]
+                print(cut_data)
+
+                cut_off_norms = np.sqrt((cut_data ** 2 * tau).sum(axis=0))
+
+                max_norms = [cut_data[:, i].max() for i in max_norm_idx]
+                aggregated_data.append(np.array([h, *cut_off_norms[columns_idx], *max_norms]))
+
+            # Use the aggregated_data to calculate a new values for EOC
+            data_cols = np.array(aggregated_data)
+            print("\n", head)
+            print("order:", poly_order, ", factor =", factor)
+            xlabel = "M"
+
+            cut_head = ["h", *[head[i] for i in columns_idx], *max_norm_names]
+            print(cut_head)
+            eoc_plot(data_cols, cut_head,
+                     title=r"\textrm{Heat Equation (CutFEM) EOC, $k=" + str(poly_order) + r"$, $\tau=h/" + str(
+                         factor) + r"$, for $t\geq " + str(cutoff_time / end_time) + r"\, T$}",
+                     domain_lenght=end_time, lines_at=np.array([1, 2, 3]), xlabel=xlabel)
+            plt.savefig(f"eoc-cut-o{poly_order}-h_{factor}tau.pdf")
 
 
 if __name__ == '__main__':
