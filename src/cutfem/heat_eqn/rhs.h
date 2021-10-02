@@ -83,6 +83,23 @@ namespace examples::cut::HeatEquation {
     };
 
 
+    template<int dim>
+    class MovingDomain : public Function<dim> {
+    public :
+        MovingDomain(const double sphere_radius,
+                     const double half_length,
+                     const double radius);
+
+        double
+        value(const Point<dim> &p, const unsigned int component) const override;
+
+    private:
+        const double sphere_radius;
+        const double half_length;
+        const double radius;
+    };
+
+
 } // namespace examples::cut::HeatEquation
 
 #endif //MICROBUBBLE_CUTFEM_POISSON_RHS_H

@@ -65,11 +65,14 @@ namespace utils::problems {
                       const bool stabilized = true);
 
 
-        ErrorBase*
+        ErrorBase *
         run_step();
 
         Vector<double>
         get_solution();
+
+        hp::DoFHandler<dim> &
+        get_dof_handler();
 
         /**
          * Run a time loop with a BDF-method.
@@ -83,12 +86,20 @@ namespace utils::problems {
          * @param steps: the number of steps to run.
          * @return an Error object.
          */
-        ErrorBase*
+        ErrorBase *
         run_time(unsigned int bdf_type, unsigned int steps,
                  std::vector<Vector<double>> &supplied_solutions);
 
-        ErrorBase*
+        ErrorBase *
         run_time(unsigned int bdf_type, unsigned int steps);
+
+        ErrorBase *
+        run_moving_domain(unsigned int bdf_type, unsigned int steps,
+                          std::vector<Vector<double>> &supplied_solutions,
+                          std::vector<std::reference_wrapper<hp::DoFHandler<dim>>> &supplied_dof_handlers);
+
+        ErrorBase *
+        run_moving_domain(unsigned int bdf_type, unsigned int steps);
 
         static void
         write_header_to_file(std::ofstream &file);
@@ -102,18 +113,22 @@ namespace utils::problems {
 
         void
         interpolate_first_steps(unsigned int bdf_type,
-                                std::vector<ErrorBase*> &errors);
+                                std::vector<ErrorBase *> &errors,
+                                bool moving_domain = false);
 
         void
         set_supplied_solutions(unsigned int bdf_type,
                                std::vector<Vector<double>> &supplied_solutions,
-                               std::vector<ErrorBase*> &errors);
+                               std::vector<std::reference_wrapper<hp::DoFHandler<dim>>> &supplied_dof_handlers,
+                               std::vector<ErrorBase *> &errors,
+                               bool moving_domain = false);
 
         virtual void
         set_function_times(double time);
 
         virtual void
-        interpolate_solution(int time_step);
+        interpolate_solution(hp::DoFHandler<dim> &dof_handler,
+                             int time_step, bool moving_domain = false);
 
 
         virtual void
@@ -126,12 +141,25 @@ namespace utils::problems {
         setup_level_set();
 
         virtual void
-        distribute_dofs() = 0;
+        setup_fe_collection() = 0;
+
+        virtual void
+        distribute_dofs(hp::DoFHandler<dim> &dof_handler) = 0;
 
         virtual void
         initialize_matrices();
 
 
+        // Function related to assembling the stiffness matrix and rhs vector.
+        // -------------------------------------------------------------------
+
+        /**
+         * Assemble the stiffness matrix and rhs vector. This method is used
+         * for stationary problems.
+         *
+         * This method should in turn call the methods assemble_local_over_cell
+         * and assemble local_over_surface.
+         */
         virtual void
         assemble_system();
 
@@ -158,11 +186,21 @@ namespace utils::problems {
                 const std::vector<types::global_dof_index> &loc2glb);
 
         virtual void
-        assemble_rhs(int time_step);
+        assemble_rhs(int time_step, bool moving_domain);
 
         virtual void
         assemble_rhs_local_over_cell(const FEValues<dim> &fe_values,
                                      const std::vector<types::global_dof_index> &loc2glb);
+
+        virtual void
+        assemble_rhs_and_bdf_terms_local_over_cell(
+                const FEValues<dim> &fe_values,
+                const std::vector<types::global_dof_index> &loc2glb) = 0;
+
+        virtual void
+        assemble_rhs_and_bdf_terms_local_over_cell_moving_domain(
+                const FEValues<dim> &fe_values,
+                const std::vector<types::global_dof_index> &loc2glb) = 0;
 
         virtual void
         assemble_rhs_local_over_cell_cn(const FEValues<dim> &fe_values,
@@ -184,11 +222,12 @@ namespace utils::problems {
         virtual void
         solve();
 
-        virtual ErrorBase*
-        compute_error(Vector<double> &solution) = 0;
+        virtual ErrorBase *
+        compute_error(hp::DoFHandler<dim> &dof_handler,
+                      Vector<double> &solution) = 0;
 
-        virtual ErrorBase*
-        compute_time_error(std::vector<ErrorBase*> &errors) = 0;
+        virtual ErrorBase *
+        compute_time_error(std::vector<ErrorBase *> &errors) = 0;
 
         virtual void
         integrate_cell(const FEValues<dim> &fe_v,

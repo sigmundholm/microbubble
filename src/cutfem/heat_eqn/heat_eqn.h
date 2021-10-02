@@ -36,7 +36,6 @@ using namespace dealii;
 using namespace cutfem;
 
 
-
 namespace examples::cut::HeatEquation {
 
     using NonMatching::LocationToLevelSet;
@@ -69,9 +68,6 @@ namespace examples::cut::HeatEquation {
         void
         set_function_times(double time) override;
 
-        virtual void
-        interpolate_solution(int time_step) override;
-
         void
         make_grid(Triangulation<dim> &tria) override;
 
@@ -97,11 +93,7 @@ namespace examples::cut::HeatEquation {
                 const std::vector<types::global_dof_index> &loc2glb) override;
 
         void
-        assemble_rhs(int time_step) override;
-
-        void
-        assemble_rhs_local_over_cell(const FEValues<dim> &fe_values,
-                                     const std::vector<types::global_dof_index> &loc2glb) override;
+        assemble_rhs(int time_step, bool moving_domain) override;
 
         void
         assemble_rhs_local_over_cell_cn(const FEValues<dim> &fe_values,

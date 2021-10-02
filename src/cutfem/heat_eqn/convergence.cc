@@ -19,16 +19,16 @@ void solve_for_element_order(int element_order, int max_refinement,
                        + "o" + std::to_string(element_order) + ".csv");
     HeatEqn<dim>::write_header_to_file(file);
 
-    double radius = 1.1;
-    double half_length = 1.1;
+    double radius = 1;
+    double half_length = 2 * radius;
 
     const double nu = 2;
-    const double end_time = 1.1;
+    const double end_time = 1;
 
     BoundaryValues<dim> bdd;
     AnalyticalSolution<dim> soln;
 
-    double sphere_radius = 1.0;
+    double sphere_radius = 0.75 * radius;
     double sphere_x_coord = 0;
     Point<dim> sphere_center;
     if (dim == 2) {
@@ -36,7 +36,9 @@ void solve_for_element_order(int element_order, int max_refinement,
     } else if (dim == 3) {
         sphere_center = Point<dim>(0, 0, 0);
     }
-    cutfem::geometry::SignedDistanceSphere<dim> domain(sphere_radius, sphere_center, 1);
+    // cutfem::geometry::SignedDistanceSphere<dim> domain(sphere_radius, sphere_center, 1);
+
+    MovingDomain<dim> domain(sphere_radius, half_length, radius);
     // FlowerDomain<dim> domain;
 
     for (int n_refines = 2; n_refines < max_refinement + 1; ++n_refines) {
@@ -51,10 +53,11 @@ void solve_for_element_order(int element_order, int max_refinement,
         // BDF-1
         double bdf1_steps = pow(2, n_refines - 2);
         double bdf1_tau = tau / bdf1_steps;
-        HeatEqn<dim> heat(nu, bdf1_tau, radius, half_length, n_refines, element_order,
-                             write_output,
-                             rhs, bdd, soln, domain, true, false);
-        ErrorBase *err = heat.run_time(1, bdf1_steps);
+        HeatEqn<dim> heat(nu, tau, radius, half_length, n_refines,
+                          element_order,
+                          write_output,
+                          rhs, bdd, soln, domain, true, false);
+        ErrorBase *err = heat.run_moving_domain(1, 1);
         auto *error = dynamic_cast<ErrorScalar*>(err);
 
         std::cout << "|| u - u_h ||_L2 = " << error->l2_error << std::endl;
@@ -62,14 +65,18 @@ void solve_for_element_order(int element_order, int max_refinement,
         std::cout << "| u - u_h |_H1 = " << error->h1_semi << std::endl;
 
         Vector<double> u1 = heat.get_solution();
+        hp::DoFHandler<dim>& u1_dof_h = heat.get_dof_handler();
 
         // BDF-2
-        HeatEqn<dim> heat2(nu, tau, radius, half_length, n_refines, element_order,
+        HeatEqn<dim> heat2(nu, tau, radius, half_length, n_refines,
+                           element_order,
                            write_output,
                            rhs, bdd, soln, domain, true, false);
 
         std::vector<Vector<double>> initial = {u1};
-        ErrorBase *err2 = heat2.run_time(2, time_steps, initial);
+        std::vector<std::reference_wrapper<hp::DoFHandler<dim>>> initial_dof_h = {u1_dof_h};
+        ErrorBase *err2 = heat2.run_moving_domain(2, time_steps,
+                                                  initial, initial_dof_h);
         auto *error2 = dynamic_cast<ErrorScalar*>(err2);
 
         std::cout << "|| u - u_h ||_L2 = " << error2->l2_error << std::endl;

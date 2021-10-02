@@ -44,16 +44,17 @@ namespace utils::problems::scalar {
             : CutFEMProblem<dim>(n_refines, element_order,
                                  write_output, levelset_func, stabilized),
               fe(element_order) {
-        // Use no constraints when projecting.
-        this->constraints.close();
-
         analytical_solution = &analytical_soln;
     }
 
 
     template<int dim>
-    void ScalarProblem<dim>::interpolate_solution(int time_step) {
-        VectorTools::interpolate(this->dof_handlers.front(),
+    void
+    ScalarProblem<dim>::interpolate_solution(hp::DoFHandler<dim> &dof_handler,
+                                             int time_step,
+                                             bool moving_domain) {
+        // TODO if k = 0, interpolate the boundary_values function
+        VectorTools::interpolate(dof_handler,
                                  *(this->analytical_solution),
                                  this->solutions.front());
     }
@@ -61,17 +62,19 @@ namespace utils::problems::scalar {
 
     template<int dim>
     void ScalarProblem<dim>::
-    distribute_dofs() {
-        std::cout << "Distributing dofs" << std::endl;
-
+    setup_fe_collection() {
         // We want to types of elements on the mesh
         // Lagrange elements and elements that are constant zero.
         this->fe_collection.push_back(fe);
         this->fe_collection.push_back(FE_Nothing<dim>());
+    }
 
+    template<int dim>
+    void ScalarProblem<dim>::
+    distribute_dofs(hp::DoFHandler<dim> &dof_handler) {
         // TODO fiks dette for å få et sirkulært domene istedet.
         // Set outside finite elements to fe, and inside to FE_nothing
-        for (const auto &cell : this->dof_handlers.front().active_cell_iterators()) {
+        for (const auto &cell : dof_handler.active_cell_iterators()) {
             if (LocationToLevelSet::OUTSIDE ==
                 this->cut_mesh_classifier.location_to_level_set(cell)) {
                 // 1 is FE_nothing
@@ -81,7 +84,7 @@ namespace utils::problems::scalar {
                 cell->set_active_fe_index(0);
             }
         }
-        this->dof_handlers.front().distribute_dofs(this->fe_collection);
+        dof_handler.distribute_dofs(this->fe_collection);
     }
 
 
@@ -180,8 +183,117 @@ namespace utils::problems::scalar {
 
 
     template<int dim>
+    void ScalarProblem<dim>::
+    assemble_rhs_and_bdf_terms_local_over_cell(
+            const FEValues<dim> &fe_values,
+            const std::vector<types::global_dof_index> &loc2glb) {
+        // Vector for the contribution of each cell
+        const unsigned int dofs_per_cell = fe_values.get_fe().dofs_per_cell;
+        Vector<double> local_rhs(dofs_per_cell);
+
+        // Vector for values of the RightHandSide for all quadrature points on a cell.
+        std::vector<double> rhs_values(fe_values.n_quadrature_points);
+        this->rhs_function->value_list(fe_values.get_quadrature_points(),
+                                       rhs_values);
+
+        // Create vector of the previous solutions values
+        std::vector<double> val(fe_values.n_quadrature_points, 0);
+        std::vector<std::vector<double>> prev_solution_values(
+                this->solutions.size(),
+                val);
+
+        // The the values of the previous solutions, and insert into the
+        // matrix initialized above.
+        for (unsigned long k = 0; k < this->solutions.size(); ++k) {
+            fe_values.get_function_values(this->solutions[k],
+                                          prev_solution_values[k]);
+        }
+        double phi_iq;
+        double prev_values;
+        for (unsigned int q = 0; q < fe_values.n_quadrature_points; ++q) {
+            for (const unsigned int i : fe_values.dof_indices()) {
+
+                prev_values = 0;
+                for (unsigned long k = 0; k < this->solutions.size(); ++k) {
+                    prev_values +=
+                            this->bdf_coeffs[k] * prev_solution_values[k][q];
+                }
+
+                phi_iq = fe_values.shape_value(i, q);
+                local_rhs(i) += (this->tau * rhs_values[q] * phi_iq // (f, v)
+                                 - prev_values * phi_iq       // (u_n, v)
+                                ) * fe_values.JxW(q);         // dx
+            }
+        }
+        this->rhs.add(loc2glb, local_rhs);
+    }
+
+
+    template<int dim>
+    void ScalarProblem<dim>::
+    assemble_rhs_and_bdf_terms_local_over_cell_moving_domain(
+            const FEValues<dim> &fe_values,
+            const std::vector<types::global_dof_index> &loc2glb) {
+
+        // TODO needed?
+        const hp::FECollection<dim> &fe_collection = this->dof_handlers.front().get_fe_collection();
+        const hp::QCollection<dim> q_collection(fe_values.get_quadrature());
+
+        // Vector for the contribution of each cell
+        const unsigned int dofs_per_cell = fe_values.get_fe().dofs_per_cell;
+        Vector<double> local_rhs(dofs_per_cell);
+
+        // Vector for values of the RightHandSide for all quadrature points on a cell.
+        std::vector<double> rhs_values(fe_values.n_quadrature_points);
+        this->rhs_function->value_list(fe_values.get_quadrature_points(),
+                                       rhs_values);
+
+        double phi_iq;
+
+        const typename Triangulation<dim>::active_cell_iterator &cell =
+                fe_values.get_cell();
+        double num_solns = this->solutions.size();
+
+        for (unsigned long k = 1; k < this->solutions.size(); ++k) {
+            typename hp::DoFHandler<dim>::active_cell_iterator cell_prev(
+                    &(this->triangulation), cell->level(), cell->index(),
+                    &(this->dof_handlers[k]));
+            // TODO sjekk at ikke denne cellen har FE_Nothing
+
+            hp::FEValues<dim> hp_fe_values(this->mapping_collection,
+                                           fe_collection,
+                                           q_collection,
+                                           update_values);
+            hp_fe_values.reinit(cell_prev);
+
+            const FEValues<dim> &fe_values_prev = hp_fe_values.get_present_fe_values();
+
+            std::vector<double> u_prev_values(fe_values.n_quadrature_points, 0);
+            fe_values_prev.get_function_values(this->solutions[k],
+                                               u_prev_values);
+
+
+            for (unsigned int q = 0; q < fe_values.n_quadrature_points; ++q) {
+                for (const unsigned int i : fe_values.dof_indices()) {
+                    // Divide the rhs contribution by the number of solutions 
+                    // to avoid overcounting due to the outer loop.
+                    phi_iq = fe_values.shape_value(i, q);
+                    local_rhs(i) += (this->tau * rhs_values[q] * phi_iq /
+                                     num_solns // (f, v)
+                                     -
+                                     this->bdf_coeffs[k] * u_prev_values[q] *
+                                     phi_iq // α_k(u_n, v)
+                                    ) * fe_values.JxW(q); // dx
+                }
+            }
+        }
+        this->rhs.add(loc2glb, local_rhs);
+    }
+
+
+    template<int dim>
     ErrorBase *ScalarProblem<dim>::
-    compute_error(Vector<double> &solution) {
+    compute_error(hp::DoFHandler<dim> &dof_handler, Vector<double> &solution) {
         // TODO bør jeg heller returnere en peker?
         std::cout << "Compute error" << std::endl;
 
@@ -203,7 +315,7 @@ namespace utils::problems::scalar {
                                                  this->levelset);
 
 
-        for (const auto &cell : this->dof_handlers.front().active_cell_iterators()) {
+        for (const auto &cell : dof_handler.active_cell_iterators()) {
             cut_fe_values.reinit(cell);
 
             // Retrieve an FEValues object with quadrature points
@@ -247,7 +359,7 @@ namespace utils::problems::scalar {
                 l_inf_h1 = err->h1_error;
         }
 
-        ErrorScalar *error = new ErrorScalar();
+        auto *error = new ErrorScalar();
         error->h = this->h;
         error->tau = this->tau;
 
@@ -356,8 +468,8 @@ namespace utils::problems::scalar {
         data_out.build_patches();
         std::ofstream out("solution-d" + std::to_string(dim)
                           + "o" + std::to_string(this->element_order)
-                          + "r" + std::to_string(this->n_refines) + suffix +
-                          ".vtk");
+                          + "r" + std::to_string(this->n_refines) +
+                          + "-" + suffix + ".vtk");
         data_out.write_vtk(out);
 
         // Output levelset function.
@@ -369,8 +481,7 @@ namespace utils::problems::scalar {
             std::ofstream output_ls("levelset-d" + std::to_string(dim)
                                     + "o" + std::to_string(this->element_order)
                                     + "r" + std::to_string(this->n_refines) +
-                                    suffix +
-                                    ".vtk");
+                                    +"-" + suffix + ".vtk");
             data_out_levelset.write_vtk(output_ls);
         }
     }

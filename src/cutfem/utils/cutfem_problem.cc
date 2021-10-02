@@ -39,6 +39,8 @@ namespace utils::problems {
               cut_mesh_classifier(triangulation, levelset_dof_handler,
                                   levelset),
               stabilized(stabilized) {
+        // Use no constraints when projecting.
+        this->constraints.close();
 
         levelset_function = &levelset_func;
     }
@@ -50,9 +52,10 @@ namespace utils::problems {
         make_grid(triangulation);
         setup_quadrature();
         setup_level_set();
-        cut_mesh_classifier.reclassify();
+        cut_mesh_classifier.reclassify(); // TODO move this into distribute_dofs method
         dof_handlers.emplace_front(triangulation);
-        distribute_dofs();
+        setup_fe_collection();
+        distribute_dofs(dof_handlers.front());
         initialize_matrices();
         int n_dofs = dof_handlers.front().n_dofs();
         solutions.emplace_front(n_dofs);
@@ -61,7 +64,7 @@ namespace utils::problems {
         if (write_output) {
             output_results();
         }
-        return compute_error(solutions.front());
+        return compute_error(dof_handlers.front(), solutions.front());
     }
 
 
@@ -69,6 +72,14 @@ namespace utils::problems {
     Vector<double> CutFEMProblem<dim>::
     get_solution() {
         return solutions.front();
+    }
+
+
+    template<int dim>
+    hp::DoFHandler<dim> &CutFEMProblem<dim>::
+    get_dof_handler() {
+        // TODO return reference or pointer?
+        return dof_handlers.front();
     }
 
 
@@ -83,16 +94,20 @@ namespace utils::problems {
         setup_quadrature();
         setup_level_set();
         cut_mesh_classifier.reclassify();
-
+        setup_fe_collection();
+        // Initialize the first dof_handler.
         dof_handlers.emplace_front(triangulation);
-        distribute_dofs();
+        distribute_dofs(dof_handlers.front());
         initialize_matrices();
 
         // Vector for the computed error for each time step.
         std::vector<ErrorBase *> errors(steps + 1);
 
         interpolate_first_steps(bdf_type, errors);
-        set_supplied_solutions(bdf_type, supplied_solutions, errors);
+
+        std::vector<std::reference_wrapper<hp::DoFHandler<dim>>> no_dof_handlers;
+        set_supplied_solutions(bdf_type, supplied_solutions,
+                               no_dof_handlers, errors);
         set_bdf_coefficients(bdf_type);
 
         // TODO note that the next solution vector is not yet set in solutions,
@@ -104,10 +119,7 @@ namespace utils::problems {
                            + "r" + std::to_string(this->n_refines) + ".csv");
         write_time_header_to_file(file);
 
-        // Write the interpolation errors to file.
-        // TODO note that this results in both the interpolation error and the
-        //  fem error to be written when u1 is supplied to bdf-2.
-
+        // Write the errors for the first steps to file.
         for (unsigned int k = 0; k < bdf_type; ++k) {
             write_time_error_to_file(errors[k], file);
             errors[k]->output();
@@ -130,15 +142,16 @@ namespace utils::problems {
             // TODO nødvendig??
             this->rhs.reinit(this->solutions.front().size());
 
-            assemble_rhs(k);
+            assemble_rhs(k, false);
             this->solve();
-            errors[k] = this->compute_error(solutions.front());
+            errors[k] = this->compute_error(dof_handlers.front(),
+                                            solutions.front());
             errors[k]->time_step = k;
             write_time_error_to_file(errors[k], file);
             errors[k]->output();
 
             if (this->write_output) {
-                this->output_results(k, false);
+                this->output_results(k, true);
             }
 
             // Remove the oldest solution, since it is no longer needed.
@@ -161,6 +174,111 @@ namespace utils::problems {
         // the initial steps will be interpolated.
         std::vector<Vector<double>> empty;
         return run_time(bdf_type, steps, empty);
+    }
+
+
+    template<int dim>
+    ErrorBase *CutFEMProblem<dim>::
+    run_moving_domain(unsigned int bdf_type, unsigned int steps,
+                      std::vector<Vector<double>> &supplied_solutions,
+                      std::vector<std::reference_wrapper<hp::DoFHandler<dim>>> &supplied_dof_handlers) {
+
+        std::cout << "\nBDF-" << bdf_type << ", steps=" << steps << std::endl;
+
+        // One dof_handler must be supplied for each supplied solution vector.
+        assert(supplied_solutions.size() == supplied_dof_handlers.size());
+
+        make_grid(this->triangulation);
+        setup_quadrature();
+        setup_level_set();
+        cut_mesh_classifier.reclassify(); // TODO any reason to keep this call outside the method above?
+        setup_fe_collection();
+
+        // dof_handlers = std::vector<hp::DoFHandler<dim>(bdf_type);
+        dof_handlers.emplace_front(triangulation);
+        distribute_dofs(dof_handlers.front());
+        initialize_matrices();
+
+        // Vector for the computed error for each time step.
+        std::vector<ErrorBase *> errors(steps + 1);
+
+        interpolate_first_steps(bdf_type, errors, true);
+        set_supplied_solutions(bdf_type, supplied_solutions,
+                               supplied_dof_handlers, errors, true);
+        set_bdf_coefficients(bdf_type);
+
+        std::ofstream file("errors-time-d" + std::to_string(dim)
+                           + "o" + std::to_string(element_order)
+                           + "r" + std::to_string(n_refines) + ".csv");
+        write_time_header_to_file(file);
+
+        // Write the errors for the first steps to file.
+        for (unsigned int k = 0; k < bdf_type; ++k) {
+            write_time_error_to_file(errors[k], file);
+            errors[k]->output();
+        }
+
+        // Check that we have created exactly one dof_handler per solution.
+        assert(dof_handlers.size() == solutions.size());
+
+        double time;
+        for (unsigned int k = bdf_type; k <= steps; ++k) {
+            time = k * tau;
+            std::cout << "\nTime Step = " << k
+                      << ", tau = " << tau
+                      << ", time = " << time << std::endl;
+
+            set_function_times(time);
+            setup_level_set();
+            cut_mesh_classifier.reclassify(); // TODO kalles denne i riktig rekkefølge?
+
+            // Create a new solution vector to contain the next solution.
+            int n_dofs = dof_handlers.front().n_dofs();
+            solutions.emplace_front(n_dofs);
+
+            // Redistribute the dofs after the level set was updated
+            dof_handlers.emplace_front(triangulation);
+            distribute_dofs(dof_handlers.front());
+            // Reinitialize the matrices and vectors after the number of dofs
+            // was updated.
+            initialize_matrices();
+
+            assemble_matrix();
+            assemble_rhs(k, true);
+
+            solve();
+            errors[k] = compute_error(dof_handlers.front(), solutions.front());
+            errors[k]->time_step = k;
+            write_time_error_to_file(errors[k], file);
+            errors[k]->output();
+
+            if (write_output) {
+                output_results(k, false);
+            }
+
+            // Remove the oldest solution and dof_handler, since they are
+            // no longer needed.
+            solutions.pop_back();
+            dof_handlers.pop_back();
+        }
+
+        std::cout << std::endl;
+        for (ErrorBase *error : errors) {
+            error->output();
+        }
+        return compute_time_error(errors);
+    }
+
+
+    template<int dim>
+    ErrorBase *CutFEMProblem<dim>::
+    run_moving_domain(unsigned int bdf_type, unsigned int steps) {
+        // Invoking this method will result in a pure BDF-k method, where all
+        // the initial steps will be interpolated.
+        // TODO store the solutions as references too
+        std::vector<Vector<double>> empty_solutions;
+        std::vector<std::reference_wrapper<hp::DoFHandler<dim>>> empty_dof_h;
+        return run_moving_domain(bdf_type, steps, empty_solutions, empty_dof_h);
     }
 
 
@@ -207,27 +325,36 @@ namespace utils::problems {
     template<int dim>
     void CutFEMProblem<dim>::
     interpolate_first_steps(unsigned int bdf_type,
-                            std::vector<ErrorBase *> &errors) {
-        // this->solutions = std::vector<Vector<double>>(bdf_type);
-
+                            std::vector<ErrorBase *> &errors,
+                            bool moving_domain) {
         std::cout << "Interpolate first step(s)." << std::endl;
         // Assume the deque of solutions is empty at this point.
         assert(solutions.size() == 0);
+        // At this point, one dof_handler should have been created.
+        assert(dof_handlers.size() == 1);
 
         int n_dofs = dof_handlers.front().n_dofs();
 
         for (unsigned int k = 0; k < bdf_type; ++k) {
             // Create a new solution vector.
             solutions.emplace_front(n_dofs);
+            if (moving_domain && k > 0) {
+                // For moving domains we need a new dof_handler for each step,
+                // but the first one should already have been created.
+                dof_handlers.emplace_front(triangulation);
+                distribute_dofs(dof_handlers.front());
+            }
 
             // Interpolate it a the correct time.
             set_function_times(k * this->tau);
-            interpolate_solution(k);
+            interpolate_solution(dof_handlers.front(), k, moving_domain);
+            // TODO create dofhandler before interpolating
 
             // Compute the error for this step.
-            errors[k] = this->compute_error(solutions.front());
+            errors[k] = this->compute_error(dof_handlers.front(),
+                                            solutions.front());
             errors[k]->time_step = k;
-            std::string suffix = "-" + std::to_string(k) + "-inter";
+            std::string suffix = std::to_string(k) + "-inter";
             this->output_results(suffix);
         }
 
@@ -252,13 +379,24 @@ namespace utils::problems {
     void CutFEMProblem<dim>::
     set_supplied_solutions(unsigned int bdf_type,
                            std::vector<Vector<double>> &supplied_solutions,
-                           std::vector<ErrorBase*> &errors) {
+                           std::vector<std::reference_wrapper<hp::DoFHandler<dim>>> &supplied_dof_handlers,
+                           std::vector<ErrorBase *> &errors,
+                           bool moving_domain) {
         std::cout << "Set supplied solutions" << std::endl;
         std::cout << "  solutions.size() = " << solutions.size() << std::endl;
 
         // At this point we assume the solution vector that are used for solving
         // the next time step is not yet created.
         assert(solutions.size() == bdf_type);
+
+        if (!moving_domain) {
+            // In cases with a stationary domain, a dof_handler is created and
+            // accessed with dof_handler.front(), so this is used for all further
+            // time steps.
+            assert(supplied_dof_handlers.size() == 0);
+            // For stationary domains, we only need one dof_handler.
+            assert(dof_handlers.size() == 1);
+        }
 
         // Create an extended vector of supplied_solutions, with vectors of
         // length 1 to mark the time steps where we want to keep and use the
@@ -287,7 +425,9 @@ namespace utils::problems {
                 solutions[solution_index] = full_vector[k];
                 set_function_times(k * this->tau);
                 // Overwrite the error too.
-                errors[k] = this->compute_error(solutions[solution_index]);
+                // TODO tilpass til moving_domain er true
+                errors[k] = this->compute_error(this->dof_handlers.front(),
+                                                solutions[solution_index]);
                 errors[k]->time_step = k;
             }
         }
@@ -304,7 +444,8 @@ namespace utils::problems {
 
     template<int dim>
     void CutFEMProblem<dim>::
-    interpolate_solution(int time_step) {
+    interpolate_solution(hp::DoFHandler<dim> &dof_handler, int time_step,
+                         bool moving_domain) {
         throw std::logic_error(
                 "Override this method to run a time dependent problem.");
     }
@@ -326,7 +467,7 @@ namespace utils::problems {
 
         // The level set function lives on the whole background mesh.
         levelset_dof_handler.distribute_dofs(fe_levelset);
-        printf("leveset dofs: %d\n", levelset_dof_handler.n_dofs());
+        printf("  leveset dofs: %d\n", levelset_dof_handler.n_dofs());
         levelset.reinit(levelset_dof_handler.n_dofs());
 
         // Project the geometry onto the mesh.
@@ -384,7 +525,7 @@ namespace utils::problems {
 
     template<int dim>
     void CutFEMProblem<dim>::
-    assemble_rhs(int time_step) {}
+    assemble_rhs(int time_step, bool moving_domain) {}
 
     template<int dim>
     void CutFEMProblem<dim>::
@@ -446,7 +587,7 @@ namespace utils::problems {
     template<int dim>
     void CutFEMProblem<dim>::
     output_results(bool minimal_output) const {
-        std::string empty = "";
+        std::string empty;
         output_results(empty, minimal_output);
     }
 

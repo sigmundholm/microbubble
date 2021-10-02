@@ -54,9 +54,6 @@ namespace examples::cut::HeatEquation {
             : ScalarProblem<dim>(n_refines, element_order, write_output,
                                  levelset_func, analytical_soln, stabilized),
               nu(nu), radius(radius), half_length(half_length) {
-        // Use no constraints when projecting.
-        this->constraints.close();
-
         this->tau = tau;
         this->crank_nicholson = crank_nicholson;
 
@@ -70,15 +67,7 @@ namespace examples::cut::HeatEquation {
         this->rhs_function->set_time(time);
         this->boundary_values->set_time(time);
         this->analytical_solution->set_time(time);
-    }
-
-
-    template<int dim>
-    void HeatEqn<dim>::interpolate_solution(int time_step) {
-        // TODO if k = 0, interpolate the boundary_values function
-        VectorTools::interpolate(this->dof_handlers.front(),
-                                 *(this->analytical_solution),
-                                 this->solutions.front());
+        this->levelset_function->set_time(time);
     }
 
 
@@ -87,7 +76,7 @@ namespace examples::cut::HeatEquation {
     HeatEqn<dim>::make_grid(Triangulation<dim> &tria) {
         std::cout << "Creating triangulation" << std::endl;
 
-        triangulation_exists = true;
+        triangulation_exists = true; // TODO is this variable used?
         GridGenerator::cylinder(tria, radius, half_length);
         GridTools::remove_anisotropy(tria, 1.618, 5);
         tria.refine_global(this->n_refines);
@@ -242,7 +231,8 @@ namespace examples::cut::HeatEquation {
                     local_matrix(i, j) += (this->bdf_coeffs[0]
                                            * phi[j] * phi[i]
                                            +
-                                           cn_factor * this->tau * nu * grad_phi[j] *
+                                           cn_factor * this->tau * nu *
+                                           grad_phi[j] *
                                            grad_phi[i]
                                           ) * fe_values.JxW(q); // dx
                 }
@@ -297,7 +287,7 @@ namespace examples::cut::HeatEquation {
 
     template<int dim>
     void
-    HeatEqn<dim>::assemble_rhs(int time_step) {
+    HeatEqn<dim>::assemble_rhs(int time_step, bool moving_domain) {
         std::cout << "Assembling RHS" << std::endl;
 
         this->rhs = 0;
@@ -348,7 +338,14 @@ namespace examples::cut::HeatEquation {
                     assemble_rhs_local_over_cell_cn(*fe_values_bulk, loc2glb,
                                                     time_step);
                 } else {
-                    assemble_rhs_local_over_cell(*fe_values_bulk, loc2glb);
+                    if (moving_domain) {
+                        this->assemble_rhs_and_bdf_terms_local_over_cell_moving_domain(
+                                *fe_values_bulk, loc2glb);
+                    } else {
+                        this->assemble_rhs_and_bdf_terms_local_over_cell(
+                                *fe_values_bulk, loc2glb);
+
+                    }
                 }
             }
 
@@ -365,62 +362,8 @@ namespace examples::cut::HeatEquation {
                     assemble_rhs_local_over_surface(*fe_values_surface,
                                                     loc2glb);
                 }
-
             }
         }
-    }
-
-    template<int dim>
-    void
-    HeatEqn<dim>::assemble_rhs_local_over_cell(
-            const FEValues<dim> &fe_values,
-            const std::vector<types::global_dof_index> &loc2glb) {
-        // TODO generelt: er det for mange hjelpeobjekter som opprettes her i cella?
-        //  bør det heller gjøres i funksjonen før og sendes som argumenter? hvis
-        //  det er mulig mtp cellene som blir cut da
-
-        // Vector for the contribution of each cell
-        const unsigned int dofs_per_cell = fe_values.get_fe().dofs_per_cell;
-        Vector<double> local_rhs(dofs_per_cell);
-
-        // Vector for values of the RightHandSide for all quadrature points on a cell.
-        std::vector<double> rhs_values(fe_values.n_quadrature_points);
-        this->rhs_function->value_list(fe_values.get_quadrature_points(),
-                                       rhs_values);
-
-        // Create vector of the previous solutions values
-        std::vector<double> val(fe_values.n_quadrature_points, 0);
-        // Note that for e.q. BDF-2, the solutions queue will contain 3
-        // solutions at each time. The first element is the solution that will
-        // be solved in the current step, while the next ones will be the two
-        // previous solutions. Therefore, for simplicity, the first element of
-        // this vector is never used. TODO change this?
-        std::vector<std::vector<double>> prev_solution_values(this->solutions.size(),
-                                                              val);
-
-        // The the values of the previous solutions, and insert into the
-        // matrix initialized above.
-        for (unsigned long k = 1; k < this->solutions.size(); ++k) {
-            fe_values.get_function_values(this->solutions[k],
-                                          prev_solution_values[k]);
-        }
-        double phi_iq;
-        double prev_values;
-        for (unsigned int q = 0; q < fe_values.n_quadrature_points; ++q) {
-            for (const unsigned int i : fe_values.dof_indices()) {
-
-                prev_values = 0;
-                for (unsigned long k = 1; k < this->solutions.size(); ++k) {
-                    prev_values += this->bdf_coeffs[k] * prev_solution_values[k][q];
-                }
-
-                phi_iq = fe_values.shape_value(i, q);
-                local_rhs(i) += (this->tau * rhs_values[q] * phi_iq // (f, v)
-                                 - prev_values * phi_iq       // (u_n, v)
-                                ) * fe_values.JxW(q);         // dx
-            }
-        }
-        this->rhs.add(loc2glb, local_rhs);
     }
 
 
@@ -469,7 +412,8 @@ namespace examples::cut::HeatEquation {
         std::vector<Tensor<1, dim>> prev_solution_grads(
                 fe_values.n_quadrature_points, Tensor<1, dim>());
         // TODO samme her
-        fe_values.get_function_gradients(this->solutions[1], prev_solution_grads);
+        fe_values.get_function_gradients(this->solutions[1],
+                                         prev_solution_grads);
 
         double phi;
         Tensor<1, dim> grad_phi;
@@ -528,10 +472,11 @@ namespace examples::cut::HeatEquation {
                 grad_phi[i] = fe_values.shape_grad(i, q);
 
                 local_rhs(i) +=
-                        this->tau * nu * (mu * bdd_values[q] * phi[i] // mu (g, v)
-                                    -
-                                    bdd_values[q] * grad_phi[i] *
-                                    normal // (g, n ∂_n v)
+                        this->tau * nu *
+                        (mu * bdd_values[q] * phi[i] // mu (g, v)
+                         -
+                         bdd_values[q] * grad_phi[i] *
+                         normal // (g, n ∂_n v)
                         ) * fe_values.JxW(q);        // ds
             }
         }
@@ -571,7 +516,8 @@ namespace examples::cut::HeatEquation {
         // Get the previous solution gradients.
         std::vector<Tensor<1, dim>> prev_solution_grads(
                 fe_values.n_quadrature_points, Tensor<1, dim>());
-        fe_values.get_function_gradients(this->solutions[1], prev_solution_grads);
+        fe_values.get_function_gradients(this->solutions[1],
+                                         prev_solution_grads);
 
         double gamma = 20 * this->element_order * (this->element_order + 1);
         double mu = gamma / this->h;
@@ -621,7 +567,7 @@ namespace examples::cut::HeatEquation {
     template<int dim>
     void HeatEqn<dim>::
     write_error_to_file(ErrorBase *error, std::ofstream &file) {
-        auto *err = dynamic_cast<ErrorScalar*>(error);
+        auto *err = dynamic_cast<ErrorScalar *>(error);
         file << err->h << ","
              << err->tau << ","
              << err->l2_error << ","

@@ -81,20 +81,35 @@ namespace utils::problems::scalar {
 
     protected:
         virtual void
-        interpolate_solution(int time_step) override;
+        interpolate_solution(hp::DoFHandler<dim> &dof_handler,
+                             int time_step,
+                             bool moving_domain = false) override;
+
+        virtual void
+        setup_fe_collection() override;
 
         void
-        distribute_dofs() override;
+        distribute_dofs(hp::DoFHandler<dim> &dof_handler) override;
 
         virtual void
         assemble_system() override;
 
+        virtual void
+        assemble_rhs_and_bdf_terms_local_over_cell(
+                const FEValues<dim> &fe_values,
+                const std::vector<types::global_dof_index> &loc2glb) override;
 
-        ErrorBase*
-        compute_error(Vector<double> &solution) override;
+        virtual void
+        assemble_rhs_and_bdf_terms_local_over_cell_moving_domain(
+                const FEValues<dim> &fe_values,
+                const std::vector<types::global_dof_index> &loc2glb) override;
 
-        ErrorBase*
-        compute_time_error(std::vector<ErrorBase*> &errors) override;
+        ErrorBase *
+        compute_error(hp::DoFHandler<dim> &dof_handler,
+                      Vector<double> &solution) override;
+
+        ErrorBase *
+        compute_time_error(std::vector<ErrorBase *> &errors) override;
 
         void
         integrate_cell(const FEValues<dim> &fe_v,
@@ -107,7 +122,8 @@ namespace utils::problems::scalar {
         write_time_header_to_file(std::ofstream &file) override;
 
         virtual void
-        write_time_error_to_file(ErrorBase *error, std::ofstream &file) override;
+        write_time_error_to_file(ErrorBase *error,
+                                 std::ofstream &file) override;
 
 
         virtual void
