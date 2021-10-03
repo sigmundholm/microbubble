@@ -57,7 +57,7 @@ void solve_for_element_order(int element_order, int max_refinement,
                           element_order,
                           write_output,
                           rhs, bdd, soln, domain, true, false);
-        ErrorBase *err = heat.run_moving_domain(1, 1);
+        ErrorBase *err = heat.run_moving_domain(1, time_steps);
         auto *error = dynamic_cast<ErrorScalar*>(err);
 
         std::cout << "|| u - u_h ||_L2 = " << error->l2_error << std::endl;
@@ -68,6 +68,7 @@ void solve_for_element_order(int element_order, int max_refinement,
         hp::DoFHandler<dim>& u1_dof_h = heat.get_dof_handler();
 
         // BDF-2
+        /*
         HeatEqn<dim> heat2(nu, tau, radius, half_length, n_refines,
                            element_order,
                            write_output,
@@ -75,9 +76,11 @@ void solve_for_element_order(int element_order, int max_refinement,
 
         std::vector<Vector<double>> initial = {u1};
         std::vector<std::reference_wrapper<hp::DoFHandler<dim>>> initial_dof_h = {u1_dof_h};
-        ErrorBase *err2 = heat2.run_moving_domain(2, time_steps,
-                                                  initial, initial_dof_h);
+        ErrorBase *err2 = heat2.run_time(2, time_steps,
+                                                  initial); //, initial_dof_h);
         auto *error2 = dynamic_cast<ErrorScalar*>(err2);
+         */
+        auto *error2 = dynamic_cast<ErrorScalar*>(err);
 
         std::cout << "|| u - u_h ||_L2 = " << error2->l2_error << std::endl;
         std::cout << "|| u - u_h ||_H1 = " << error2->h1_error << std::endl;

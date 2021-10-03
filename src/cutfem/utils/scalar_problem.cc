@@ -248,43 +248,78 @@ namespace utils::problems::scalar {
         this->rhs_function->value_list(fe_values.get_quadrature_points(),
                                        rhs_values);
 
-        double phi_iq;
+        // Create vector of the previous solutions values
+        std::vector<double> val(fe_values.n_quadrature_points, 0);
+        std::vector<std::vector<double>> prev_solution_values(
+                this->solutions.size(), val);
 
+        // The the values of the previous solutions, and insert into the
+        // matrix initialized above.
         const typename Triangulation<dim>::active_cell_iterator &cell =
                 fe_values.get_cell();
-        double num_solns = this->solutions.size();
+        hp::FEValues<dim> hp_fe_values(this->mapping_collection,
+                                       fe_collection,
+                                       q_collection,
+                                       update_values);
 
+        // Read out the solution values from the previous time steps that we
+        // need for the BDF-method.
+        double boundary_values_time;
         for (unsigned long k = 1; k < this->solutions.size(); ++k) {
             typename hp::DoFHandler<dim>::active_cell_iterator cell_prev(
                     &(this->triangulation), cell->level(), cell->index(),
                     &(this->dof_handlers[k]));
-            // TODO sjekk at ikke denne cellen har FE_Nothing
+            const FiniteElement<dim> &fe = cell_prev->get_fe();
+            if (fe.n_dofs_per_cell() == 0) {
+                // This means that in the previous solution step, this cell had
+                // FE_Nothing elements. We can therefore not use that cell to
+                // get the values we need for the BDF-formula.
+                // Instead, we therefore use the boundary_values function, to
+                // get the values in the quadrature points at time t - k*𝜏.
+                //  - TODO is this reasonable to do?
+                //  - In the case of the fluid flow example, where the
+                //    FE_Nothing are only set inside the bubble, we will always
+                //    have that the Dirichlet boundary conditions are known.
+                //    However, this is only exactly on the boundary, so using
+                //    these boundary conditions on the quadrature points inside
+                //    a cell will probably lead to errors.
+                //
+                // We want to compute the boundary values at time t - k*𝜏 at the
+                // quadrature points, we therefore need to store the time t
+                // from the boundary_values function, and set it back after we
+                // are done.
+                // TODO make sure we dont use boundary_values everywhere, but
+                //  still use the solution in the previous step where it is
+                //  possible.
+                boundary_values_time = this->boundary_values->get_time();
+                this->boundary_values->set_time(
+                        boundary_values_time - k * this->tau);
+                this->boundary_values->value_list(
+                        fe_values.get_quadrature_points(),
+                        prev_solution_values[k]);
+                this->boundary_values->set_time(boundary_values_time);
+            } else {
+                // TODO check that this is actually done.
+                hp_fe_values.reinit(cell_prev);
+                const FEValues<dim> &fe_values_prev = hp_fe_values.get_present_fe_values();
+                fe_values_prev.get_function_values(this->solutions[k],
+                                                   prev_solution_values[k]);
+            }
+        }
 
-            hp::FEValues<dim> hp_fe_values(this->mapping_collection,
-                                           fe_collection,
-                                           q_collection,
-                                           update_values);
-            hp_fe_values.reinit(cell_prev);
-
-            const FEValues<dim> &fe_values_prev = hp_fe_values.get_present_fe_values();
-
-            std::vector<double> u_prev_values(fe_values.n_quadrature_points, 0);
-            fe_values_prev.get_function_values(this->solutions[k],
-                                               u_prev_values);
-
-
-            for (unsigned int q = 0; q < fe_values.n_quadrature_points; ++q) {
-                for (const unsigned int i : fe_values.dof_indices()) {
-                    // Divide the rhs contribution by the number of solutions 
-                    // to avoid overcounting due to the outer loop.
-                    phi_iq = fe_values.shape_value(i, q);
-                    local_rhs(i) += (this->tau * rhs_values[q] * phi_iq /
-                                     num_solns // (f, v)
-                                     -
-                                     this->bdf_coeffs[k] * u_prev_values[q] *
-                                     phi_iq // α_k(u_n, v)
-                                    ) * fe_values.JxW(q); // dx
+        double phi_iq;
+        double prev_values;
+        for (unsigned int q = 0; q < fe_values.n_quadrature_points; ++q) {
+            for (const unsigned int i : fe_values.dof_indices()) {
+                prev_values = 0;
+                for (unsigned long k = 1; k < this->solutions.size(); ++k) {
+                    prev_values +=
+                            this->bdf_coeffs[k] * prev_solution_values[k][q];
                 }
+                phi_iq = fe_values.shape_value(i, q);
+                local_rhs(i) += (this->tau * rhs_values[q] * phi_iq // (f, v)
+                                 - prev_values * phi_iq       // (u_n, v)
+                                ) * fe_values.JxW(q);         // dx
             }
         }
         this->rhs.add(loc2glb, local_rhs);
@@ -469,7 +504,7 @@ namespace utils::problems::scalar {
         std::ofstream out("solution-d" + std::to_string(dim)
                           + "o" + std::to_string(this->element_order)
                           + "r" + std::to_string(this->n_refines) +
-                          + "-" + suffix + ".vtk");
+                          +"-" + suffix + ".vtk");
         data_out.write_vtk(out);
 
         // Output levelset function.

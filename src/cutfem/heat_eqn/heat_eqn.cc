@@ -288,7 +288,7 @@ namespace examples::cut::HeatEquation {
     template<int dim>
     void
     HeatEqn<dim>::assemble_rhs(int time_step, bool moving_domain) {
-        std::cout << "Assembling RHS" << std::endl;
+        std::cout << "Assembling RHS: Heat Equation" << std::endl;
 
         this->rhs = 0;
 
