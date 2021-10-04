@@ -1,3 +1,4 @@
+add_subdirectory(heat_eqn)
 add_subdirectory(poisson)
 add_subdirectory(projections)
 add_subdirectory(stokes)

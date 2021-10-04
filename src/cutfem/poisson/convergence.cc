@@ -7,6 +7,7 @@
 #include "cutfem/geometry/SignedDistanceSphere.h"
 
 using namespace cutfem;
+using namespace utils::problems::scalar;
 
 
 template<int dim>
@@ -40,12 +41,13 @@ void solve_for_element_order(int element_order, int max_refinement,
 
         Poisson<dim> poisson(radius, half_length, n_refines, element_order, write_output,
                              rhs, bdd, soln, domain);
-        Error error = poisson.run(false);
+        ErrorBase *err = poisson.run_step();
+        auto *error = dynamic_cast<ErrorScalar*>(err);
 
-        std::cout << "|| u - u_h ||_L2 = " << error.l2_error << std::endl;
-        std::cout << "|| u - u_h ||_H1 = " << error.h1_error << std::endl;
-        std::cout << "| u - u_h |_H1 = " << error.h1_semi << std::endl;
-        Poisson<dim>::write_error_to_file(error, file);
+        std::cout << "|| u - u_h ||_L2 = " << error->l2_error << std::endl;
+        std::cout << "|| u - u_h ||_H1 = " << error->h1_error << std::endl;
+        std::cout << "| u - u_h |_H1 = " << error->h1_semi << std::endl;
+        Poisson<dim>::write_error_to_file(err, file);
     }
 }
 

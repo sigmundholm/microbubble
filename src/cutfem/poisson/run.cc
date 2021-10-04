@@ -5,6 +5,7 @@
 
 using namespace cutfem;
 
+using namespace utils::problems::scalar;
 
 int main() {
     const int dim = 2;
@@ -33,5 +34,7 @@ int main() {
     Poisson<dim> poisson(radius, half_length, n_refines, degree, write_output,
                          rhs, bdd, soln, domain);
 
-    poisson.run(true);
+    ErrorBase *err = poisson.run_step();
+    auto *error = dynamic_cast<ErrorScalar*>(err);
+    error->output();
 }

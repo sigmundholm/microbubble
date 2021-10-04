@@ -334,7 +334,7 @@ def condnum_sensitivity_plot(path_stabilized, path_nonstabilized, colors=None, s
         plt.savefig(f"sensitivity-{'error' if errors else 'condnum'}.svg")
 
 
-def time_error_plots(paths, end_time, data_indices, title="", save_fig=True, identifier=1, font_size=10,
+def time_error_plots(paths, data_indices, title="", save_fig=True, identifier=1, font_size=10,
                      label_size='medium'):
     if_latex(True)
 
@@ -363,8 +363,8 @@ def time_error_plots(paths, end_time, data_indices, title="", save_fig=True, ide
             error = df[:, data_index]
 
             time_steps = df[:, 0]
-            tau = end_time / (len(error) - 1)
-            times = time_steps * tau
+            taus = df[:, 1]
+            times = time_steps * taus
 
             ax.plot(times, error, label=f"$M={len(time_steps) - 1}$", linestyle="--", marker=".",
                     color=cmap(i / len(paths)))
@@ -376,6 +376,50 @@ def time_error_plots(paths, end_time, data_indices, title="", save_fig=True, ide
 
         if save_fig:
             plt.savefig(f"{'-'.join(map(str.lower, title.split()[:2]))}-{identifier}-{data_index}.pdf")
+
+
+def eoc_plot_after_cut_off_time(build_base, factors, folder_names, end_time, cutoff_time, n_refines,
+                                columns_idx, max_norm_idx=(), max_norm_names=()):
+    for folder, factor in zip(folder_names, factors):
+        for poly_order in [1, 2]:
+            print("\nfactor =", factor, ", order =", poly_order)
+            # Errors calculated from the cutoff time
+            aggregated_data = []
+            head = []
+
+            for r in n_refines:
+                full_path = os.path.join(build_base, folder, f"errors-time-d2o{poly_order}r{r}.csv")
+                print(full_path)
+
+                head = list(map(str.strip, open(full_path).readline().split(",")))
+
+                data = np.genfromtxt(full_path, delimiter=",", skip_header=True)
+
+                tau = end_time / (pow(2, r - 1) * factor)
+                h = factor * tau
+                end_step = int(cutoff_time / tau)
+
+                cut_data = data[end_step:, :]
+                print(cut_data)
+
+                cut_off_norms = np.sqrt((cut_data ** 2 * tau).sum(axis=0))
+
+                max_norms = [cut_data[:, i].max() for i in max_norm_idx]
+                aggregated_data.append(np.array([h, *cut_off_norms[columns_idx], *max_norms]))
+
+            # Use the aggregated_data to calculate a new values for EOC
+            data_cols = np.array(aggregated_data)
+            print("\n", head)
+            print("order:", poly_order, ", factor =", factor)
+            xlabel = "M"
+
+            cut_head = ["h", *[head[i] for i in columns_idx], *max_norm_names]
+            print(cut_head)
+            eoc_plot(data_cols, cut_head,
+                     title=r"\textrm{Heat Equation (CutFEM) EOC, $k=" + str(poly_order) + r"$, $\tau=h/" + str(
+                         factor) + r"$, for $t\geq " + str(cutoff_time / end_time) + r"\, T$}",
+                     domain_lenght=end_time, lines_at=np.array([1, 2, 3]), xlabel=xlabel)
+            plt.savefig(f"eoc-cut-o{poly_order}-h_{factor}tau.pdf")
 
 
 if __name__ == '__main__':
