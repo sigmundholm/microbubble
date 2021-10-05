@@ -31,6 +31,7 @@
 #include "cutfem/stabilization/jump_stabilization.h"
 
 #include "../../utils/integration.h"
+#include "../../utils/output.h"
 #include "flow_problem.h"
 
 
@@ -45,157 +46,126 @@ namespace utils::problems::flow {
                 const bool write_output,
                 Function<dim> &levelset_func,
                 TensorFunction<1, dim> &analytic_v,
-                Function<dim> &analytic_p)
-            : n_refines(n_refines),
-              write_output(write_output),
-              element_order(element_order),
-              mixed_fe(FESystem<dim>(FE_Q<dim>(element_order + 1), dim),
-                       1,
-                       FE_Q<dim>(element_order),
-                       1), fe_levelset(element_order),
-              levelset_dof_handler(triangulation), dof_handler(triangulation),
-              cut_mesh_classifier(triangulation, levelset_dof_handler,
-                                  levelset) {
-        h = 0;
-        // Use no constraints when projecting.
-        constraints.close();
-
-        levelset_function = &levelset_func;
+                Function<dim> &analytic_p,
+                const bool stabilized)
+            : CutFEMProblem<dim>(n_refines, element_order,
+                                 write_output, levelset_func, stabilized),
+              mixed_fe(FESystem<dim>(FE_Q<dim>(element_order + 1), dim), 1,
+                       FE_Q<dim>(element_order), 1) {
         analytical_velocity = &analytic_v;
         analytical_pressure = &analytic_p;
     }
 
-    template<int dim>
-    void FlowProblem<dim>::
-    setup_quadrature() {
-        const unsigned int quadOrder = 2 * element_order + 1;
-        q_collection.push_back(QGauss<dim>(quadOrder));
-        q_collection1D.push_back(QGauss<1>(quadOrder));
-    }
-
-    template<int dim>
-    Error FlowProblem<dim>::
-    run_step() {
-        make_grid(triangulation);
-        setup_quadrature();
-        setup_level_set();
-        cut_mesh_classifier.reclassify();
-        distribute_dofs();
-        initialize_matrices();
-        assemble_system();
-        solve();
-        if (write_output) {
-            output_results();
-        }
-        return compute_error();
-    }
 
     template<int dim>
     void FlowProblem<dim>::
-    setup_level_set() {
-        std::cout << "Setting up level set" << std::endl;
+    interpolate_solution(hp::DoFHandler<dim> &dof_handler,
+                         int time_step,
+                         bool moving_domain) {
+        Utils::AnalyticalSolutionWrapper<dim> wrapper(*analytical_velocity,
+                                                      *analytical_pressure);
+        VectorTools::interpolate(dof_handler, wrapper, this->solutions.front());
+        // TODO burde kanskje heller interpolere boundary_values for
+        //  initial verdier?
+        // Important that the boundary_values function uses t=0, when
+        // we interpolate the initial value from it.
+        // boundary_values->set_time(0);
 
-        // The level set function lives on the whole background mesh.
-        levelset_dof_handler.distribute_dofs(fe_levelset);
-        printf("  leveset dofs: %d\n", levelset_dof_handler.n_dofs());
-        levelset.reinit(levelset_dof_handler.n_dofs());
+        // Use the boundary_values as initial values. Interpolate the
+        // boundary_values function into the finite element space.
+        // const unsigned int n_components_on_element = dim + 1;
+        // FEValuesExtractors::Vector velocities(0);
+        //VectorFunctionFromTensorFunction<dim> adapter(
+        //        *boundary_values,
+        //        velocities.first_vector_component,
+        //        n_components_on_element);
 
-        // Project the geometry onto the mesh.
-        VectorTools::project(levelset_dof_handler,
-                             constraints,
-                             QGauss<dim>(2 * element_order + 1),
-                             *levelset_function,
-                             levelset);
     }
 
     template<int dim>
     void FlowProblem<dim>::
-    distribute_dofs() {
-        std::cout << "Distributing dofs" << std::endl;
-
+    setup_fe_collection() {
         // We want to types of elements on the mesh
         // Lagrange elements and elements that are constant zero..
-        fe_collection.push_back(mixed_fe);
-        fe_collection.push_back(FESystem<dim>(
-                FESystem<dim>(FE_Nothing<dim>(), dim), 1, FE_Nothing<dim>(),
-                1));
+        this->fe_collection.push_back(mixed_fe);
+        this->fe_collection.push_back(
+                FESystem<dim>(FESystem<dim>(FE_Nothing<dim>(), dim), 1,
+                              FE_Nothing<dim>(), 1));
+    }
 
-        // Set outside finite elements to mixed_fe, and inside to FE_nothing
-        for (const auto &cell : dof_handler.active_cell_iterators()) {
-            if (LocationToLevelSet::OUTSIDE ==
-                cut_mesh_classifier.location_to_level_set(cell)) {
-                // 1 is FE_nothing
-                cell->set_active_fe_index(1);
-            } else {
-                // 0 is mixed_fe
-                cell->set_active_fe_index(0);
+
+    template<int dim>
+    void FlowProblem<dim>::
+    assemble_system() {
+        // TODO
+        assert(false);
+    }
+
+
+    template<int dim>
+    void FlowProblem<dim>::
+    assemble_rhs_and_bdf_terms_local_over_cell(
+            const FEValues<dim> &fe_v,
+            const std::vector<types::global_dof_index> &loc2glb) {
+        // TODO fix this
+        // Vector for the contribution of each cell
+        const unsigned int dofs_per_cell = fe_v.get_fe().dofs_per_cell;
+        Vector<double> local_rhs(dofs_per_cell);
+
+        // Vector for values of the RightHandSide for all quadrature points on a cell.
+        std::vector <Tensor<1, dim>> rhs_values(fe_v.n_quadrature_points,
+                                                Tensor<1, dim>());
+        this->rhs_function->value_list(fe_v.get_quadrature_points(),
+                                       rhs_values);
+
+        const FEValuesExtractors::Vector v(0);
+
+        std::vector <Tensor<1, dim>> val(fe_v.n_quadrature_points,
+                                         Tensor<1, dim>());
+        std::vector < std::vector < Tensor < 1, dim >> > prev_solutions_values(
+                this->solutions.size(), val);
+
+        for (unsigned int k = 0; k < this->solutions.size(); ++k) {
+            fe_v[v].get_function_values(this->solutions[k],
+                                        prev_solutions_values[k]);
+        }
+
+        Tensor<1, dim> phi_u;
+        Tensor<1, dim> prev_values;
+
+        for (unsigned int q = 0; q < fe_v.n_quadrature_points; ++q) {
+            for (const unsigned int i : fe_v.dof_indices()) {
+                // RHS
+                prev_values = Tensor<1, dim>();
+                for (unsigned int k = 1; k < this->solutions.size(); ++k) {
+                    prev_values +=
+                            this->bdf_coeffs[k] * prev_solutions_values[k][q];
+                }
+
+                phi_u = fe_v[v].value(i, q);
+                local_rhs(i) += (this->tau * rhs_values[q] * phi_u    // τ(f, v)
+                                 - prev_values * phi_u
+                                ) * fe_v.JxW(q);      // dx
             }
         }
-        dof_handler.distribute_dofs(fe_collection);
+        this->rhs.add(loc2glb, local_rhs);
     }
 
-    template<int dim>
-    void
-    FlowProblem<dim>::initialize_matrices() {
-        std::cout << "Initialize marices" << std::endl;
-        solution.reinit(dof_handler.n_dofs());
-        rhs.reinit(dof_handler.n_dofs());
-
-        cutfem::nla::make_sparsity_pattern_for_stabilized(dof_handler,
-                                                          sparsity_pattern);
-        stiffness_matrix.reinit(sparsity_pattern);
-    }
 
     template<int dim>
     void FlowProblem<dim>::
-    solve() {
-        std::cout << "Solving system" << std::endl;
-        SparseDirectUMFPACK inverse;
-        inverse.initialize(stiffness_matrix);
-        inverse.vmult(solution, rhs);
-    }
-
-    template<int dim>
-    void FlowProblem<dim>::
-    output_results(bool minimal_output) const {
-        std::cout << "Output results" << std::endl;
-        // Output results, see step-22
-        std::vector<std::string> solution_names(dim, "velocity");
-        solution_names.emplace_back("pressure");
-        std::vector<DataComponentInterpretation::DataComponentInterpretation> dci(
-                dim, DataComponentInterpretation::component_is_part_of_vector);
-        dci.push_back(DataComponentInterpretation::component_is_scalar);
-
-        DataOut<dim> data_out;
-        data_out.attach_dof_handler(dof_handler);
-        data_out.add_data_vector(solution,
-                                 solution_names,
-                                 DataOut<dim>::type_dof_data,
-                                 dci);
-
-        data_out.build_patches();
-        std::ofstream output("solution-d" + std::to_string(dim)
-                             + "o" + std::to_string(element_order)
-                             + "r" + std::to_string(n_refines) + ".vtk");
-        data_out.write_vtk(output);
-
-        if (!minimal_output) {
-            // Output levelset function.
-            DataOut<dim, DoFHandler<dim>> data_out_levelset;
-            data_out_levelset.attach_dof_handler(levelset_dof_handler);
-            data_out_levelset.add_data_vector(levelset, "levelset");
-            data_out_levelset.build_patches();
-            std::ofstream output_ls("levelset-d" + std::to_string(dim)
-                                    + "o" + std::to_string(element_order)
-                                    + "r" + std::to_string(n_refines) + ".vtk");
-            data_out_levelset.write_vtk(output_ls);
-        }
+    assemble_rhs_and_bdf_terms_local_over_cell_moving_domain(
+            const FEValues<dim> &fe_values,
+            const std::vector<types::global_dof_index> &loc2glb) {
+        // TODO
+        assert(false);
     }
 
 
     template<int dim>
-    Error FlowProblem<dim>::
-    compute_error() {
+    ErrorBase *FlowProblem<dim>::
+    compute_error(hp::DoFHandler<dim> &dof_handler,
+                  Vector<double> &solution) {
         std::cout << "Compute error" << std::endl;
         NonMatching::RegionUpdateFlags region_update_flags;
         region_update_flags.inside = update_values | update_JxW_values |
@@ -206,14 +176,14 @@ namespace utils::problems::flow {
                                       update_quadrature_points |
                                       update_normal_vectors;
 
-        NonMatching::FEValues<dim> cut_fe_values(mapping_collection,
-                                                 fe_collection,
-                                                 q_collection,
-                                                 q_collection1D,
+        NonMatching::FEValues<dim> cut_fe_values(this->mapping_collection,
+                                                 this->fe_collection,
+                                                 this->q_collection,
+                                                 this->q_collection1D,
                                                  region_update_flags,
-                                                 cut_mesh_classifier,
-                                                 levelset_dof_handler,
-                                                 levelset);
+                                                 this->cut_mesh_classifier,
+                                                 this->levelset_dof_handler,
+                                                 this->levelset);
 
         // Compute the mean of the numerical and the exact pressure over the
         // domain, to subtract it before computing the error.
@@ -238,21 +208,70 @@ namespace utils::problems::flow {
                     cut_fe_values.get_inside_fe_values();
 
             if (fe_values_inside) {
-                integrate_cell(*fe_values_inside, l2_error_integral_u,
+                integrate_cell(*fe_values_inside, solution, l2_error_integral_u,
                                h1_error_integral_u, l2_error_integral_p,
                                h1_error_integral_p, mean_num_pressure,
                                mean_ext_pressure);
             }
         }
 
-        Error error;
-        error.h = h;
-        error.l2_error_u = pow(l2_error_integral_u, 0.5);
-        error.h1_error_u = pow(l2_error_integral_u + h1_error_integral_u, 0.5);
-        error.h1_semi_u = pow(h1_error_integral_u, 0.5);
-        error.l2_error_p = pow(l2_error_integral_p, 0.5);
-        error.h1_error_p = pow(l2_error_integral_p + h1_error_integral_p, 0.5);
-        error.h1_semi_p = pow(h1_error_integral_p, 0.5);
+        ErrorFlow *error = new ErrorFlow();
+        error->h = this->h;
+        error->tau = this->tau;
+        error->l2_error_u = pow(l2_error_integral_u, 0.5);
+        error->h1_error_u = pow(l2_error_integral_u + h1_error_integral_u, 0.5);
+        error->h1_semi_u = pow(h1_error_integral_u, 0.5);
+        error->l2_error_p = pow(l2_error_integral_p, 0.5);
+        error->h1_error_p = pow(l2_error_integral_p + h1_error_integral_p, 0.5);
+        error->h1_semi_p = pow(h1_error_integral_p, 0.5);
+        return error;
+    }
+
+
+    /**
+     * Compute the L2 and H1 error based on the computed error from each time
+     * step.
+     *
+     * Compute the square root of the sum of the squared errors from each time
+     * steps, weighted by the time step length tau for each term in the sum.
+     */
+    template<int dim>
+    ErrorBase *FlowProblem<dim>::
+    compute_time_error(std::vector<ErrorBase *> &errors) {
+        double l2_error_integral_u = 0;
+        double h1_error_integral_u = 0;
+        double l2_error_integral_p = 0;
+        double h1_error_integral_p = 0;
+
+        double l_inf_l2_u = 0;
+        double l_inf_h1_u = 0;
+
+        for (ErrorBase *error : errors) {
+            auto *err = dynamic_cast<ErrorFlow *>(error);
+            l2_error_integral_u += this->tau * pow(err->l2_error_u, 2);
+            h1_error_integral_u += this->tau * pow(err->h1_semi_u, 2);
+            l2_error_integral_p += this->tau * pow(err->l2_error_p, 2);
+            h1_error_integral_p += this->tau * pow(err->h1_semi_p, 2);
+
+            if (err->l2_error_u > l_inf_l2_u)
+                l_inf_l2_u = err->l2_error_u;
+            if (err->h1_error_u > l_inf_h1_u)
+                l_inf_h1_u = err->h1_error_u;
+        }
+
+        auto *error = new ErrorFlow();
+        error->h = this->h;
+        error->tau = this->tau;
+
+        error->l2_error_u = pow(l2_error_integral_u, 0.5);
+        error->h1_error_u = pow(l2_error_integral_u + h1_error_integral_u, 0.5);
+        error->h1_semi_u = pow(h1_error_integral_u, 0.5);
+        error->l2_error_p = pow(l2_error_integral_p, 0.5);
+        error->h1_error_p = pow(l2_error_integral_p + h1_error_integral_p, 0.5);
+        error->h1_semi_p = pow(h1_error_integral_p, 0.5);
+
+        error->l_inf_l2_error_u = l_inf_l2_u;
+        error->l_inf_h1_error_u = l_inf_h1_u;
         return error;
     }
 
@@ -260,6 +279,7 @@ namespace utils::problems::flow {
     template<int dim>
     void FlowProblem<dim>::
     integrate_cell(const FEValues<dim> &fe_v,
+                   Vector<double> &solution,
                    double &l2_error_integral_u,
                    double &h1_error_integral_u,
                    double &l2_error_integral_p,
@@ -329,22 +349,70 @@ namespace utils::problems::flow {
 
     template<int dim>
     void FlowProblem<dim>::
-    write_header_to_file(std::ofstream &file) {
-        file << "h, \\|u\\|_{L^2}, \\|u\\|_{H^1}, |u|_{H^1}, "
-                "\\|p\\|_{L^2}, \\|p\\|_{H^1}, |p|_{H^1}" << std::endl;
+    write_time_header_to_file(std::ofstream &file) {
+        file << "k, \\tau, h, \\|u\\|_{L^2}, \\|u\\|_{H^1}, |u|_{H^1}, "
+                "\\|p\\|_{L^2}, \\|p\\|_{H^1}, |p|_{H^1}, \\kappa(A)"
+             << std::endl;
     }
 
 
     template<int dim>
     void FlowProblem<dim>::
-    write_error_to_file(Error &error, std::ofstream &file) {
-        file << error.h << ","
-             << error.l2_error_u << ","
-             << error.h1_error_u << ","
-             << error.h1_semi_u << ","
-             << error.l2_error_p << ","
-             << error.h1_error_p << ","
-             << error.h1_semi_p << std::endl;
+    write_time_error_to_file(ErrorBase *error, std::ofstream &file) {
+        auto *err = dynamic_cast<ErrorFlow *>(error);
+        file << err->time_step << ","
+             << err->tau << ","
+             << err->h << ","
+             << err->l2_error_u << ","
+             << err->h1_error_u << ","
+             << err->h1_semi_u << ","
+             << err->l2_error_p << ","
+             << err->h1_error_p << ","
+             << err->h1_semi_p << ","
+             << err->cond_num << std::endl;
+    }
+
+
+    template<int dim>
+    void FlowProblem<dim>::
+    output_results(hp::DoFHandler<dim> &dof_handler,
+                   Vector<double> &solution,
+                   std::string &suffix,
+                   bool minimal_output) const {
+        std::cout << "Output results flow" << std::endl;
+        // Output results, see step-22
+        std::vector<std::string> solution_names(dim, "velocity");
+        solution_names.emplace_back("pressure");
+        std::vector<DataComponentInterpretation::DataComponentInterpretation> dci(
+                dim, DataComponentInterpretation::component_is_part_of_vector);
+        dci.push_back(DataComponentInterpretation::component_is_scalar);
+
+        DataOut<dim> data_out;
+        data_out.attach_dof_handler(dof_handler);
+        data_out.add_data_vector(solution,
+                                 solution_names,
+                                 DataOut<dim>::type_dof_data,
+                                 dci);
+
+        data_out.build_patches();
+        std::ofstream output("solution-d" + std::to_string(dim)
+                             + "o" + std::to_string(this->element_order)
+                             + "r" + std::to_string(this->n_refines)
+                             + "-" + suffix + ".vtk");
+        data_out.write_vtk(output);
+
+        if (!minimal_output) {
+            // Output levelset function.
+            DataOut<dim, DoFHandler<dim>> data_out_levelset;
+            data_out_levelset.attach_dof_handler(this->levelset_dof_handler);
+            data_out_levelset.add_data_vector(this->levelset, "levelset");
+            data_out_levelset.build_patches();
+            std::ofstream output_ls("levelset-d" + std::to_string(dim)
+                                    + "o" + std::to_string(this->element_order)
+                                    + "r" + std::to_string(this->n_refines)
+                                    + "-" + suffix + ".vtk");
+            data_out_levelset.write_vtk(output_ls);
+        }
     }
 
 

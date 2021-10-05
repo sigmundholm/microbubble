@@ -88,9 +88,6 @@ namespace utils::problems::scalar {
         virtual void
         setup_fe_collection() override;
 
-        void
-        distribute_dofs(hp::DoFHandler<dim> &dof_handler) override;
-
         virtual void
         assemble_system() override;
 
@@ -115,7 +112,7 @@ namespace utils::problems::scalar {
         integrate_cell(const FEValues<dim> &fe_v,
                        Vector<double> &solution,
                        double &l2_error_integral,
-                       double &h1_error_integral) const override;
+                       double &h1_error_integral) const;
 
 
         virtual void
@@ -127,11 +124,15 @@ namespace utils::problems::scalar {
 
 
         virtual void
-        output_results(std::string &suffix,
+        output_results(hp::DoFHandler<dim> &dof_handler,
+                       Vector<double> &solution,
+                       std::string &suffix,
                        bool minimal_output = false) const override;
 
         FE_Q<dim> fe;
 
+        Function<dim> *rhs_function;
+        Function<dim> *boundary_values;
         Function<dim> *analytical_solution;
 
     };

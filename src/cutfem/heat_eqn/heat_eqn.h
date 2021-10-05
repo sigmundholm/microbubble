@@ -95,7 +95,7 @@ namespace examples::cut::HeatEquation {
         void
         assemble_rhs(int time_step, bool moving_domain) override;
 
-        void
+        void // TODO not a non-cn version of this method?
         assemble_rhs_local_over_cell_cn(const FEValues<dim> &fe_values,
                                         const std::vector<types::global_dof_index> &loc2glb,
                                         const int time_step) override;

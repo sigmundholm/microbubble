@@ -30,7 +30,7 @@
 
 #include <vector>
 
-#include "cutfem/errors/error_calculator.h"
+#include "cutfem_problem.h"
 
 
 using namespace dealii;
@@ -39,79 +39,80 @@ using namespace cutfem;
 namespace utils::problems::flow {
 
     using NonMatching::LocationToLevelSet;
+    using namespace utils::problems;
 
-
-    struct Error {
-        double h = 0;
-        double tau = 0;
-        double time_step = 0;
+    struct ErrorFlow : ErrorBase {
         double l2_error_u = 0;
         double h1_error_u = 0;
         double h1_semi_u = 0;
         double l2_error_p = 0;
         double h1_error_p = 0;
         double h1_semi_p = 0;
+        double l_inf_l2_error_u = 0;
+        double l_inf_h1_error_u = 0;
+
+        void output() override {
+            std::cout << "  k = " << time_step << ", "
+                      << "|| u - u_h ||_L2 = " << l2_error_u
+                      << ", || u - u_h ||_H1 = " << h1_error_u
+                      << ", || p - p_h ||_L2 = " << l2_error_p
+                      << ", || p - p_h ||_H1 = " << h1_error_p
+                      << std::endl;
+        }
     };
 
 
     template<int dim>
-    class FlowProblem {
+    class FlowProblem : public CutFEMProblem<dim> {
     public:
         FlowProblem(const unsigned int n_refines,
                     const int element_order,
                     const bool write_output,
                     Function<dim> &levelset_func,
                     TensorFunction<1, dim> &analytic_v,
-                    Function<dim> &analytic_p);
-
-        virtual Error
-        run_step();
+                    Function<dim> &analytic_p,
+                    const bool stabilized = true);
 
         static void
         write_header_to_file(std::ofstream &file);
 
         static void
-        write_error_to_file(Error &error, std::ofstream &file);
+        write_error_to_file(ErrorBase *error, std::ofstream &file);
 
     protected:
         virtual void
-        make_grid(Triangulation<dim> &tria) = 0;
-
-        void
-        setup_level_set();
-
-        void
-        setup_quadrature();
-
-        void
-        distribute_dofs();
-
-        void
-        initialize_matrices();
+        interpolate_solution(hp::DoFHandler<dim> &dof_handler,
+                             int time_step,
+                             bool moving_domain = false) override;
 
         virtual void
-        assemble_system() = 0;
+        setup_fe_collection() override;
+
 
         virtual void
-        assemble_local_over_bulk(const FEValues<dim> &fe_values,
-                                 const std::vector<types::global_dof_index> &loc2glb) = 0;
+        assemble_system() override;
 
         virtual void
-        assemble_local_over_surface(
-                const FEValuesBase<dim> &fe_values,
-                const std::vector<types::global_dof_index> &loc2glb) = 0;
+        assemble_rhs_and_bdf_terms_local_over_cell(
+                const FEValues<dim> &fe_v,
+                const std::vector<types::global_dof_index> &loc2glb) override;
 
-        void
-        solve();
+        virtual void
+        assemble_rhs_and_bdf_terms_local_over_cell_moving_domain(
+                const FEValues<dim> &fe_values,
+                const std::vector<types::global_dof_index> &loc2glb) override;
 
-        void
-        output_results(bool minimal_output = false) const;
 
-        Error
-        compute_error();
+        ErrorBase *
+        compute_error(hp::DoFHandler<dim> &dof_handler,
+                      Vector<double> &solution) override;
+
+        ErrorBase *
+        compute_time_error(std::vector<ErrorBase *> &errors) override;
 
         void
         integrate_cell(const FEValues<dim> &fe_v,
+                       Vector<double> &solution,
                        double &l2_error_integral_u,
                        double &h1_error_integral_u,
                        double &l2_error_integral_p,
@@ -119,46 +120,28 @@ namespace utils::problems::flow {
                        const double &mean_numerical_pressure,
                        const double &mean_exact_pressure) const;
 
-        const unsigned int n_refines;
-        bool write_output;
 
-        Function<dim> *levelset_function;
+        virtual void
+        write_time_header_to_file(std::ofstream &file) override;
+
+        virtual void
+        write_time_error_to_file(ErrorBase *error,
+                                 std::ofstream &file) override;
+
+
+        virtual void
+        output_results(hp::DoFHandler<dim> &dof_handler,
+                       Vector<double> &solution,
+                       std::string &suffix,
+                       bool minimal_output = false) const override;
+
+        FESystem<dim> mixed_fe;
+
         TensorFunction<1, dim> *rhs_function;
         TensorFunction<1, dim> *boundary_values;
         TensorFunction<1, dim> *analytical_velocity;
         Function<dim> *analytical_pressure;
-
-        // Cell side-length.
-        double h;
-        double tau;
-        const unsigned int element_order;
-
-        Triangulation<dim> triangulation;
-        FESystem<dim> mixed_fe;
-
-        hp::FECollection<dim> fe_collection;
-        hp::MappingCollection<dim> mapping_collection;
-        hp::QCollection<dim> q_collection;
-        hp::QCollection<1> q_collection1D;
-
-        // Object managing degrees of freedom for the level set function.
-        FE_Q<dim> fe_levelset;
-        DoFHandler<dim> levelset_dof_handler;
-        Vector<double> levelset;
-
-        // Object managing degrees of freedom for the cutfem method.
-        hp::DoFHandler<dim> dof_handler;
-
-        NonMatching::CutMeshClassifier<dim> cut_mesh_classifier;
-
-        SparsityPattern sparsity_pattern;
-        SparseMatrix<double> stiffness_matrix;
-        Vector<double> rhs;
-
-        Vector<double> solution;
-
-        AffineConstraints<double> constraints;
-    };
+};
 
 } // namespace utils::problems::flow
 

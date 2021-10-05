@@ -144,7 +144,7 @@ namespace utils::problems {
         setup_fe_collection() = 0;
 
         virtual void
-        distribute_dofs(hp::DoFHandler<dim> &dof_handler) = 0;
+        distribute_dofs(hp::DoFHandler<dim> &dof_handler);
 
         virtual void
         initialize_matrices();
@@ -172,6 +172,7 @@ namespace utils::problems {
                 const FEValuesBase<dim> &fe_values,
                 const std::vector<types::global_dof_index> &loc2glb);
 
+        // TODO create a method assemble_rhs() for stationary problems.
 
         virtual void
         assemble_matrix();
@@ -229,12 +230,6 @@ namespace utils::problems {
         virtual ErrorBase *
         compute_time_error(std::vector<ErrorBase *> &errors) = 0;
 
-        virtual void
-        integrate_cell(const FEValues<dim> &fe_v,
-                       Vector<double> &solution,
-                       double &l2_error_integral,
-                       double &h1_error_integral) const = 0;
-
         double
         compute_condition_number();
 
@@ -247,15 +242,21 @@ namespace utils::problems {
 
 
         virtual void
-        output_results(std::string &suffix,
+        output_results(hp::DoFHandler<dim> &dof_handler,
+                       Vector<double> &solution,
+                       std::string &suffix,
                        bool minimal_output = false) const = 0;
 
         virtual void
-        output_results(int time_step,
+        output_results(hp::DoFHandler<dim> &dof_handler,
+                       Vector<double> &solution,
+                       int time_step,
                        bool minimal_output = false) const;
 
         virtual void
-        output_results(bool minimal_output = false) const;
+        output_results(hp::DoFHandler<dim> &dof_handler,
+                       Vector<double> &solution,
+                       bool minimal_output = false) const;
 
         const unsigned int n_refines;
         const unsigned int element_order;
@@ -276,8 +277,6 @@ namespace utils::problems {
         DoFHandler<dim> levelset_dof_handler;
         Vector<double> levelset;
 
-        Function<dim> *rhs_function;
-        Function<dim> *boundary_values;
         Function<dim> *levelset_function;
 
         // Object managing degrees of freedom for the cutfem method.

@@ -47,21 +47,9 @@ namespace examples::cut::projections {
                                         const double sphere_radius,
                                         const double sphere_x_coord)
             : FlowProblem<dim>(n_refines, element_order, write_output,
-                               levelset_func,
-                               analytic_vel, analytic_pressure),
-              radius(radius), half_length(half_length) {
-        this->h = 0;
-        // Use no constraints when projecting.
-        this->constraints.close();
+                               levelset_func, analytic_vel, analytic_pressure),
+              radius(radius), half_length(half_length) {}
 
-    }
-
-
-    template<int dim>
-    Vector<double> ProjectionFlow<dim>::
-    get_solution() {
-        return this->solution;
-    }
 
     template<int dim>
     void ProjectionFlow<dim>::
@@ -92,7 +80,7 @@ namespace examples::cut::projections {
         // TODO ta ut stabiliseringen i en egen funksjon?
         const FEValuesExtractors::Vector velocities(0);
         stabilization::JumpStabilization<dim, FEValuesExtractors::Vector>
-                velocity_stab(this->dof_handler,
+                velocity_stab(this->dof_handlers.front(),
                               this->mapping_collection,
                               this->cut_mesh_classifier,
                               this->constraints);
@@ -103,7 +91,7 @@ namespace examples::cut::projections {
 
         const FEValuesExtractors::Scalar pressure(dim);
         stabilization::JumpStabilization<dim, FEValuesExtractors::Scalar>
-                pressure_stab(this->dof_handler,
+                pressure_stab(this->dof_handlers.front(),
                               this->mapping_collection,
                               this->cut_mesh_classifier,
                               this->constraints);
@@ -114,7 +102,8 @@ namespace examples::cut::projections {
 
         // TODO sett disse litt ordentlig.
         double beta_0 = 0.1;
-        double gamma_M = beta_0 * this->element_order * this->element_order;
+        double gamma_M =
+                beta_0 * this->element_order * (this->element_order + 1);
 
         NonMatching::RegionUpdateFlags region_update_flags;
         region_update_flags.inside = update_values | update_JxW_values |
@@ -143,7 +132,7 @@ namespace examples::cut::projections {
                                          update_normal_vectors |
                                          update_JxW_values);
 
-        for (const auto &cell : this->dof_handler.active_cell_iterators()) {
+        for (const auto &cell : this->dof_handlers.front().active_cell_iterators()) {
             const unsigned int n_dofs = cell->get_fe().dofs_per_cell;
             std::vector<types::global_dof_index> loc2glb(n_dofs);
             cell->get_dof_indices(loc2glb);
@@ -158,7 +147,7 @@ namespace examples::cut::projections {
                     cut_fe_values.get_inside_fe_values();
 
             if (fe_values_bulk)
-                assemble_local_over_bulk(*fe_values_bulk, loc2glb);
+                assemble_local_over_cell(*fe_values_bulk, loc2glb);
 
             // Compute and add the velocity stabilization.
             velocity_stab.compute_stabilization(cell);
@@ -169,7 +158,7 @@ namespace examples::cut::projections {
 
     template<int dim>
     void ProjectionFlow<dim>::
-    assemble_local_over_bulk(const FEValues<dim> &fe_values,
+    assemble_local_over_cell(const FEValues<dim> &fe_values,
                              const std::vector<types::global_dof_index> &loc2glb) {
 
         // Matrix and vector for the contribution of each cell

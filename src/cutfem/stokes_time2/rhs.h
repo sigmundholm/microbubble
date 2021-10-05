@@ -7,22 +7,9 @@
 
 using namespace dealii;
 
-namespace TimeDependentStokesBDF2 {
 
-    struct Error {
-        double time_step = 0;
-        double tau = 0;
-        double mesh_size = 0;
-        double l2_error_u = 0;
-        double h1_error_u = 0;
-        double h1_semi_u = 0;
-        double l2_error_p = 0;
-        double h1_error_p = 0;
-        double h1_semi_p = 0;
+namespace examples::cut::StokesEquation {
 
-        double l_inf_l2_error_u = 0;
-        double l_inf_h1_error_u = 0;
-    };
 
     template<int dim>
     class RightHandSide : public TensorFunction<1, dim> {
@@ -78,7 +65,24 @@ namespace TimeDependentStokesBDF2 {
         const double nu;
     };
 
-} // namespace TimeDependentStokesBDF2
+
+    template<int dim>
+    class MovingDomain : public Function<dim> {
+    public :
+        MovingDomain(const double sphere_radius,
+                     const double half_length,
+                     const double radius);
+
+        double
+        value(const Point<dim> &p, const unsigned int component) const override;
+
+    private:
+        const double sphere_radius;
+        const double half_length;
+        const double radius;
+    };
+
+} // namespace examples::cut::StokesEquation
 
 
 #endif // MICROBUBBLE_STOKES_BDF2_RHS_H

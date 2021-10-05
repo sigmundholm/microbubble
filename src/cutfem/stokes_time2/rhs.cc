@@ -10,7 +10,7 @@
 #define pi 3.141592653589793
 
 
-namespace TimeDependentStokesBDF2 {
+namespace examples::cut::StokesEquation {
 
 
     template<int dim>
@@ -118,6 +118,27 @@ namespace TimeDependentStokesBDF2 {
         return value;
     }
 
+
+    template<int dim>
+    MovingDomain<dim>::MovingDomain(const double sphere_radius,
+                                    const double half_length,
+                                    const double radius)
+            : sphere_radius(sphere_radius), half_length(half_length),
+              radius(radius) {}
+
+    template<int dim>
+    double MovingDomain<dim>::
+    value(const Point<dim> &p, const unsigned int component) const {
+        (void) component;
+        double t = this->get_time();
+        double x0 = 0.9 * (half_length - sphere_radius) * sin(2 * pi * t);
+        double y0 = 0;
+        double x = p[0];
+        double y = p[1];
+        return - sqrt(pow(x - x0, 2) + pow(y - y0, 2)) + sphere_radius;
+    }
+
+
     template
     class RightHandSide<2>;
 
@@ -130,4 +151,10 @@ namespace TimeDependentStokesBDF2 {
     template
     class AnalyticalPressure<2>;
 
-} // namespace TimeDependentStokesBDF2
+    template
+    class MovingDomain<2>;
+
+    template
+    class MovingDomain<3>;
+
+} // namespace examples::cut::StokesEquation

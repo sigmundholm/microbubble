@@ -54,11 +54,8 @@ namespace examples::cut::projections {
                        Function<dim> &levelset_func,
                        TensorFunction<1, dim> &analytic_vel,
                        Function<dim> &analytic_pressure,
-                       const double sphere_radius,
+                       const double sphere_radius, // TODO remove these
                        const double sphere_x_coord);
-
-        Vector<double>
-        get_solution();
 
     protected:
         void
@@ -68,7 +65,7 @@ namespace examples::cut::projections {
         assemble_system() override;
 
         void
-        assemble_local_over_bulk(const FEValues<dim> &fe_values,
+        assemble_local_over_cell(const FEValues<dim> &fe_values,
                                  const std::vector<types::global_dof_index> &loc2glb) override;
 
         void
