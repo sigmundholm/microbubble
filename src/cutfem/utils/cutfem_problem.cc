@@ -62,7 +62,8 @@ namespace utils::problems {
         this->assemble_system();
         solve();
         if (write_output) {
-            output_results();
+            output_results(this->dof_handlers.front(),
+                           this->solutions.front());
         }
         return compute_error(dof_handlers.front(), solutions.front());
     }
@@ -89,6 +90,7 @@ namespace utils::problems {
              std::vector<Vector<double>> &supplied_solutions) {
 
         std::cout << "\nBDF-" << bdf_type << ", steps=" << steps << std::endl;
+        // TODO fix BDF-2 with given u1 from BDF-1
 
         make_grid(this->triangulation);
         setup_quadrature();
@@ -151,7 +153,8 @@ namespace utils::problems {
             errors[k]->output();
 
             if (this->write_output) {
-                this->output_results(k, true);
+                this->output_results(this->dof_handlers.front(),
+                                     this->solutions.front(), k, true);
             }
 
             // Remove the oldest solution, since it is no longer needed.
@@ -253,7 +256,8 @@ namespace utils::problems {
             errors[k]->output();
 
             if (write_output) {
-                output_results(k, false);
+                output_results(this->dof_handlers.front(),
+                               this->solutions.front(), k, false);
             }
 
             // Remove the oldest solution and dof_handler, since they are
@@ -355,7 +359,8 @@ namespace utils::problems {
                                             solutions.front());
             errors[k]->time_step = k;
             std::string suffix = std::to_string(k) + "-inter";
-            this->output_results(suffix);
+            this->output_results(this->dof_handlers.front(),
+                                 this->solutions.front(), suffix);
         }
 
         // TODO burde kanskje heller interpolere boundary_values for
@@ -383,7 +388,6 @@ namespace utils::problems {
                            std::vector<ErrorBase *> &errors,
                            bool moving_domain) {
         std::cout << "Set supplied solutions" << std::endl;
-        std::cout << "  solutions.size() = " << solutions.size() << std::endl;
 
         // At this point we assume the solution vector that are used for solving
         // the next time step is not yet created.
@@ -481,6 +485,25 @@ namespace utils::problems {
 
     template<int dim>
     void CutFEMProblem<dim>::
+    distribute_dofs(hp::DoFHandler<dim> &dof_handler) {
+        // TODO fiks dette for å få et sirkulært domene istedet.
+        // Set outside finite elements to fe, and inside to FE_nothing
+        for (const auto &cell : dof_handler.active_cell_iterators()) {
+            if (LocationToLevelSet::OUTSIDE ==
+                this->cut_mesh_classifier.location_to_level_set(cell)) {
+                // 1 is FE_nothing
+                cell->set_active_fe_index(1);
+            } else {
+                // 0 is fe
+                cell->set_active_fe_index(0);
+            }
+        }
+        dof_handler.distribute_dofs(this->fe_collection);
+    }
+
+
+    template<int dim>
+    void CutFEMProblem<dim>::
     initialize_matrices() {
         std::cout << "Initialize marices" << std::endl;
         int n_dofs = dof_handlers.front().n_dofs();
@@ -494,62 +517,84 @@ namespace utils::problems {
 
     template<int dim>
     void CutFEMProblem<dim>::
-    assemble_system() {}
+    assemble_system() {
+        throw std::logic_error("Not implemented.");
+    }
 
     template<int dim>
     void CutFEMProblem<dim>::
     assemble_local_over_cell(const FEValues<dim> &fe_values,
-                             const std::vector<types::global_dof_index> &loc2glb) {}
+                             const std::vector<types::global_dof_index> &loc2glb) {
+        throw std::logic_error("Not implemented.");
+    }
 
     template<int dim>
     void CutFEMProblem<dim>::
     assemble_local_over_surface(
             const FEValuesBase<dim> &fe_values,
-            const std::vector<types::global_dof_index> &loc2glb) {}
+            const std::vector<types::global_dof_index> &loc2glb) {
+        throw std::logic_error("Not implemented.");
+    }
 
 
     template<int dim>
     void CutFEMProblem<dim>::
-    assemble_matrix() {}
+    assemble_matrix() {
+        throw std::logic_error("Not implemented.");
+    }
 
     template<int dim>
     void CutFEMProblem<dim>::
     assemble_matrix_local_over_cell(const FEValues<dim> &fe_values,
-                                    const std::vector<types::global_dof_index> &loc2glb) {}
+                                    const std::vector<types::global_dof_index> &loc2glb) {
+        throw std::logic_error("Not implemented.");
+    }
 
     template<int dim>
     void CutFEMProblem<dim>::
     assemble_matrix_local_over_surface(
             const FEValuesBase<dim> &fe_values,
-            const std::vector<types::global_dof_index> &loc2glb) {}
+            const std::vector<types::global_dof_index> &loc2glb) {
+        throw std::logic_error("Not implemented.");
+    }
 
     template<int dim>
     void CutFEMProblem<dim>::
-    assemble_rhs(int time_step, bool moving_domain) {}
+    assemble_rhs(int time_step, bool moving_domain) {
+        throw std::logic_error("Not implemented.");
+    }
 
     template<int dim>
     void CutFEMProblem<dim>::
     assemble_rhs_local_over_cell(const FEValues<dim> &fe_values,
-                                 const std::vector<types::global_dof_index> &loc2glb) {}
+                                 const std::vector<types::global_dof_index> &loc2glb) {
+        throw std::logic_error("Not implemented.");
+    }
 
     template<int dim>
     void CutFEMProblem<dim>::
     assemble_rhs_local_over_cell_cn(const FEValues<dim> &fe_values,
                                     const std::vector<types::global_dof_index> &loc2glb,
-                                    const int time_step) {}
+                                    const int time_step) {
+        throw std::logic_error("Not implemented.");
+    }
 
     template<int dim>
     void CutFEMProblem<dim>::
     assemble_rhs_local_over_surface(
             const FEValuesBase<dim> &fe_values,
-            const std::vector<types::global_dof_index> &loc2glob) {}
+            const std::vector<types::global_dof_index> &loc2glob) {
+        throw std::logic_error("Not implemented.");
+    }
 
     template<int dim>
     void CutFEMProblem<dim>::
     assemble_rhs_local_over_surface_cn(
             const FEValuesBase<dim> &fe_values,
             const std::vector<types::global_dof_index> &loc2glob,
-            const int time_step) {}
+            const int time_step) {
+        throw std::logic_error("Not implemented.");
+    }
 
 
     template<int dim>
@@ -586,17 +631,21 @@ namespace utils::problems {
 
     template<int dim>
     void CutFEMProblem<dim>::
-    output_results(bool minimal_output) const {
+    output_results(hp::DoFHandler<dim> &dof_handler,
+                   Vector<double> &solution,
+                   bool minimal_output) const {
         std::string empty;
-        output_results(empty, minimal_output);
+        output_results(dof_handler, solution, empty, minimal_output);
     }
 
 
     template<int dim>
     void CutFEMProblem<dim>::
-    output_results(int time_step, bool minimal_output) const {
+    output_results(hp::DoFHandler<dim> &dof_handler,
+                   Vector<double> &solution,
+                   int time_step, bool minimal_output) const {
         std::string k = std::to_string(time_step);
-        output_results(k, minimal_output);
+        output_results(dof_handler, solution, k, minimal_output);
     }
 
 

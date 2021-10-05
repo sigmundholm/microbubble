@@ -54,6 +54,7 @@ namespace utils::problems::scalar {
                                              int time_step,
                                              bool moving_domain) {
         // TODO if k = 0, interpolate the boundary_values function
+        // TODO take solution as an argument.
         VectorTools::interpolate(dof_handler,
                                  *(this->analytical_solution),
                                  this->solutions.front());
@@ -68,25 +69,6 @@ namespace utils::problems::scalar {
         this->fe_collection.push_back(fe);
         this->fe_collection.push_back(FE_Nothing<dim>());
     }
-
-    template<int dim>
-    void ScalarProblem<dim>::
-    distribute_dofs(hp::DoFHandler<dim> &dof_handler) {
-        // TODO fiks dette for å få et sirkulært domene istedet.
-        // Set outside finite elements to fe, and inside to FE_nothing
-        for (const auto &cell : dof_handler.active_cell_iterators()) {
-            if (LocationToLevelSet::OUTSIDE ==
-                this->cut_mesh_classifier.location_to_level_set(cell)) {
-                // 1 is FE_nothing
-                cell->set_active_fe_index(1);
-            } else {
-                // 0 is fe
-                cell->set_active_fe_index(0);
-            }
-        }
-        dof_handler.distribute_dofs(this->fe_collection);
-    }
-
 
     template<int dim>
     void ScalarProblem<dim>::
@@ -199,8 +181,7 @@ namespace utils::problems::scalar {
         // Create vector of the previous solutions values
         std::vector<double> val(fe_values.n_quadrature_points, 0);
         std::vector<std::vector<double>> prev_solution_values(
-                this->solutions.size(),
-                val);
+                this->solutions.size(), val);
 
         // The the values of the previous solutions, and insert into the
         // matrix initialized above.
@@ -214,6 +195,7 @@ namespace utils::problems::scalar {
             for (const unsigned int i : fe_values.dof_indices()) {
 
                 prev_values = 0;
+                // TODO endre til å loope fra k=1?
                 for (unsigned long k = 0; k < this->solutions.size(); ++k) {
                     prev_values +=
                             this->bdf_coeffs[k] * prev_solution_values[k][q];
@@ -493,30 +475,33 @@ namespace utils::problems::scalar {
 
     template<int dim>
     void ScalarProblem<dim>::
-    output_results(std::string &suffix,
+    output_results(hp::DoFHandler<dim> &dof_handler,
+                   Vector<double> &solution,
+                   std::string &suffix,
                    bool minimal_output) const {
         std::cout << "Output results" << std::endl;
         // Output results, see step-22
         DataOut<dim> data_out;
-        data_out.attach_dof_handler(this->dof_handlers.front());
-        data_out.add_data_vector(this->solutions.front(), "solution");
+        data_out.attach_dof_handler(dof_handler);
+        data_out.add_data_vector(solution, "solution");
         data_out.build_patches();
         std::ofstream out("solution-d" + std::to_string(dim)
                           + "o" + std::to_string(this->element_order)
-                          + "r" + std::to_string(this->n_refines) +
-                          +"-" + suffix + ".vtk");
+                          + "r" + std::to_string(this->n_refines)
+                          + "-" + suffix + ".vtk");
         data_out.write_vtk(out);
 
         // Output levelset function.
         if (!minimal_output) {
+            // TODO sett inn i egen funksjon
             DataOut<dim, DoFHandler<dim>> data_out_levelset;
             data_out_levelset.attach_dof_handler(this->levelset_dof_handler);
             data_out_levelset.add_data_vector(this->levelset, "levelset");
             data_out_levelset.build_patches();
             std::ofstream output_ls("levelset-d" + std::to_string(dim)
                                     + "o" + std::to_string(this->element_order)
-                                    + "r" + std::to_string(this->n_refines) +
-                                    +"-" + suffix + ".vtk");
+                                    + "r" + std::to_string(this->n_refines)
+                                    + "-" + suffix + ".vtk");
             data_out_levelset.write_vtk(output_ls);
         }
     }

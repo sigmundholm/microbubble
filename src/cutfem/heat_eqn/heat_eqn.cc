@@ -63,7 +63,8 @@ namespace examples::cut::HeatEquation {
 
 
     template<int dim>
-    void HeatEqn<dim>::set_function_times(double time) {
+    void HeatEqn<dim>::
+    set_function_times(double time) {
         this->rhs_function->set_time(time);
         this->boundary_values->set_time(time);
         this->analytical_solution->set_time(time);
@@ -558,9 +559,9 @@ namespace examples::cut::HeatEquation {
     template<int dim>
     void HeatEqn<dim>::
     write_header_to_file(std::ofstream &file) {
-        file
-                << "h, \\tau, \\|u\\|_{L^2}, \\|u\\|_{H^1}, |u|_{H^1}, \\|u\\|_{l^\\infty L^2}, \\|u\\|_{l^\\infty H^1}, \\kappa(A)"
-                << std::endl;
+        file << "h, \\tau, \\|u\\|_{L^2}, \\|u\\|_{H^1}, |u|_{H^1}, "
+                "\\|u\\|_{l^\\infty L^2}, \\|u\\|_{l^\\infty H^1}, \\kappa(A)"
+             << std::endl;
     }
 
 
