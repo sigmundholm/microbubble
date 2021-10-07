@@ -485,17 +485,24 @@ namespace utils::problems {
 
     template<int dim>
     void CutFEMProblem<dim>::
-    distribute_dofs(hp::DoFHandler<dim> &dof_handler) {
-        // TODO fiks dette for å få et sirkulært domene istedet.
+    distribute_dofs(hp::DoFHandler<dim> &dof_handler, double size_of_bound) {
         // Set outside finite elements to fe, and inside to FE_nothing
         for (const auto &cell : dof_handler.active_cell_iterators()) {
-            if (LocationToLevelSet::OUTSIDE ==
-                this->cut_mesh_classifier.location_to_level_set(cell)) {
-                // 1 is FE_nothing
-                cell->set_active_fe_index(1);
-            } else {
+            const LocationToLevelSet location =
+                    cut_mesh_classifier.location_to_level_set(cell);
+
+            const double distance_from_zero_contour =
+                    levelset_function->value(
+                            cell->center());
+
+            if (LocationToLevelSet::INSIDE == location ||
+                LocationToLevelSet::INTERSECTED == location ||
+                distance_from_zero_contour <= size_of_bound) {
                 // 0 is fe
                 cell->set_active_fe_index(0);
+            } else {
+                // 1 is FE_nothing
+                cell->set_active_fe_index(1);
             }
         }
         dof_handler.distribute_dofs(this->fe_collection);

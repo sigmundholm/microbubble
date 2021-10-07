@@ -144,13 +144,14 @@ namespace utils::problems {
         setup_fe_collection() = 0;
 
         virtual void
-        distribute_dofs(hp::DoFHandler<dim> &dof_handler);
+        distribute_dofs(hp::DoFHandler<dim> &dof_handler,
+                        double size_of_bound = 0);
 
         virtual void
         initialize_matrices();
 
 
-        // Function related to assembling the stiffness matrix and rhs vector.
+        // Methods related to assembling the stiffness matrix and rhs vector.
         // -------------------------------------------------------------------
 
         /**
@@ -158,7 +159,7 @@ namespace utils::problems {
          * for stationary problems.
          *
          * This method should in turn call the methods assemble_local_over_cell
-         * and assemble local_over_surface.
+         * and assemble_local_over_surface.
          */
         virtual void
         assemble_system();
