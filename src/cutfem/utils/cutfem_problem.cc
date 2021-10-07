@@ -196,10 +196,14 @@ namespace utils::problems {
         setup_level_set();
         cut_mesh_classifier.reclassify(); // TODO any reason to keep this call outside the method above?
         setup_fe_collection();
+        // set_function_times(0);
 
-        // dof_handlers = std::vector<hp::DoFHandler<dim>(bdf_type);
+        // TODO compute the speed at each cell, to get a more precise calculation.
+        double buffer_constant = 2;
+        double size_of_bound = buffer_constant * bdf_type * this->h;
         dof_handlers.emplace_front(triangulation);
-        distribute_dofs(dof_handlers.front());
+        distribute_dofs(dof_handlers.front(), size_of_bound);
+
         initialize_matrices();
 
         // Vector for the computed error for each time step.
@@ -240,8 +244,10 @@ namespace utils::problems {
             solutions.emplace_front(n_dofs);
 
             // Redistribute the dofs after the level set was updated
+            size_of_bound = buffer_constant * bdf_type * this->h;
             dof_handlers.emplace_front(triangulation);
-            distribute_dofs(dof_handlers.front());
+            distribute_dofs(dof_handlers.front(), size_of_bound);
+
             // Reinitialize the matrices and vectors after the number of dofs
             // was updated.
             initialize_matrices();

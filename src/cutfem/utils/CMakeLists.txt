@@ -1,4 +1,4 @@
-add_library(base cutfem_problem.cc)
+add_library(base cutfem_problem.cc utils.cc)
 deal_ii_setup_target(base)
 target_link_libraries(base cutfem)
 
