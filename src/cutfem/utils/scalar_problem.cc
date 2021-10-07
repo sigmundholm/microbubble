@@ -273,6 +273,10 @@ namespace utils::problems::scalar {
                 // TODO make sure we dont use boundary_values everywhere, but
                 //  still use the solution in the previous step where it is
                 //  possible.
+                std::cout << "# NB: need larger cell buffer outside the "
+                             "physical domain." << std::endl;
+
+                /*
                 boundary_values_time = this->boundary_values->get_time();
                 this->boundary_values->set_time(
                         boundary_values_time - k * this->tau);
@@ -280,6 +284,7 @@ namespace utils::problems::scalar {
                         fe_values.get_quadrature_points(),
                         prev_solution_values[k]);
                 this->boundary_values->set_time(boundary_values_time);
+                 */
             } else {
                 // TODO check that this is actually done.
                 hp_fe_values.reinit(cell_prev);

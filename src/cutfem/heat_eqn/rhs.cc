@@ -101,7 +101,7 @@ namespace examples::cut::HeatEquation {
     value(const Point<dim> &p, const unsigned int component) const {
         (void) component;
         double t = this->get_time();
-        double x0 = 0.9 * (half_length - sphere_radius) * sin(2 * pi * t);
+        double x0 = 0.9 * (half_length - sphere_radius) * (2 * t - 1);
         double y0 = 0;
         double x = p[0];
         double y = p[1];

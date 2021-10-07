@@ -193,14 +193,17 @@ namespace utils::problems {
 
         make_grid(this->triangulation);
         setup_quadrature();
+        set_function_times(0);
         setup_level_set();
         cut_mesh_classifier.reclassify(); // TODO any reason to keep this call outside the method above?
         setup_fe_collection();
-        // set_function_times(0);
 
         // TODO compute the speed at each cell, to get a more precise calculation.
         double buffer_constant = 2;
-        double size_of_bound = buffer_constant * bdf_type * this->h;
+        // double size_of_bound = buffer_constant * bdf_type * this->h;
+        double size_of_bound = 0.9 * 2.5 * this->tau * buffer_constant * bdf_type;
+        std::cout << " # size_of_bound = " << size_of_bound << std::endl;
+
         dof_handlers.emplace_front(triangulation);
         distribute_dofs(dof_handlers.front(), size_of_bound);
 
@@ -244,7 +247,9 @@ namespace utils::problems {
             solutions.emplace_front(n_dofs);
 
             // Redistribute the dofs after the level set was updated
-            size_of_bound = buffer_constant * bdf_type * this->h;
+            // size_of_bound = buffer_constant * bdf_type * this->h;
+            size_of_bound = 0.9 * 2.5 * this->tau * buffer_constant * bdf_type;
+            std::cout << " # size_of_bound = " << size_of_bound << std::endl;
             dof_handlers.emplace_front(triangulation);
             distribute_dofs(dof_handlers.front(), size_of_bound);
 
