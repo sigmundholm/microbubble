@@ -82,9 +82,6 @@ namespace utils::problems {
         std::shared_ptr<hp::DoFHandler<dim>>
         get_dof_handler();
 
-        Triangulation<dim>*
-        get_triangulation();
-
         /**
          * Run a time loop with a BDF-method.
          *
@@ -277,7 +274,7 @@ namespace utils::problems {
         double h;  // cell side length
         double tau;
 
-        Triangulation<dim> *triangulation;
+        Triangulation<dim> triangulation;
 
         hp::FECollection<dim> fe_collection;
         hp::MappingCollection<dim> mapping_collection;

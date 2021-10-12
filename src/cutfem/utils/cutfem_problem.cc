@@ -34,40 +34,14 @@ namespace utils::problems {
                   const bool stabilized)
             : n_refines(n_refines), element_order(element_order),
               write_output(write_output),
-              triangulation(), fe_levelset(element_order),
-              levelset_dof_handler(*triangulation),
-              cut_mesh_classifier(*triangulation, levelset_dof_handler,
+              fe_levelset(element_order),
+              levelset_dof_handler(triangulation),
+              cut_mesh_classifier(triangulation, levelset_dof_handler,
                                   levelset),
               stabilized(stabilized) {
         // Use no constraints when projecting.
-        std::cout << "cutfemprob constr." << std::endl;
         this->constraints.close();
 
-        // fe_levelset(element_order);
-
-
-        levelset_function = &levelset_func;
-    }
-
-
-    template<int dim>
-    CutFEMProblem<dim>::
-    CutFEMProblem(const unsigned int n_refines,
-                  const int element_order,
-                  const bool write_output,
-                  Triangulation<dim> &tria,
-                  Function<dim> &levelset_func,
-                  const bool stabilized)
-            : n_refines(n_refines), element_order(element_order),
-              write_output(write_output), fe_levelset(element_order),
-              levelset_dof_handler(tria),
-              cut_mesh_classifier(tria, levelset_dof_handler, levelset),
-              stabilized(stabilized) {
-        std::cout << "construct cutfemprob." << std::endl;
-        // Use no constraints when projecting.
-        this->constraints.close();
-
-        triangulation = &tria;
         levelset_function = &levelset_func;
     }
 
@@ -75,11 +49,11 @@ namespace utils::problems {
     template<int dim>
     ErrorBase *CutFEMProblem<dim>::
     run_step() {
-        make_grid(*triangulation);
+        make_grid(triangulation);
         setup_quadrature();
         setup_level_set();
         cut_mesh_classifier.reclassify(); // TODO move this into distribute_dofs method
-        dof_handlers.emplace_front(new hp::DoFHandler<dim>(*triangulation));
+        dof_handlers.emplace_front(new hp::DoFHandler<dim>(triangulation));
         setup_fe_collection();
         distribute_dofs(dof_handlers.front());
         initialize_matrices();
@@ -111,13 +85,6 @@ namespace utils::problems {
 
 
     template<int dim>
-    Triangulation<dim> *CutFEMProblem<dim>::
-    get_triangulation() {
-        return triangulation;
-    }
-
-
-    template<int dim>
     ErrorBase *CutFEMProblem<dim>::
     run_time(unsigned int bdf_type, unsigned int steps,
              std::vector<Vector<double>> &supplied_solutions) {
@@ -126,13 +93,13 @@ namespace utils::problems {
         std::cout << "-------------------------" << std::endl;
         // TODO fix BDF-2 with given u1 from BDF-1
 
-        make_grid(*(this->triangulation));
+        make_grid(triangulation);
         setup_quadrature();
         setup_level_set();
         cut_mesh_classifier.reclassify();
         setup_fe_collection();
         // Initialize the first dof_handler.
-        dof_handlers.emplace_front(new hp::DoFHandler<dim>(*triangulation));
+        dof_handlers.emplace_front(new hp::DoFHandler<dim>());
         distribute_dofs(dof_handlers.front());
         initialize_matrices();
 
@@ -229,8 +196,8 @@ namespace utils::problems {
         solutions.clear();
         dof_handlers.clear();
 
-        if (triangulation->n_quads() == 0)
-            make_grid(*(this->triangulation));
+        if (triangulation.n_quads() == 0)
+            make_grid(triangulation);
         setup_quadrature();
         set_function_times(0);
         setup_level_set();
@@ -244,8 +211,7 @@ namespace utils::problems {
                 0.9 * 2.5 * this->tau * buffer_constant * bdf_type;
         std::cout << " # size_of_bound = " << size_of_bound << std::endl;
 
-        dof_handlers.emplace_front(
-                new hp::DoFHandler<dim>()); // *triangulation));
+        dof_handlers.emplace_front(new hp::DoFHandler<dim>());
         distribute_dofs(dof_handlers.front(), size_of_bound);
 
         initialize_matrices();
@@ -292,8 +258,7 @@ namespace utils::problems {
             // size_of_bound = buffer_constant * bdf_type * this->h;
             size_of_bound = 0.9 * 2.5 * this->tau * buffer_constant * bdf_type;
             std::cout << " # size_of_bound = " << size_of_bound << std::endl;
-            dof_handlers.emplace_front(
-                    new hp::DoFHandler<dim>()); // *triangulation));
+            dof_handlers.emplace_front(new hp::DoFHandler<dim>());
             distribute_dofs(dof_handlers.front(), size_of_bound);
 
             // Reinitialize the matrices and vectors after the number of dofs
@@ -407,8 +372,7 @@ namespace utils::problems {
                 double size_of_bound =
                         0.9 * 2.5 * this->tau * buffer_constant * bdf_type;
 
-                dof_handlers.emplace_front(
-                        new hp::DoFHandler<dim>(*triangulation));
+                dof_handlers.emplace_front(new hp::DoFHandler<dim>());
                 distribute_dofs(dof_handlers.front(), size_of_bound);
             }
 
@@ -587,9 +551,8 @@ namespace utils::problems {
     void CutFEMProblem<dim>::
     distribute_dofs(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
                     double size_of_bound) {
-        // dof_handler->initialize(triangulation);
         // Set outside finite elements to fe, and inside to FE_nothing
-        dof_handler->initialize(*triangulation, fe_collection);
+        dof_handler->initialize(triangulation, fe_collection);
         for (const auto &cell : dof_handler->active_cell_iterators()) {
             const LocationToLevelSet location =
                     cut_mesh_classifier.location_to_level_set(cell);

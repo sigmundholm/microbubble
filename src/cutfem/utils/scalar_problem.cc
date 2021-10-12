@@ -48,21 +48,6 @@ namespace utils::problems::scalar {
 
 
     template<int dim>
-    ScalarProblem<dim>::ScalarProblem(const unsigned int n_refines,
-                                      const int element_order,
-                                      const bool write_output,
-                                      Triangulation <dim> &tria,
-                                      Function<dim> &levelset_func,
-                                      Function<dim> &analytical_soln,
-                                      const bool stabilized)
-            : CutFEMProblem<dim>(n_refines, element_order, write_output,
-                                 tria, levelset_func, stabilized),
-              fe(element_order) {
-        analytical_solution = &analytical_soln;
-    }
-
-
-    template<int dim>
     void ScalarProblem<dim>::
     interpolate_solution(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
                          int time_step,
@@ -264,7 +249,7 @@ namespace utils::problems::scalar {
         double boundary_values_time;
         for (unsigned long k = 1; k < this->solutions.size(); ++k) {
             typename hp::DoFHandler<dim>::active_cell_iterator cell_prev(
-                    this->triangulation, cell->level(), cell->index(),
+                    &(this->triangulation), cell->level(), cell->index(),
                     this->dof_handlers[k].get());
             const FiniteElement<dim> &fe = cell_prev->get_fe();
             if (fe.n_dofs_per_cell() == 0) {
