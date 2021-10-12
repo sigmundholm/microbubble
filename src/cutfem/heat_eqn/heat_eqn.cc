@@ -66,6 +66,26 @@ namespace examples::cut::HeatEquation {
 
 
     template<int dim>
+    HeatEqn<dim>::HeatEqn(
+            const double nu, const double tau, const double radius,
+            const double half_length, const unsigned int n_refines,
+            const int element_order,
+            const bool write_output, Triangulation<dim> &tria,
+            Function<dim> &rhs, Function<dim> &bdd_values,
+            Function<dim> &analytical_soln, Function<dim> &levelset_func,
+            const bool stabilized, const bool crank_nicholson)
+            : ScalarProblem<dim>(n_refines, element_order, write_output, tria,
+                                 levelset_func, analytical_soln, stabilized),
+              nu(nu), radius(radius), half_length(half_length) {
+        this->tau = tau;
+        this->crank_nicholson = crank_nicholson;
+
+        this->rhs_function = &rhs;
+        this->boundary_values = &bdd_values;
+    }
+
+
+    template<int dim>
     void HeatEqn<dim>::
     set_function_times(double time) {
         this->rhs_function->set_time(time);
@@ -80,7 +100,6 @@ namespace examples::cut::HeatEquation {
     HeatEqn<dim>::make_grid(Triangulation<dim> &tria) {
         std::cout << "Creating triangulation" << std::endl;
 
-        triangulation_exists = true; // TODO is this variable used?
         GridGenerator::cylinder(tria, radius, half_length);
         GridTools::remove_anisotropy(tria, 1.618, 5);
         tria.refine_global(this->n_refines);
@@ -121,7 +140,7 @@ namespace examples::cut::HeatEquation {
         // Use a helper object to compute the stabilisation for both the velocity
         // and the pressure component.
         stabilization::JumpStabilization<dim, FEValuesExtractors::Scalar>
-                stabilization(this->dof_handlers.front(),
+                stabilization(*(this->dof_handlers.front()),
                               this->mapping_collection,
                               this->cut_mesh_classifier,
                               this->constraints);
@@ -169,7 +188,7 @@ namespace examples::cut::HeatEquation {
         double gamma_M =
                 beta_0 * this->element_order * (this->element_order + 1);
 
-        for (const auto &cell : this->dof_handlers.front().active_cell_iterators()) {
+        for (const auto &cell : this->dof_handlers.front()->active_cell_iterators()) {
             const unsigned int n_dofs = cell->get_fe().dofs_per_cell;
 
             const LocationToLevelSet location =
@@ -333,7 +352,7 @@ namespace examples::cut::HeatEquation {
                                          update_normal_vectors |
                                          update_JxW_values);
 
-        for (const auto &cell : this->dof_handlers.front().active_cell_iterators()) {
+        for (const auto &cell : this->dof_handlers.front()->active_cell_iterators()) {
             const unsigned int n_dofs = cell->get_fe().dofs_per_cell;
             std::vector<types::global_dof_index> loc2glb(n_dofs);
             cell->get_dof_indices(loc2glb);

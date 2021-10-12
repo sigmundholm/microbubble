@@ -41,21 +41,35 @@ namespace utils::problems::scalar {
                                       Function<dim> &levelset_func,
                                       Function<dim> &analytical_soln,
                                       const bool stabilized)
-            : CutFEMProblem<dim>(n_refines, element_order,
-                                 write_output, levelset_func, stabilized),
+            : CutFEMProblem<dim>(n_refines, element_order, write_output,
+                                 levelset_func, stabilized), fe(element_order) {
+        analytical_solution = &analytical_soln;
+    }
+
+
+    template<int dim>
+    ScalarProblem<dim>::ScalarProblem(const unsigned int n_refines,
+                                      const int element_order,
+                                      const bool write_output,
+                                      Triangulation <dim> &tria,
+                                      Function<dim> &levelset_func,
+                                      Function<dim> &analytical_soln,
+                                      const bool stabilized)
+            : CutFEMProblem<dim>(n_refines, element_order, write_output,
+                                 tria, levelset_func, stabilized),
               fe(element_order) {
         analytical_solution = &analytical_soln;
     }
 
 
     template<int dim>
-    void
-    ScalarProblem<dim>::interpolate_solution(hp::DoFHandler<dim> &dof_handler,
-                                             int time_step,
-                                             bool moving_domain) {
+    void ScalarProblem<dim>::
+    interpolate_solution(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
+                         int time_step,
+                         bool moving_domain) {
         // TODO if k = 0, interpolate the boundary_values function
         // TODO take solution as an argument.
-        VectorTools::interpolate(dof_handler,
+        VectorTools::interpolate(*dof_handler,
                                  *(this->analytical_solution),
                                  this->solutions.front());
     }
@@ -70,6 +84,7 @@ namespace utils::problems::scalar {
         this->fe_collection.push_back(FE_Nothing<dim>());
     }
 
+
     template<int dim>
     void ScalarProblem<dim>::
     assemble_system() {
@@ -82,7 +97,7 @@ namespace utils::problems::scalar {
         // and the pressure component.
         const FEValuesExtractors::Scalar velocities(0);
         stabilization::JumpStabilization<dim, FEValuesExtractors::Scalar>
-                velocity_stabilization(this->dof_handlers.front(),
+                velocity_stabilization(*(this->dof_handlers.front()),
                                        this->mapping_collection,
                                        this->cut_mesh_classifier,
                                        this->constraints);
@@ -127,7 +142,7 @@ namespace utils::problems::scalar {
         double gamma_M =
                 beta_0 * this->element_order * (this->element_order + 1);
 
-        for (const auto &cell : this->dof_handlers.front().active_cell_iterators()) {
+        for (const auto &cell : this->dof_handlers.front()->active_cell_iterators()) {
             const unsigned int n_dofs = cell->get_fe().dofs_per_cell;
             std::vector<types::global_dof_index> loc2glb(n_dofs);
             cell->get_dof_indices(loc2glb);
@@ -218,7 +233,7 @@ namespace utils::problems::scalar {
             const std::vector<types::global_dof_index> &loc2glb) {
 
         // TODO needed?
-        const hp::FECollection<dim> &fe_collection = this->dof_handlers.front().get_fe_collection();
+        const hp::FECollection<dim> &fe_collection = this->dof_handlers.front()->get_fe_collection();
         const hp::QCollection<dim> q_collection(fe_values.get_quadrature());
 
         // Vector for the contribution of each cell
@@ -249,8 +264,8 @@ namespace utils::problems::scalar {
         double boundary_values_time;
         for (unsigned long k = 1; k < this->solutions.size(); ++k) {
             typename hp::DoFHandler<dim>::active_cell_iterator cell_prev(
-                    &(this->triangulation), cell->level(), cell->index(),
-                    &(this->dof_handlers[k]));
+                    this->triangulation, cell->level(), cell->index(),
+                    this->dof_handlers[k].get());
             const FiniteElement<dim> &fe = cell_prev->get_fe();
             if (fe.n_dofs_per_cell() == 0) {
                 // This means that in the previous solution step, this cell had
@@ -315,7 +330,8 @@ namespace utils::problems::scalar {
 
     template<int dim>
     ErrorBase *ScalarProblem<dim>::
-    compute_error(hp::DoFHandler<dim> &dof_handler, Vector<double> &solution) {
+    compute_error(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
+                  Vector<double> &solution) {
         // TODO bør jeg heller returnere en peker?
         std::cout << "Compute error" << std::endl;
 
@@ -337,7 +353,7 @@ namespace utils::problems::scalar {
                                                  this->levelset);
 
 
-        for (const auto &cell : dof_handler.active_cell_iterators()) {
+        for (const auto &cell : dof_handler->active_cell_iterators()) {
             cut_fe_values.reinit(cell);
 
             // Retrieve an FEValues object with quadrature points
@@ -351,7 +367,7 @@ namespace utils::problems::scalar {
             }
         }
 
-        ErrorScalar *error = new ErrorScalar();
+        auto *error = new ErrorScalar();
         error->h = this->h;
         error->tau = this->tau;
         error->l2_error = pow(l2_error_integral, 0.5);
@@ -480,14 +496,14 @@ namespace utils::problems::scalar {
 
     template<int dim>
     void ScalarProblem<dim>::
-    output_results(hp::DoFHandler<dim> &dof_handler,
+    output_results(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
                    Vector<double> &solution,
                    std::string &suffix,
                    bool minimal_output) const {
         std::cout << "Output results" << std::endl;
         // Output results, see step-22
         DataOut<dim> data_out;
-        data_out.attach_dof_handler(dof_handler);
+        data_out.attach_dof_handler(*dof_handler);
         data_out.add_data_vector(solution, "solution");
         data_out.build_patches();
         std::ofstream out("solution-d" + std::to_string(dim)

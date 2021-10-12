@@ -58,6 +58,15 @@ namespace examples::cut::HeatEquation {
                 const bool stabilized = true,
                 const bool crank_nicholson = false);
 
+        HeatEqn(const double nu, const double tau, const double radius,
+                const double half_length, const unsigned int n_refines,
+                const int element_order, const bool write_output,
+                Triangulation<dim> &tria,
+                Function<dim> &rhs, Function<dim> &bdd_values,
+                Function<dim> &analytical_soln, Function<dim> &levelset_func,
+                const bool stabilized = true,
+                const bool crank_nicholson = false);
+
         static void
         write_header_to_file(std::ofstream &file);
 
@@ -116,9 +125,6 @@ namespace examples::cut::HeatEquation {
 
         const double radius;
         const double half_length;
-
-        // TODO remove if not used
-        bool triangulation_exists = false;
 
     };
 

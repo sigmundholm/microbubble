@@ -28,6 +28,7 @@
 #include <deal.II/lac/vector.h>
 
 #include <deque>
+#include <memory>
 #include <vector>
 
 #include "cutfem/geometry/SignedDistanceSphere.h"
@@ -64,6 +65,13 @@ namespace utils::problems {
                       Function<dim> &levelset_func,
                       const bool stabilized = true);
 
+        CutFEMProblem(const unsigned int n_refines,
+                      const int element_order,
+                      const bool write_output,
+                      Triangulation<dim> &tria,
+                      Function<dim> &levelset_func,
+                      const bool stabilized = true);
+
 
         ErrorBase *
         run_step();
@@ -71,8 +79,11 @@ namespace utils::problems {
         Vector<double>
         get_solution();
 
-        hp::DoFHandler<dim> &
+        std::shared_ptr<hp::DoFHandler<dim>>
         get_dof_handler();
+
+        Triangulation<dim>*
+        get_triangulation();
 
         /**
          * Run a time loop with a BDF-method.
@@ -96,7 +107,7 @@ namespace utils::problems {
         ErrorBase *
         run_moving_domain(unsigned int bdf_type, unsigned int steps,
                           std::vector<Vector<double>> &supplied_solutions,
-                          std::vector<std::reference_wrapper<hp::DoFHandler<dim>>> &supplied_dof_handlers);
+                          std::vector<std::shared_ptr<hp::DoFHandler<dim>>> &supplied_dof_handlers);
 
         ErrorBase *
         run_moving_domain(unsigned int bdf_type, unsigned int steps);
@@ -119,7 +130,7 @@ namespace utils::problems {
         void
         set_supplied_solutions(unsigned int bdf_type,
                                std::vector<Vector<double>> &supplied_solutions,
-                               std::vector<std::reference_wrapper<hp::DoFHandler<dim>>> &supplied_dof_handlers,
+                               std::vector<std::shared_ptr<hp::DoFHandler<dim>>> &supplied_dof_handlers,
                                std::vector<ErrorBase *> &errors,
                                bool moving_domain = false);
 
@@ -127,7 +138,7 @@ namespace utils::problems {
         set_function_times(double time);
 
         virtual void
-        interpolate_solution(hp::DoFHandler<dim> &dof_handler,
+        interpolate_solution(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
                              int time_step, bool moving_domain = false);
 
 
@@ -144,7 +155,7 @@ namespace utils::problems {
         setup_fe_collection() = 0;
 
         virtual void
-        distribute_dofs(hp::DoFHandler<dim> &dof_handler,
+        distribute_dofs(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
                         double size_of_bound = 0);
 
         virtual void
@@ -225,7 +236,7 @@ namespace utils::problems {
         solve();
 
         virtual ErrorBase *
-        compute_error(hp::DoFHandler<dim> &dof_handler,
+        compute_error(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
                       Vector<double> &solution) = 0;
 
         virtual ErrorBase *
@@ -243,19 +254,19 @@ namespace utils::problems {
 
 
         virtual void
-        output_results(hp::DoFHandler<dim> &dof_handler,
+        output_results(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
                        Vector<double> &solution,
                        std::string &suffix,
                        bool minimal_output = false) const = 0;
 
         virtual void
-        output_results(hp::DoFHandler<dim> &dof_handler,
+        output_results(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
                        Vector<double> &solution,
                        int time_step,
                        bool minimal_output = false) const;
 
         virtual void
-        output_results(hp::DoFHandler<dim> &dof_handler,
+        output_results(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
                        Vector<double> &solution,
                        bool minimal_output = false) const;
 
@@ -266,7 +277,7 @@ namespace utils::problems {
         double h;  // cell side length
         double tau;
 
-        Triangulation<dim> triangulation;
+        Triangulation<dim> *triangulation;
 
         hp::FECollection<dim> fe_collection;
         hp::MappingCollection<dim> mapping_collection;
@@ -281,7 +292,7 @@ namespace utils::problems {
         Function<dim> *levelset_function;
 
         // Object managing degrees of freedom for the cutfem method.
-        std::deque<hp::DoFHandler<dim>> dof_handlers;
+        std::deque<std::shared_ptr<hp::DoFHandler<dim>>> dof_handlers;
 
         NonMatching::CutMeshClassifier<dim> cut_mesh_classifier;
 
