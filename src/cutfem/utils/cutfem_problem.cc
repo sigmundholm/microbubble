@@ -196,9 +196,10 @@ namespace utils::problems {
         solutions.clear();
         dof_handlers.clear();
 
-        if (triangulation.n_quads() == 0)
+        if (triangulation.n_quads() == 0) {
             make_grid(triangulation);
-        setup_quadrature();
+            setup_quadrature();
+        }
         set_function_times(0);
         setup_level_set();
         cut_mesh_classifier.reclassify(); // TODO any reason to keep this call outside the method above?
@@ -207,6 +208,9 @@ namespace utils::problems {
         // TODO compute the speed at each cell, to get a more precise calculation.
         double buffer_constant = 2;
         // double size_of_bound = buffer_constant * bdf_type * this->h;
+        // TODO hvorfor klages det fortsatt på at bound er for lite? Det bør vel
+        //  være mer enn stort nokj? Evt kanskej ikke fot BDF-2, når vi trenger
+        //  to celler fremover.
         double size_of_bound =
                 0.9 * 2.5 * this->tau * buffer_constant * bdf_type;
         std::cout << " # size_of_bound = " << size_of_bound << std::endl;
@@ -296,10 +300,8 @@ namespace utils::problems {
     template<int dim>
     ErrorBase *CutFEMProblem<dim>::
     run_moving_domain(unsigned int bdf_type, unsigned int steps) {
-        std::cout << "mov domain" << std::endl;
         // Invoking this method will result in a pure BDF-k method, where all
         // the initial steps will be interpolated.
-        // TODO store the solutions as references too
         std::vector<Vector<double>> empty_solutions;
         std::vector<std::shared_ptr<hp::DoFHandler<dim>>> empty_dof_h;
         return run_moving_domain(bdf_type, steps, empty_solutions, empty_dof_h);
@@ -357,13 +359,13 @@ namespace utils::problems {
         // At this point, one dof_handler should have been created.
         assert(dof_handlers.size() == 1);
 
-        int n_dofs = dof_handlers.front()->n_dofs();
-
         for (unsigned int k = 0; k < bdf_type; ++k) {
             // Create a new solution vector.
             std::cout << " - Interpolate step k = " << k << std::endl;
 
-            solutions.emplace_front(n_dofs);
+            // Interpolate it a the correct time.
+            set_function_times(k * this->tau);
+
             if (moving_domain && k > 0) {
                 // For moving domains we need a new dof_handler for each step,
                 // but the first one should already have been created.
@@ -372,12 +374,17 @@ namespace utils::problems {
                 double size_of_bound =
                         0.9 * 2.5 * this->tau * buffer_constant * bdf_type;
 
+                // TODO da jeg la til disse to linjene ble feilen regnet ut riktig
+                //  for supplied solution. Betyr dette at dof_handler ikke blir
+                //  satt riktig i den metoden?
+                setup_level_set();
+                cut_mesh_classifier.reclassify();
                 dof_handlers.emplace_front(new hp::DoFHandler<dim>());
                 distribute_dofs(dof_handlers.front(), size_of_bound);
             }
+            int n_dofs = dof_handlers.front()->n_dofs();
+            solutions.emplace_front(n_dofs);
 
-            // Interpolate it a the correct time.
-            set_function_times(k * this->tau);
             interpolate_solution(dof_handlers.front(), k, moving_domain);
 
             // Compute the error for this step.
@@ -438,9 +445,9 @@ namespace utils::problems {
         // Create an extended vector of supplied_solutions, with vectors of
         // length 1 to mark the time steps where we want to keep and use the
         // interpolated solution.
-        std::vector<Vector < double>>
-        full_vector(bdf_type, Vector<double>(1));
-        std::vector<std::shared_ptr<hp::DoFHandler < dim>> > full_dofs(
+        std::vector<Vector<double>>
+                full_vector(bdf_type, Vector<double>(1));
+        std::vector<std::shared_ptr<hp::DoFHandler<dim>>> full_dofs(
                 bdf_type); //, nullptr);
         // TODO bruk shared_ptr istedet for reference_wrap
         unsigned int num_supp = supplied_solutions.size();
@@ -454,7 +461,7 @@ namespace utils::problems {
         // Insert the supplied solutions in the solutions deque, and compute
         // the errors.
         unsigned int solution_index;
-        unsigned int dof_index;
+        unsigned int dof_index = 0;
         unsigned int n_dofs = this->dof_handlers.front()->n_dofs();
 
         for (unsigned int k = 0; k < bdf_type; ++k) {
@@ -466,30 +473,20 @@ namespace utils::problems {
                 solution_index = solutions.size() - 1 - k;
                 // Overwrite the interpolated solution for this step, since it
                 // was supplied to the solver.
-                std::cout << " # solution_index = " << solution_index
-                          << std::endl;
                 solutions[solution_index] = full_vector[k];
-                std::cout << " # supplied solution.size() = "
-                          << full_vector[k].size() << std::endl;
                 if (moving_domain) {
                     // TODO ignore the dof_handlers if the vector is empty,
                     //  then the run_time method was run.
-                    std::cout << " # size_diff + k = " << size_diff + k
-                              << std::endl;
                     // Replace the previously set dof_handler (of the
                     // interpolated solution), with the supplied one.
                     dof_handlers[solution_index] = full_dofs[k];
+                    dof_index = solution_index;
                 }
-                std::cout << "ndofs = "
-                          << dof_handlers[solution_index]->n_dofs()
-                          << std::endl;
-                std::cout << "soln_size() = "
-                          << solutions[solution_index].size() << std::endl;
 
                 // Overwrite the error too.
                 set_function_times(k * this->tau);
                 // If the domain is stationary, we only have one dof_handler.
-                dof_index = moving_domain ? solution_index : 0;
+                // dof_index = moving_domain ? solution_index : 0;
                 errors[k] = this->compute_error(dof_handlers[dof_index],
                                                 solutions[solution_index]);
                 errors[k]->time_step = k;

@@ -65,8 +65,10 @@ namespace utils::problems::scalar {
     setup_fe_collection() {
         // We want to types of elements on the mesh
         // Lagrange elements and elements that are constant zero.
-        this->fe_collection.push_back(fe);
-        this->fe_collection.push_back(FE_Nothing<dim>());
+        if (this->fe_collection.size() == 0) {
+            this->fe_collection.push_back(fe);
+            this->fe_collection.push_back(FE_Nothing<dim>());
+        }
     }
 
 
@@ -246,7 +248,6 @@ namespace utils::problems::scalar {
 
         // Read out the solution values from the previous time steps that we
         // need for the BDF-method.
-        double boundary_values_time;
         for (unsigned long k = 1; k < this->solutions.size(); ++k) {
             typename hp::DoFHandler<dim>::active_cell_iterator cell_prev(
                     &(this->triangulation), cell->level(), cell->index(),
@@ -255,37 +256,16 @@ namespace utils::problems::scalar {
             if (fe.n_dofs_per_cell() == 0) {
                 // This means that in the previous solution step, this cell had
                 // FE_Nothing elements. We can therefore not use that cell to
-                // get the values we need for the BDF-formula.
-                // Instead, we therefore use the boundary_values function, to
-                // get the values in the quadrature points at time t - k*𝜏.
-                //  - TODO is this reasonable to do?
-                //  - In the case of the fluid flow example, where the
-                //    FE_Nothing are only set inside the bubble, we will always
-                //    have that the Dirichlet boundary conditions are known.
-                //    However, this is only exactly on the boundary, so using
-                //    these boundary conditions on the quadrature points inside
-                //    a cell will probably lead to errors.
-                //
-                // We want to compute the boundary values at time t - k*𝜏 at the
-                // quadrature points, we therefore need to store the time t
-                // from the boundary_values function, and set it back after we
-                // are done.
-                // TODO make sure we dont use boundary_values everywhere, but
-                //  still use the solution in the previous step where it is
-                //  possible.
+                // get the values we need for the BDF-formula. If this happens
+                // then the active mesh in the previous step(s) need to be
+                // extended, such that the cells outside the physical domain
+                // can be stabilized. When the aftive mesh is sufficiently
+                // big in all time steps, we should never enter this clause.
+                // If this happens, the values of 0 vill be used.
                 std::cout << "# NB: need larger cell buffer outside the "
                              "physical domain." << std::endl;
-
-                /*
-                boundary_values_time = this->boundary_values->get_time();
-                this->boundary_values->set_time(
-                        boundary_values_time - k * this->tau);
-                this->boundary_values->value_list(
-                        fe_values.get_quadrature_points(),
-                        prev_solution_values[k]);
-                this->boundary_values->set_time(boundary_values_time);
-                 */
             } else {
+                // Get the function values from the previous time steps.
                 // TODO check that this is actually done.
                 hp_fe_values.reinit(cell_prev);
                 const FEValues<dim> &fe_values_prev = hp_fe_values.get_present_fe_values();
@@ -317,7 +297,6 @@ namespace utils::problems::scalar {
     ErrorBase *ScalarProblem<dim>::
     compute_error(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
                   Vector<double> &solution) {
-        // TODO bør jeg heller returnere en peker?
         std::cout << "Compute error" << std::endl;
 
         double l2_error_integral;
@@ -336,7 +315,6 @@ namespace utils::problems::scalar {
                                                  this->cut_mesh_classifier,
                                                  this->levelset_dof_handler,
                                                  this->levelset);
-
 
         for (const auto &cell : dof_handler->active_cell_iterators()) {
             cut_fe_values.reinit(cell);
@@ -435,9 +413,9 @@ namespace utils::problems::scalar {
     template<int dim>
     void ScalarProblem<dim>::
     write_header_to_file(std::ofstream &file) {
-        file
-                << "h, \\tau, \\|u\\|_{L^2}, \\|u\\|_{H^1}, |u|_{H^1}, \\|u\\|_{l^\\infty L^2}, \\|u\\|_{l^\\infty H^1}, \\kappa(A)"
-                << std::endl;
+        file << "h, \\tau, \\|u\\|_{L^2}, \\|u\\|_{H^1}, |u|_{H^1}, "
+                "\\|u\\|_{l^\\infty L^2}, \\|u\\|_{l^\\infty H^1}, \\kappa(A)"
+             << std::endl;
     }
 
 
@@ -459,9 +437,9 @@ namespace utils::problems::scalar {
     template<int dim>
     void ScalarProblem<dim>::
     write_time_header_to_file(std::ofstream &file) {
-        file
-                << "k, \\tau, h, \\|u\\|_{L^2}, \\|u\\|_{H^1}, |u|_{H^1}, \\kappa(A)"
-                << std::endl;
+        file << "k, \\tau, h, \\|u\\|_{L^2}, \\|u\\|_{H^1}, "
+                "|u|_{H^1}, \\kappa(A)"
+             << std::endl;
     }
 
 

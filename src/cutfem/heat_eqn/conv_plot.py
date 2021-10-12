@@ -29,7 +29,7 @@ def time_error_plot():
     data_indices = [3, 4, 5]
     for d in degrees:
         paths = [os.path.join(base, f"build/src/cutfem/heat_eqn", folder, f"errors-time-d2o{d}r{r}.csv") for r in
-                 range(2, 8)]
+                 range(3, 8)]
         time_error_plots(paths, data_indices=data_indices, font_size=12, label_size="large",
                          title=f"Heat equation time error, element order {d}", save_fig=True, identifier=d)
 
