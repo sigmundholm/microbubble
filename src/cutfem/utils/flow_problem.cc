@@ -7,9 +7,7 @@
 #include <deal.II/grid/grid_generator.h>
 #include <deal.II/grid/grid_out.h>
 #include <deal.II/grid/grid_tools.h>
-#include <deal.II/grid/tria_accessor.h>
 
-#include <deal.II/lac/full_matrix.h>
 #include <deal.II/lac/precondition.h>
 #include <deal.II/lac/solver_control.h>
 #include <deal.II/lac/sparse_direct.h>
@@ -28,7 +26,6 @@
 
 #include "cutfem/geometry/SignedDistanceSphere.h"
 #include "cutfem/nla/sparsity_pattern.h"
-#include "cutfem/stabilization/jump_stabilization.h"
 
 #include "../../utils/integration.h"
 #include "../../utils/output.h"
@@ -59,12 +56,12 @@ namespace utils::problems::flow {
 
     template<int dim>
     void FlowProblem<dim>::
-    interpolate_solution(hp::DoFHandler<dim> &dof_handler,
+    interpolate_solution(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
                          int time_step,
                          bool moving_domain) {
         Utils::AnalyticalSolutionWrapper<dim> wrapper(*analytical_velocity,
                                                       *analytical_pressure);
-        VectorTools::interpolate(dof_handler, wrapper, this->solutions.front());
+        VectorTools::interpolate(*dof_handler, wrapper, this->solutions.front());
         // TODO burde kanskje heller interpolere boundary_values for
         //  initial verdier?
         // Important that the boundary_values function uses t=0, when
@@ -164,7 +161,7 @@ namespace utils::problems::flow {
 
     template<int dim>
     ErrorBase *FlowProblem<dim>::
-    compute_error(hp::DoFHandler<dim> &dof_handler,
+    compute_error(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
                   Vector<double> &solution) {
         std::cout << "Compute error" << std::endl;
         NonMatching::RegionUpdateFlags region_update_flags;
@@ -189,7 +186,7 @@ namespace utils::problems::flow {
         // domain, to subtract it before computing the error.
         double mean_num_pressure = 0;
         double mean_ext_pressure = 0;
-        Utils::compute_mean_pressure(dof_handler,
+        Utils::compute_mean_pressure(*dof_handler,
                                      cut_fe_values,
                                      solution,
                                      *analytical_pressure,
@@ -201,7 +198,7 @@ namespace utils::problems::flow {
         double l2_error_integral_p = 0;
         double h1_error_integral_p = 0;
 
-        for (const auto &cell : dof_handler.active_cell_iterators()) {
+        for (const auto &cell : dof_handler->active_cell_iterators()) {
             cut_fe_values.reinit(cell);
 
             const boost::optional<const FEValues<dim> &> fe_values_inside =
@@ -375,7 +372,7 @@ namespace utils::problems::flow {
 
     template<int dim>
     void FlowProblem<dim>::
-    output_results(hp::DoFHandler<dim> &dof_handler,
+    output_results(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
                    Vector<double> &solution,
                    std::string &suffix,
                    bool minimal_output) const {
@@ -388,7 +385,7 @@ namespace utils::problems::flow {
         dci.push_back(DataComponentInterpretation::component_is_scalar);
 
         DataOut<dim> data_out;
-        data_out.attach_dof_handler(dof_handler);
+        data_out.attach_dof_handler(*dof_handler);
         data_out.add_data_vector(solution,
                                  solution_names,
                                  DataOut<dim>::type_dof_data,

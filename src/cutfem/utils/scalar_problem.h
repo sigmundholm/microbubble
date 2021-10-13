@@ -73,6 +73,14 @@ namespace utils::problems::scalar {
                       Function<dim> &analytical_soln,
                       const bool stabilized = true);
 
+        ScalarProblem(const unsigned int n_refines,
+                      const int element_order,
+                      const bool write_output,
+                      Triangulation<dim> &tria,
+                      Function<dim> &levelset_func,
+                      Function<dim> &analytical_soln,
+                      const bool stabilized = true);
+
         static void
         write_header_to_file(std::ofstream &file);
 
@@ -81,7 +89,7 @@ namespace utils::problems::scalar {
 
     protected:
         virtual void
-        interpolate_solution(hp::DoFHandler<dim> &dof_handler,
+        interpolate_solution(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
                              int time_step,
                              bool moving_domain = false) override;
 
@@ -102,7 +110,7 @@ namespace utils::problems::scalar {
                 const std::vector<types::global_dof_index> &loc2glb) override;
 
         ErrorBase *
-        compute_error(hp::DoFHandler<dim> &dof_handler,
+        compute_error(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
                       Vector<double> &solution) override;
 
         ErrorBase *
@@ -124,7 +132,7 @@ namespace utils::problems::scalar {
 
 
         virtual void
-        output_results(hp::DoFHandler<dim> &dof_handler,
+        output_results(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
                        Vector<double> &solution,
                        std::string &suffix,
                        bool minimal_output = false) const override;

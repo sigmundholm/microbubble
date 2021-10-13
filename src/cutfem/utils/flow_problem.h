@@ -81,7 +81,7 @@ namespace utils::problems::flow {
 
     protected:
         virtual void
-        interpolate_solution(hp::DoFHandler<dim> &dof_handler,
+        interpolate_solution(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
                              int time_step,
                              bool moving_domain = false) override;
 
@@ -104,7 +104,7 @@ namespace utils::problems::flow {
 
 
         ErrorBase *
-        compute_error(hp::DoFHandler<dim> &dof_handler,
+        compute_error(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
                       Vector<double> &solution) override;
 
         ErrorBase *
@@ -130,7 +130,7 @@ namespace utils::problems::flow {
 
 
         virtual void
-        output_results(hp::DoFHandler<dim> &dof_handler,
+        output_results(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
                        Vector<double> &solution,
                        std::string &suffix,
                        bool minimal_output = false) const override;

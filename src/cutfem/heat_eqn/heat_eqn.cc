@@ -28,6 +28,8 @@
 #include "cutfem/nla/sparsity_pattern.h"
 #include "cutfem/stabilization/jump_stabilization.h"
 
+#include "../utils/utils.h"
+
 #include "heat_eqn.h"
 
 
@@ -36,6 +38,7 @@ using namespace cutfem;
 
 namespace examples::cut::HeatEquation {
 
+    using namespace utils;
 
     template<int dim>
     HeatEqn<dim>::HeatEqn(const double nu,
@@ -77,7 +80,6 @@ namespace examples::cut::HeatEquation {
     HeatEqn<dim>::make_grid(Triangulation<dim> &tria) {
         std::cout << "Creating triangulation" << std::endl;
 
-        triangulation_exists = true; // TODO is this variable used?
         GridGenerator::cylinder(tria, radius, half_length);
         GridTools::remove_anisotropy(tria, 1.618, 5);
         tria.refine_global(this->n_refines);
@@ -117,18 +119,20 @@ namespace examples::cut::HeatEquation {
 
         // Use a helper object to compute the stabilisation for both the velocity
         // and the pressure component.
-        const FEValuesExtractors::Scalar velocities(0);
         stabilization::JumpStabilization<dim, FEValuesExtractors::Scalar>
-                velocity_stabilization(this->dof_handlers.front(),
-                                       this->mapping_collection,
-                                       this->cut_mesh_classifier,
-                                       this->constraints);
+                stabilization(*(this->dof_handlers.front()),
+                              this->mapping_collection,
+                              this->cut_mesh_classifier,
+                              this->constraints);
         if (this->stabilized) {
-            velocity_stabilization.set_function_describing_faces_to_stabilize(
-                    stabilization::inside_stabilization);
-            velocity_stabilization.set_weight_function(
-                    stabilization::taylor_weights);
-            velocity_stabilization.set_extractor(velocities);
+            // Object deciding what faces that should be stabilized.
+            std::shared_ptr<Selector<dim>> face_selector(
+                    new Selector<dim>(this->cut_mesh_classifier));
+
+            stabilization.set_faces_to_stabilize(face_selector);
+            stabilization.set_weight_function(stabilization::taylor_weights);
+            const FEValuesExtractors::Scalar velocities(0);
+            stabilization.set_extractor(velocities);
         }
 
         NonMatching::RegionUpdateFlags region_update_flags;
@@ -164,8 +168,12 @@ namespace examples::cut::HeatEquation {
         double gamma_M =
                 beta_0 * this->element_order * (this->element_order + 1);
 
-        for (const auto &cell : this->dof_handlers.front().active_cell_iterators()) {
+        for (const auto &cell : this->dof_handlers.front()->active_cell_iterators()) {
             const unsigned int n_dofs = cell->get_fe().dofs_per_cell;
+
+            const LocationToLevelSet location =
+                    this->cut_mesh_classifier.location_to_level_set(cell);
+
             std::vector<types::global_dof_index> loc2glb(n_dofs);
             cell->get_dof_indices(loc2glb);
 
@@ -173,29 +181,33 @@ namespace examples::cut::HeatEquation {
             // in the background.
             cut_fe_values.reinit(cell);
 
-            // Retrieve an FEValues object with quadrature points
-            // over the full cell.
-            const boost::optional<const FEValues<dim> &> fe_values_bulk =
-                    cut_fe_values.get_inside_fe_values();
+            if (location != LocationToLevelSet::OUTSIDE) {
 
-            if (fe_values_bulk) {
-                assemble_matrix_local_over_cell(*fe_values_bulk, loc2glb);
+                // Retrieve an FEValues object with quadrature points
+                // over the full cell.
+                const boost::optional<const FEValues<dim> &> fe_values_bulk =
+                        cut_fe_values.get_inside_fe_values();
+                if (fe_values_bulk) {
+                    assemble_matrix_local_over_cell(*fe_values_bulk, loc2glb);
+                }
+
+                // Retrieve an FEValues object with quadrature points
+                // on the immersed surface.
+                const boost::optional<const FEImmersedSurfaceValues<dim> &>
+                        fe_values_surface = cut_fe_values.get_surface_fe_values();
+                if (fe_values_surface) {
+                    assemble_matrix_local_over_surface(*fe_values_surface,
+                                                       loc2glb);
+                }
             }
-
-            // Retrieve an FEValues object with quadrature points
-            // on the immersed surface.
-            const boost::optional<const FEImmersedSurfaceValues<dim> &>
-                    fe_values_surface = cut_fe_values.get_surface_fe_values();
-
-            if (fe_values_surface)
-                assemble_matrix_local_over_surface(*fe_values_surface, loc2glb);
 
             if (this->stabilized) {
                 // Compute and add the velocity stabilization.
-                velocity_stabilization.compute_stabilization(cell);
-                velocity_stabilization.add_stabilization_to_matrix(
-                        this->tau * gamma_M +
-                        this->tau * nu * gamma_A / (this->h * this->h),
+                stabilization.compute_stabilization(cell);
+                double scaling = this->tau * gamma_M +
+                                 this->tau * nu * gamma_A / pow(this->h, 2);
+                stabilization.add_stabilization_to_matrix(
+                        scaling,
                         this->stiffness_matrix);
             }
         }
@@ -320,7 +332,7 @@ namespace examples::cut::HeatEquation {
                                          update_normal_vectors |
                                          update_JxW_values);
 
-        for (const auto &cell : this->dof_handlers.front().active_cell_iterators()) {
+        for (const auto &cell : this->dof_handlers.front()->active_cell_iterators()) {
             const unsigned int n_dofs = cell->get_fe().dofs_per_cell;
             std::vector<types::global_dof_index> loc2glb(n_dofs);
             cell->get_dof_indices(loc2glb);

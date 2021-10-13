@@ -104,7 +104,7 @@ namespace examples::cut::StokesEquation {
         // and the pressure component.
         const FEValuesExtractors::Vector velocities(0);
         stabilization::JumpStabilization<dim, FEValuesExtractors::Vector>
-                velocity_stab(this->dof_handlers.front(),
+                velocity_stab(*this->dof_handlers.front(),
                               this->mapping_collection,
                               this->cut_mesh_classifier,
                               this->constraints);
@@ -115,7 +115,7 @@ namespace examples::cut::StokesEquation {
 
         const FEValuesExtractors::Scalar pressure(dim);
         stabilization::JumpStabilization<dim, FEValuesExtractors::Scalar>
-                pressure_stab(this->dof_handlers.front(),
+                pressure_stab(*this->dof_handlers.front(),
                               this->mapping_collection,
                               this->cut_mesh_classifier,
                               this->constraints);
@@ -158,7 +158,7 @@ namespace examples::cut::StokesEquation {
                                          update_JxW_values);
 
 
-        for (const auto &cell : this->dof_handlers.front().active_cell_iterators()) {
+        for (const auto &cell : this->dof_handlers.front()->active_cell_iterators()) {
             const unsigned int n_dofs = cell->get_fe().dofs_per_cell;
             std::vector<types::global_dof_index> loc2glb(n_dofs);
             cell->get_dof_indices(loc2glb);
@@ -361,7 +361,7 @@ namespace examples::cut::StokesEquation {
         // TODO setter dette alle elementene i rhs til 0?
         // rhs = 0;
 
-        for (const auto &cell : this->dof_handlers.front().active_cell_iterators()) {
+        for (const auto &cell : this->dof_handlers.front()->active_cell_iterators()) {
             const unsigned int n_dofs = cell->get_fe().dofs_per_cell;
             std::vector<types::global_dof_index> loc2glb(n_dofs);
             cell->get_dof_indices(loc2glb);

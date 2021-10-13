@@ -117,9 +117,6 @@ namespace examples::cut::HeatEquation {
         const double radius;
         const double half_length;
 
-        // TODO remove if not used
-        bool triangulation_exists = false;
-
     };
 
 } // namespace examples::cut::HeatEquation

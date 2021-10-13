@@ -93,7 +93,6 @@ namespace examples::cut::HeatEquation {
         double
         value(const Point<dim> &p, const unsigned int component) const override;
 
-    private:
         const double sphere_radius;
         const double half_length;
         const double radius;
