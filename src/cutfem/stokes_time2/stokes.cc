@@ -29,6 +29,8 @@
 #include "cutfem/nla/sparsity_pattern.h"
 #include "cutfem/stabilization/jump_stabilization.h"
 
+#include "../utils/utils.h"
+
 #include "stokes.h"
 
 
@@ -36,22 +38,24 @@ using namespace cutfem;
 
 namespace examples::cut::StokesEquation {
 
+    using namespace utils;
+
     template<int dim>
     StokesEqn<dim>::
     StokesEqn(const double nu,
-                   const double tau,
-                   const double radius,
-                   const double half_length,
-                   const unsigned int n_refines,
-                   const int element_order,
-                   const bool write_output,
-                   TensorFunction<1, dim> &rhs,
-                   TensorFunction<1, dim> &bdd_values,
-                   TensorFunction<1, dim> &analytic_vel,
-                   Function<dim> &analytic_pressure,
-                   Function<dim> &levelset_func,
-                   const bool stabilized,
-                   const bool crank_nicholson)
+              const double tau,
+              const double radius,
+              const double half_length,
+              const unsigned int n_refines,
+              const int element_order,
+              const bool write_output,
+              TensorFunction<1, dim> &rhs,
+              TensorFunction<1, dim> &bdd_values,
+              TensorFunction<1, dim> &analytic_vel,
+              Function<dim> &analytic_pressure,
+              Function<dim> &levelset_func,
+              const bool stabilized,
+              const bool crank_nicholson)
             : FlowProblem<dim>(n_refines, element_order, write_output,
                                levelset_func, analytic_vel, analytic_pressure,
                                stabilized),
@@ -100,6 +104,10 @@ namespace examples::cut::StokesEquation {
     assemble_matrix() {
         std::cout << "Assembling: Stokes" << std::endl;
 
+        // Object deciding what faces should be stabilized.
+        std::shared_ptr<Selector<dim>> face_selector(
+                new Selector<dim>(this->cut_mesh_classifier));
+
         // Use a helper object to compute the stabilisation for both the velocity
         // and the pressure component.
         const FEValuesExtractors::Vector velocities(0);
@@ -108,8 +116,7 @@ namespace examples::cut::StokesEquation {
                               this->mapping_collection,
                               this->cut_mesh_classifier,
                               this->constraints);
-        velocity_stab.set_function_describing_faces_to_stabilize(
-                stabilization::inside_stabilization);
+        velocity_stab.set_faces_to_stabilize(face_selector);
         velocity_stab.set_weight_function(stabilization::taylor_weights);
         velocity_stab.set_extractor(velocities);
 
@@ -119,8 +126,7 @@ namespace examples::cut::StokesEquation {
                               this->mapping_collection,
                               this->cut_mesh_classifier,
                               this->constraints);
-        pressure_stab.set_function_describing_faces_to_stabilize(
-                stabilization::inside_stabilization);
+        pressure_stab.set_faces_to_stabilize(face_selector);
         pressure_stab.set_weight_function(stabilization::taylor_weights);
         pressure_stab.set_extractor(pressure);
 
@@ -160,6 +166,8 @@ namespace examples::cut::StokesEquation {
 
         for (const auto &cell : this->dof_handlers.front()->active_cell_iterators()) {
             const unsigned int n_dofs = cell->get_fe().dofs_per_cell;
+            const LocationToLevelSet location =
+                    this->cut_mesh_classifier.location_to_level_set(cell);
             std::vector<types::global_dof_index> loc2glb(n_dofs);
             cell->get_dof_indices(loc2glb);
 
@@ -167,33 +175,37 @@ namespace examples::cut::StokesEquation {
             // in the background.
             cut_fe_values.reinit(cell);
 
-            // Retrieve an FEValues object with quadrature points
-            // over the full cell.
-            const boost::optional<const FEValues<dim> &> fe_values_bulk =
-                    cut_fe_values.get_inside_fe_values();
+            if (location != LocationToLevelSet::OUTSIDE) {
+                // Retrieve an FEValues object with quadrature points
+                // over the full cell.
+                const boost::optional<const FEValues<dim> &> fe_values_bulk =
+                        cut_fe_values.get_inside_fe_values();
 
-            if (fe_values_bulk) {
-                this->assemble_matrix_local_over_cell(*fe_values_bulk, loc2glb);
-            }
-
-            // Loop through all faces that constitutes the outer boundary of the
-            // domain.
-            for (const auto &face : cell->face_iterators()) {
-                if (face->at_boundary() &&
-                    face->boundary_id() != do_nothing_id) {
-                    fe_face_values.reinit(cell, face);
-                    this->assemble_matrix_local_over_surface(fe_face_values, loc2glb);
+                if (fe_values_bulk) {
+                    this->assemble_matrix_local_over_cell(*fe_values_bulk,
+                                                          loc2glb);
                 }
+
+                // Loop through all faces that constitutes the outer boundary of the
+                // domain.
+                for (const auto &face : cell->face_iterators()) {
+                    if (face->at_boundary() &&
+                        face->boundary_id() != do_nothing_id) {
+                        fe_face_values.reinit(cell, face);
+                        this->assemble_matrix_local_over_surface(fe_face_values,
+                                                                 loc2glb);
+                    }
+                }
+
+                // Retrieve an FEValues object with quadrature points
+                // on the immersed surface.
+                const boost::optional<const FEImmersedSurfaceValues<dim> &>
+                        fe_values_surface = cut_fe_values.get_surface_fe_values();
+
+                if (fe_values_surface)
+                    this->assemble_matrix_local_over_surface(*fe_values_surface,
+                                                             loc2glb);
             }
-
-            // Retrieve an FEValues object with quadrature points
-            // on the immersed surface.
-            const boost::optional<const FEImmersedSurfaceValues<dim> &>
-                    fe_values_surface = cut_fe_values.get_surface_fe_values();
-
-            if (fe_values_surface)
-                this->assemble_matrix_local_over_surface(*fe_values_surface, loc2glb);
-
 
             // Compute and add the velocity stabilization.
             velocity_stab.compute_stabilization(cell);
@@ -204,7 +216,6 @@ namespace examples::cut::StokesEquation {
             pressure_stab.compute_stabilization(cell);
             pressure_stab.add_stabilization_to_matrix(-gamma_A,
                                                       this->stiffness_matrix);
-            // TODO et stabilierings ledd til for trykket også?
         }
     }
 

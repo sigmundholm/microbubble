@@ -22,7 +22,7 @@ void solve_for_element_order(int element_order, int max_refinement,
 
     double end_time = radius;
 
-    double sphere_radius = radius * 0.9;
+    double sphere_radius = 0.75 * radius;
     double sphere_x_coord = 0;
 
     std::ofstream file("errors-d" + std::to_string(dim)
@@ -56,12 +56,12 @@ void solve_for_element_order(int element_order, int max_refinement,
         // L^2 projection of the step u0.
         analytical_velocity.set_time(0);
         analytical_pressure.set_time(0);
+        /*
         projections::ProjectionFlow<dim> u0_proj(
                 radius, half_length, n_refines, element_order, write_output,
                 domain, analytical_velocity,
                 analytical_pressure,
                 sphere_radius, sphere_x_coord);
-        /*
         ErrorBase err_proj = u0_proj.run_step();
         auto *error_proj = dynamic_cast<ErrorFlow*>(err_proj);
         std::cout << "  || u - u_h ||_L2 = " << error_proj.l2_error_u << std::endl;
@@ -76,7 +76,7 @@ void solve_for_element_order(int element_order, int max_refinement,
                 write_output, rhs, boundary_values, analytical_velocity,
                 analytical_pressure, domain);
 
-        ErrorBase *bdf1_err = stokes_bdf1.run_time(1, time_steps);
+        ErrorBase *bdf1_err = stokes_bdf1.run_moving_domain(1, time_steps);
 
         /*
         // std::cout << std::endl << "BDF-2" << std::endl << std::endl;

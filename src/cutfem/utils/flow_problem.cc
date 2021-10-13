@@ -61,7 +61,8 @@ namespace utils::problems::flow {
                          bool moving_domain) {
         Utils::AnalyticalSolutionWrapper<dim> wrapper(*analytical_velocity,
                                                       *analytical_pressure);
-        VectorTools::interpolate(*dof_handler, wrapper, this->solutions.front());
+        VectorTools::interpolate(*dof_handler, wrapper,
+                                 this->solutions.front());
         // TODO burde kanskje heller interpolere boundary_values for
         //  initial verdier?
         // Important that the boundary_values function uses t=0, when
@@ -110,16 +111,16 @@ namespace utils::problems::flow {
         Vector<double> local_rhs(dofs_per_cell);
 
         // Vector for values of the RightHandSide for all quadrature points on a cell.
-        std::vector <Tensor<1, dim>> rhs_values(fe_v.n_quadrature_points,
-                                                Tensor<1, dim>());
+        std::vector<Tensor<1, dim>> rhs_values(fe_v.n_quadrature_points,
+                                               Tensor<1, dim>());
         this->rhs_function->value_list(fe_v.get_quadrature_points(),
                                        rhs_values);
 
         const FEValuesExtractors::Vector v(0);
 
-        std::vector <Tensor<1, dim>> val(fe_v.n_quadrature_points,
-                                         Tensor<1, dim>());
-        std::vector < std::vector < Tensor < 1, dim >> > prev_solutions_values(
+        std::vector<Tensor<1, dim>> val(fe_v.n_quadrature_points,
+                                        Tensor<1, dim>());
+        std::vector<std::vector<Tensor<1, dim >>> prev_solutions_values(
                 this->solutions.size(), val);
 
         for (unsigned int k = 0; k < this->solutions.size(); ++k) {
@@ -152,10 +153,83 @@ namespace utils::problems::flow {
     template<int dim>
     void FlowProblem<dim>::
     assemble_rhs_and_bdf_terms_local_over_cell_moving_domain(
-            const FEValues<dim> &fe_values,
+            const FEValues<dim> &fe_v,
             const std::vector<types::global_dof_index> &loc2glb) {
-        // TODO
-        assert(false);
+
+        // TODO needed?
+        const hp::FECollection<dim> &fe_collection = this->dof_handlers.front()->get_fe_collection();
+        const hp::QCollection<dim> q_collection(fe_v.get_quadrature());
+
+        // Vector for the contribution of each cell
+        const unsigned int dofs_per_cell = fe_v.get_fe().dofs_per_cell;
+        Vector<double> local_rhs(dofs_per_cell);
+
+        const FEValuesExtractors::Vector v(0);
+
+        // Vector for values of the RightHandSide for all quadrature points on a cell.
+        std::vector<Tensor<1, dim>> rhs_values(fe_v.n_quadrature_points,
+                                               Tensor<1, dim>());
+        this->rhs_function->value_list(fe_v.get_quadrature_points(),
+                                       rhs_values);
+
+        // Create vector of the previous solutions values
+        std::vector<Tensor<1, dim>> val(fe_v.n_quadrature_points, Tensor<1, dim>());
+        std::vector<std::vector<Tensor<1, dim>>> prev_solution_values(
+                this->solutions.size(), val);
+
+        // The the values of the previous solutions, and insert into the
+        // matrix initialized above.
+        const typename Triangulation<dim>::active_cell_iterator &cell =
+                fe_v.get_cell();
+        hp::FEValues<dim> hp_fe_values(this->mapping_collection,
+                                       fe_collection,
+                                       q_collection,
+                                       update_values);
+
+        // Read out the solution values from the previous time steps that we
+        // need for the BDF-method.
+        for (unsigned long k = 1; k < this->solutions.size(); ++k) {
+            typename hp::DoFHandler<dim>::active_cell_iterator cell_prev(
+                    &(this->triangulation), cell->level(), cell->index(),
+                    this->dof_handlers[k].get());
+            const FiniteElement<dim> &fe = cell_prev->get_fe();
+            if (fe.n_dofs_per_cell() == 0) {
+                // This means that in the previous solution step, this cell had
+                // FE_Nothing elements. We can therefore not use that cell to
+                // get the values we need for the BDF-formula. If this happens
+                // then the active mesh in the previous step(s) need to be
+                // extended, such that the cells outside the physical domain
+                // can be stabilized. When the aftive mesh is sufficiently
+                // big in all time steps, we should never enter this clause.
+                // If this happens, the values of 0 vill be used.
+                std::cout << "# NB: need larger cell buffer outside the "
+                             "physical domain." << std::endl;
+            } else {
+                // Get the function values from the previous time steps.
+                // TODO check that this is actually done.
+                hp_fe_values.reinit(cell_prev);
+                const FEValues<dim> &fe_values_prev = hp_fe_values.get_present_fe_values();
+                fe_values_prev[v].get_function_values(this->solutions[k],
+                                                   prev_solution_values[k]);
+            }
+
+        }
+        Tensor<1, dim> phi_u;
+        Tensor<1, dim> prev_values;
+        for (unsigned int q = 0; q < fe_v.n_quadrature_points; ++q) {
+            for (const unsigned int i : fe_v.dof_indices()) {
+                prev_values = 0;
+                for (unsigned long k = 1; k < this->solutions.size(); ++k) {
+                    prev_values +=
+                            this->bdf_coeffs[k] * prev_solution_values[k][q];
+                }
+                phi_u = fe_v[v].value(i, q);
+                local_rhs(i) += (this->tau * rhs_values[q] * phi_u // (f, v)
+                                 - prev_values * phi_u       // (u_n, v)
+                                ) * fe_v.JxW(q);         // dx
+            }
+        }
+        this->rhs.add(loc2glb, local_rhs);
     }
 
 
@@ -205,7 +279,8 @@ namespace utils::problems::flow {
                     cut_fe_values.get_inside_fe_values();
 
             if (fe_values_inside) {
-                integrate_cell(*fe_values_inside, solution, l2_error_integral_u,
+                integrate_cell(*fe_values_inside, solution,
+                               l2_error_integral_u,
                                h1_error_integral_u, l2_error_integral_p,
                                h1_error_integral_p, mean_num_pressure,
                                mean_ext_pressure);
@@ -216,10 +291,12 @@ namespace utils::problems::flow {
         error->h = this->h;
         error->tau = this->tau;
         error->l2_error_u = pow(l2_error_integral_u, 0.5);
-        error->h1_error_u = pow(l2_error_integral_u + h1_error_integral_u, 0.5);
+        error->h1_error_u = pow(l2_error_integral_u + h1_error_integral_u,
+                                0.5);
         error->h1_semi_u = pow(h1_error_integral_u, 0.5);
         error->l2_error_p = pow(l2_error_integral_p, 0.5);
-        error->h1_error_p = pow(l2_error_integral_p + h1_error_integral_p, 0.5);
+        error->h1_error_p = pow(l2_error_integral_p + h1_error_integral_p,
+                                0.5);
         error->h1_semi_p = pow(h1_error_integral_p, 0.5);
         return error;
     }
@@ -261,10 +338,12 @@ namespace utils::problems::flow {
         error->tau = this->tau;
 
         error->l2_error_u = pow(l2_error_integral_u, 0.5);
-        error->h1_error_u = pow(l2_error_integral_u + h1_error_integral_u, 0.5);
+        error->h1_error_u = pow(l2_error_integral_u + h1_error_integral_u,
+                                0.5);
         error->h1_semi_u = pow(h1_error_integral_u, 0.5);
         error->l2_error_p = pow(l2_error_integral_p, 0.5);
-        error->h1_error_p = pow(l2_error_integral_p + h1_error_integral_p, 0.5);
+        error->h1_error_p = pow(l2_error_integral_p + h1_error_integral_p,
+                                0.5);
         error->h1_semi_p = pow(h1_error_integral_p, 0.5);
 
         error->l_inf_l2_error_u = l_inf_l2_u;
@@ -311,10 +390,12 @@ namespace utils::problems::flow {
                                         p_exact_solution);
 
         // Exact gradients: velocity and pressure
-        std::vector<Tensor<2, dim>> u_exact_gradients(fe_v.n_quadrature_points,
-                                                      Tensor<2, dim>());
-        std::vector<Tensor<1, dim>> p_exact_gradients(fe_v.n_quadrature_points,
-                                                      Tensor<1, dim>());
+        std::vector<Tensor<2, dim>> u_exact_gradients(
+                fe_v.n_quadrature_points,
+                Tensor<2, dim>());
+        std::vector<Tensor<1, dim>> p_exact_gradients(
+                fe_v.n_quadrature_points,
+                Tensor<1, dim>());
         analytical_velocity->gradient_list(fe_v.get_quadrature_points(),
                                            u_exact_gradients);
         analytical_pressure->gradient_list(fe_v.get_quadrature_points(),
@@ -323,9 +404,11 @@ namespace utils::problems::flow {
         for (unsigned int q = 0; q < fe_v.n_quadrature_points; ++q) {
             // Integrate the square difference between exact and numeric solution
             // for function values and gradients (both pressure and velocity).
-            Tensor<1, dim> diff_u = u_exact_solution[q] - u_solution_values[q];
+            Tensor<1, dim> diff_u =
+                    u_exact_solution[q] - u_solution_values[q];
             double diff_p = (p_exact_solution[q] - mean_exact_pressure) -
-                            (p_solution_values[q] - mean_numerical_pressure);
+                            (p_solution_values[q] -
+                             mean_numerical_pressure);
 
             Tensor<2, dim> diff_u_gradient =
                     u_exact_gradients[q] - u_solution_gradients[q];
@@ -381,7 +464,8 @@ namespace utils::problems::flow {
         std::vector<std::string> solution_names(dim, "velocity");
         solution_names.emplace_back("pressure");
         std::vector<DataComponentInterpretation::DataComponentInterpretation> dci(
-                dim, DataComponentInterpretation::component_is_part_of_vector);
+                dim,
+                DataComponentInterpretation::component_is_part_of_vector);
         dci.push_back(DataComponentInterpretation::component_is_scalar);
 
         DataOut<dim> data_out;
@@ -401,11 +485,13 @@ namespace utils::problems::flow {
         if (!minimal_output) {
             // Output levelset function.
             DataOut<dim, DoFHandler<dim>> data_out_levelset;
-            data_out_levelset.attach_dof_handler(this->levelset_dof_handler);
+            data_out_levelset.attach_dof_handler(
+                    this->levelset_dof_handler);
             data_out_levelset.add_data_vector(this->levelset, "levelset");
             data_out_levelset.build_patches();
             std::ofstream output_ls("levelset-d" + std::to_string(dim)
-                                    + "o" + std::to_string(this->element_order)
+                                    + "o" +
+                                    std::to_string(this->element_order)
                                     + "r" + std::to_string(this->n_refines)
                                     + "-" + suffix + ".vtk");
             data_out_levelset.write_vtk(output_ls);
