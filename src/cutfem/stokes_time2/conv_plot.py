@@ -20,7 +20,7 @@ def time_error_plot():
     for d in [1, 2]:
         paths = [os.path.join(base, f"build/src/cutfem/stokes_time2", folder, f"errors-time-d2o{d}r{r}.csv") for r in
                  range(2, 8)]
-        time_error_plots(paths, end_time=end_time, data_indices=[3, 4, 5, 6, 7, 8], font_size=12, label_size="large",
+        time_error_plots(paths, data_indices=[3, 4, 5, 6, 7, 8], font_size=12, label_size="large",
                          title=f"Stokes Equations time error, element order ({d + 1}, {d})", save_fig=True,
                          identifier=d)
 
@@ -29,32 +29,34 @@ def time_error_plot():
 folder = ""
 radius = 0.1
 end_time = radius
-domain_length = 2 * radius
+domain_length = radius
+xlabel = "M"
 
 if __name__ == '__main__':
     base = split(split(split(os.getcwd())[0])[0])[0]
 
+    time_error_plot()
     # convergence_plot_report()
 
     # time_error_plot()
 
     skip = 0
-    for poly_order in [1]:
+    for poly_order in [1, 2]:
         full_path = os.path.join(base, "build/src/cutfem/stokes_time2", folder, f"errors-d2o{poly_order}.csv")
 
         head = list(map(str.strip, open(full_path).readline().split(",")))[1:]
         data = np.genfromtxt(full_path, delimiter=",", skip_header=True)
         data = data[skip:, 1:]
 
-        conv_plots(data, head, title=r"$\textrm{Time dep. Stokes (BDF-2), element order: (" + str(
-            poly_order + 1) + ", " + str(poly_order) + ")}$", domain_length=domain_length)
+        conv_plots(data, head, title=r"$\textrm{Time dep. Stokes, element order: (" + str(
+            poly_order + 1) + ", " + str(poly_order) + ")}$", domain_length=domain_length, xlabel=xlabel)
         plt.savefig(f"bdf2-error-o{poly_order}.pdf")
 
         # Create a EOC-plot
         eoc_plot(data, head,
-                 title=r"\textrm{Time dep. Stokes (BDF-2) EOC, element order: (" + str(poly_order + 1) + ", " + str(
+                 title=r"\textrm{Time dep. Stokes EOC, element order: (" + str(poly_order + 1) + ", " + str(
                      poly_order) + ")}",
-                 domain_lenght=domain_length, lines_at=np.array([1, 2]))
+                 domain_lenght=domain_length, lines_at=np.array([1, 2]), xlabel=xlabel)
         plt.savefig(f"bdf2-eoc-o{poly_order}.pdf")
 
     plt.show()
