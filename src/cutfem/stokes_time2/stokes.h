@@ -59,6 +59,7 @@ namespace examples::cut::StokesEquation {
                        TensorFunction<1, dim> &analytic_vel,
                        Function<dim> &analytic_pressure,
                        Function<dim> &levelset_func,
+                       const int do_nothing_id = 10,
                        const bool stabilized = true,
                        const bool crank_nicholson = false);
 

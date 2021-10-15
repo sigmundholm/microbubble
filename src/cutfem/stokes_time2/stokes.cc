@@ -54,17 +54,19 @@ namespace examples::cut::StokesEquation {
               TensorFunction<1, dim> &analytic_vel,
               Function<dim> &analytic_pressure,
               Function<dim> &levelset_func,
+              const int do_nothing_id,
               const bool stabilized,
               const bool crank_nicholson)
             : FlowProblem<dim>(n_refines, element_order, write_output,
                                levelset_func, analytic_vel, analytic_pressure,
                                stabilized),
-              nu(nu), radius(radius), half_length(half_length) {
+              nu(nu), radius(radius), half_length(half_length),
+              do_nothing_id(do_nothing_id) {
         this->tau = tau;
         this->crank_nicholson = crank_nicholson;
 
         // Use Dirichlet boundary conditions everywhere.
-        do_nothing_id = 10;
+        // do_nothing_id = 10;
 
         this->rhs_function = &rhs;
         this->boundary_values = &bdd_values;
