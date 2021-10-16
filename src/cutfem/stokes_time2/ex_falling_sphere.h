@@ -1,0 +1,106 @@
+#ifndef MICROBUBBLE_EX_FALLING_SPHERE_H
+#define MICROBUBBLE_EX_FALLING_SPHERE_H
+
+#include <deal.II/base/tensor.h>
+
+#include "stokes.h"
+
+
+// using namespace dealii;
+// using namespace cutfem;
+
+namespace examples::cut::StokesEquation::ex2 {
+
+    // using namespace examples::cut::StokesEquation;
+    template<int dim>
+    class BoundaryValues : public TensorFunction<1, dim> {
+    public:
+        BoundaryValues(const double sphere_radius, const double half_length,
+                       const double radius);
+
+        Tensor<1, dim>
+        value(const Point<dim> &p) const override;
+
+        void
+        set_ball_velocity(Tensor<1, dim> value);
+
+        const double sphere_radius;
+        const double half_length;
+        const double radius;
+        Tensor<1, dim> ball_velocity;
+    };
+
+
+    template<int dim>
+    class MovingDomain : public Function<dim> {
+    public :
+        MovingDomain(const double sphere_radius,
+                     const double half_length,
+                     const double radius,
+                     const double tau);
+
+
+        double
+        value(const Point<dim> &p, const unsigned int component) const override;
+
+        void
+        set_acceleration(Tensor<1, dim> value);
+
+        double
+        get_volume();
+
+        void
+        update_position();
+
+        Tensor<1, dim>
+        get_velocity();
+
+    private:
+        const double sphere_radius;
+        const double half_length;
+        const double radius;
+        const double tau;
+
+        Tensor<1, dim> last_position;
+        Tensor<1, dim> new_position;
+
+        Tensor<1, dim> last_velocity;
+        Tensor<1, dim> new_velocity;
+
+        // The acceleration at the current time step.
+        Tensor<1, dim> acceleration;
+    };
+
+
+    template<int dim>
+    class FallingSphereStokes : public StokesEqn<dim> {
+    public:
+        FallingSphereStokes(const double nu, const double tau,
+                          const double radius, const double half_length,
+                          const unsigned int n_refines, const int element_order,
+                          const bool write_output,
+                          TensorFunction<1, dim> &rhs,
+                          TensorFunction<1, dim> &bdd_values,
+                          TensorFunction<1, dim> &analytic_vel,
+                          Function<dim> &analytic_pressure,
+                          Function<dim> &levelset_func,
+                          const int do_nothing_id = 10);
+
+    protected:
+        void
+        post_processing() override;
+
+        Tensor<1, dim>
+        compute_surface_forces();
+
+        Tensor<1, dim>
+        integrate_surface_forces(const FEValuesBase<dim> &fe_v,
+                                 Vector<double> solution,
+                                 Tensor<1, dim> &force_integral);
+    };
+
+
+}
+
+
+#endif //MICROBUBBLE_EX_FALLING_SPHERE_H

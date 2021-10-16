@@ -16,13 +16,13 @@ void solve_for_element_order(int element_order, int max_refinement,
     using namespace examples::cut;
 
     double radius = 0.1; // TODO gjør mindre, for bedre tall for feil når løsningen er eksponential i tid.
-    double half_length = 2 * radius;
+    double half_length = radius;
 
     double nu = 0.4;
 
     double end_time = radius;
 
-    double sphere_radius = 0.75 * radius;
+    double sphere_radius = 0.9 * radius;
     double sphere_x_coord = 0;
 
     std::ofstream file("errors-d" + std::to_string(dim)
@@ -71,29 +71,21 @@ void solve_for_element_order(int element_order, int max_refinement,
         Vector<double> u0 = u0_proj.get_solution();
          */
 
-        StokesEqn<dim> stokes_bdf1(
+        StokesEqn<dim> stokes(
                 nu, tau, radius, half_length, n_refines, element_order,
                 write_output, rhs, boundary_values, analytical_velocity,
                 analytical_pressure, domain);
 
-        ErrorBase *bdf1_err = stokes_bdf1.run_moving_domain(1, time_steps);
+        ErrorBase *bdf1_err = stokes.run_moving_domain(1, 1);
 
-        /*
-        // std::cout << std::endl << "BDF-2" << std::endl << std::endl;
-        StokesCylinder<dim> stokes_bdf2(
-                radius, half_length, n_refines,
-                nu, tau, element_order, write_output,
-                rhs,
-                boundary_values, analytical_velocity,
-                analytical_pressure,
-                sphere_radius, sphere_x_coord);
+        // BDF-2
+        Vector<double> u1 = stokes.get_solution();
+        std::shared_ptr<hp::DoFHandler<dim>> dof = stokes.get_dof_handler();
+        std::vector<Vector<double>> initial2 = {u1};
+        std::vector<std::shared_ptr<hp::DoFHandler<dim>>> initial_dofh = {dof};
 
-        Vector<double> u1 = stokes_bdf1.get_solution();
-        std::vector<Vector<double>> initial2 = {u0, u1};
-        TimeDependentStokesBDF2::Error error2 = stokes_bdf2.run(2, time_steps,
-                                                                initial2);
-         */
-        auto *error = dynamic_cast<ErrorFlow *>(bdf1_err);
+        ErrorBase *bdf2_err = stokes.run_moving_domain(2, time_steps, initial2, initial_dofh);
+        auto *error = dynamic_cast<ErrorFlow *>(bdf2_err);
 
         std::cout << std::endl;
         std::cout << "|| u - u_h ||_L2 = " << error->l2_error_u << std::endl;

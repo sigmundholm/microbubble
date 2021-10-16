@@ -24,7 +24,7 @@ int main() {
 
     const int dim = 2;
 
-    ex1::ZeroTensorFunction<dim> zero_tensor;
+    ZeroTensorFunction<1, dim> zero_tensor;
     Functions::ZeroFunction<dim> zero_scalar;
     ex1::BoundaryValues<dim> boundary(sphere_radius, half_length, radius);
     ex1::MovingDomain<dim> domain(sphere_radius, half_length, radius);

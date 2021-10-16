@@ -11,29 +11,6 @@ using namespace dealii;
 namespace examples::cut::StokesEquation::ex1 {
 
     template<int dim>
-    class ZeroTensorFunction : public TensorFunction<1, dim> {
-    public:
-        ZeroTensorFunction();
-
-        Tensor<1, dim>
-        value(const Point<dim> &p) const override;
-
-        Tensor<2, dim>
-        gradient(const Point<dim> &p) const override;
-    };
-
-
-    template<int dim>
-    class ZeroFunction : public Function<dim> {
-    public:
-        ZeroFunction();
-
-        double
-        value(const Point<dim> &p, const unsigned int component) const override;
-    };
-
-
-    template<int dim>
     class BoundaryValues : public TensorFunction<1, dim> {
     public:
         BoundaryValues(const double sphere_radius, const double half_length,

@@ -278,6 +278,8 @@ namespace utils::problems {
             write_time_error_to_file(errors[k], file);
             errors[k]->output();
 
+            post_processing();
+
             if (write_output) {
                 output_results(this->dof_handlers.front(),
                                this->solutions.front(), k, false);
@@ -719,6 +721,10 @@ namespace utils::problems {
         output_results(dof_handler, solution, k, minimal_output);
     }
 
+
+    template<int dim>
+    void CutFEMProblem<dim>::
+    post_processing() {}
 
     template
     class CutFEMProblem<2>;

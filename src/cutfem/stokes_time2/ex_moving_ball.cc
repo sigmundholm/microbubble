@@ -10,36 +10,6 @@ using namespace dealii;
 namespace examples::cut::StokesEquation::ex1 {
 
     template<int dim>
-    ZeroTensorFunction<dim>::ZeroTensorFunction() : TensorFunction<1, dim>() {}
-
-    template<int dim>
-    Tensor<1, dim> ZeroTensorFunction<dim>::
-    value(const Point<dim> &p) const {
-        Tensor<1, dim> val;
-        val[0] = 0;
-        val[1] = 0;
-        return val;
-    }
-
-    template<int dim>
-    Tensor<2, dim> ZeroTensorFunction<dim>::
-    gradient(const Point<dim> &p) const {
-        Tensor<2, dim> value;
-        return value;
-    }
-
-
-    template<int dim>
-    ZeroFunction<dim>::ZeroFunction() : Function<dim>() {}
-
-    template<int dim>
-    double ZeroFunction<dim>::
-    value(const Point<dim> &p, const unsigned int component) const {
-        return 0;
-    }
-
-
-    template<int dim>
     BoundaryValues<dim>::BoundaryValues(const double sphere_radius,
                                         const double half_length,
                                         const double radius)
@@ -89,11 +59,6 @@ namespace examples::cut::StokesEquation::ex1 {
         return -sqrt(pow(x - x0, 2) + pow(y - y0, 2)) + sphere_radius;
     }
 
-    template
-    class ZeroTensorFunction<2>;
-
-    template
-    class ZeroFunction<2>;
 
     template
     class BoundaryValues<2>;
