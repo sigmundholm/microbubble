@@ -186,7 +186,8 @@ namespace utils::problems {
     ErrorBase *CutFEMProblem<dim>::
     run_moving_domain(unsigned int bdf_type, unsigned int steps,
                       std::vector<Vector<double>> &supplied_solutions,
-                      std::vector<std::shared_ptr<hp::DoFHandler<dim>>> &supplied_dof_handlers) {
+                      std::vector<std::shared_ptr<hp::DoFHandler<dim>>> &supplied_dof_handlers,
+                      const double mesh_bound_multiplier) {
 
         std::cout << "\nBDF-" << bdf_type << ", steps=" << steps << std::endl;
         std::cout << "-------------------------" << std::endl;
@@ -211,8 +212,8 @@ namespace utils::problems {
         // TODO hvorfor klages det fortsatt på at bound er for lite? Det bør vel
         //  være mer enn stort nokj? Evt kanskej ikke fot BDF-2, når vi trenger
         //  to celler fremover.
-        double size_of_bound =
-                0.9 * 2.5 * this->tau * buffer_constant * bdf_type;
+        double size_of_bound = mesh_bound_multiplier * 0.9 * 2.5 * this->tau *
+                               buffer_constant * bdf_type;
         std::cout << " # size_of_bound = " << size_of_bound << std::endl;
 
         dof_handlers.emplace_front(new hp::DoFHandler<dim>());
@@ -260,7 +261,8 @@ namespace utils::problems {
 
             // Redistribute the dofs after the level set was updated
             // size_of_bound = buffer_constant * bdf_type * this->h;
-            size_of_bound = 0.9 * 2.5 * this->tau * buffer_constant * bdf_type;
+            size_of_bound = mesh_bound_multiplier * 0.9 * 2.5 * this->tau *
+                            buffer_constant * bdf_type;
             std::cout << " # size_of_bound = " << size_of_bound << std::endl;
             dof_handlers.emplace_front(new hp::DoFHandler<dim>());
             distribute_dofs(dof_handlers.front(), size_of_bound);
@@ -301,12 +303,14 @@ namespace utils::problems {
 
     template<int dim>
     ErrorBase *CutFEMProblem<dim>::
-    run_moving_domain(unsigned int bdf_type, unsigned int steps) {
+    run_moving_domain(unsigned int bdf_type, unsigned int steps,
+                      const double mesh_bound_multiplier) {
         // Invoking this method will result in a pure BDF-k method, where all
         // the initial steps will be interpolated.
         std::vector<Vector<double>> empty_solutions;
         std::vector<std::shared_ptr<hp::DoFHandler<dim>>> empty_dof_h;
-        return run_moving_domain(bdf_type, steps, empty_solutions, empty_dof_h);
+        return run_moving_domain(bdf_type, steps, empty_solutions, empty_dof_h,
+                                 mesh_bound_multiplier);
     }
 
 

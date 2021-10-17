@@ -96,10 +96,12 @@ namespace utils::problems {
         ErrorBase *
         run_moving_domain(unsigned int bdf_type, unsigned int steps,
                           std::vector<Vector<double>> &supplied_solutions,
-                          std::vector<std::shared_ptr<hp::DoFHandler<dim>>> &supplied_dof_handlers);
+                          std::vector<std::shared_ptr<hp::DoFHandler<dim>>> &supplied_dof_handlers,
+                          const double mesh_bound_multiplier = 1);
 
         ErrorBase *
-        run_moving_domain(unsigned int bdf_type, unsigned int steps);
+        run_moving_domain(unsigned int bdf_type, unsigned int steps,
+                          const double mesh_bound_multiplier = 1);
 
         static void
         write_header_to_file(std::ofstream &file);
