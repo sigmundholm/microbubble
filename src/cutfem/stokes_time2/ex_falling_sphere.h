@@ -6,12 +6,18 @@
 #include "stokes.h"
 
 
-// using namespace dealii;
-// using namespace cutfem;
-
 namespace examples::cut::StokesEquation::ex2 {
 
-    // using namespace examples::cut::StokesEquation;
+    template<int dim>
+    class RightHandSide : public TensorFunction<1, dim> {
+    public:
+        RightHandSide();
+
+        Tensor<1, dim>
+        value(const Point<dim> &p) const override;
+    };
+
+
     template<int dim>
     class BoundaryValues : public TensorFunction<1, dim> {
     public:
@@ -76,15 +82,16 @@ namespace examples::cut::StokesEquation::ex2 {
     class FallingSphereStokes : public StokesEqn<dim> {
     public:
         FallingSphereStokes(const double nu, const double tau,
-                          const double radius, const double half_length,
-                          const unsigned int n_refines, const int element_order,
-                          const bool write_output,
-                          TensorFunction<1, dim> &rhs,
-                          TensorFunction<1, dim> &bdd_values,
-                          TensorFunction<1, dim> &analytic_vel,
-                          Function<dim> &analytic_pressure,
-                          Function<dim> &levelset_func,
-                          const int do_nothing_id = 10);
+                            const double radius, const double half_length,
+                            const unsigned int n_refines,
+                            const int element_order,
+                            const bool write_output,
+                            TensorFunction<1, dim> &rhs,
+                            TensorFunction<1, dim> &bdd_values,
+                            TensorFunction<1, dim> &analytic_vel,
+                            Function<dim> &analytic_pressure,
+                            Function<dim> &levelset_func,
+                            const int do_nothing_id = 10);
 
     protected:
         void
@@ -93,10 +100,13 @@ namespace examples::cut::StokesEquation::ex2 {
         Tensor<1, dim>
         compute_surface_forces();
 
-        Tensor<1, dim>
+        void
         integrate_surface_forces(const FEValuesBase<dim> &fe_v,
                                  Vector<double> solution,
-                                 Tensor<1, dim> &force_integral);
+                                 Tensor<1, dim> &viscous_forces,
+                                 Tensor<1, dim> &pressure_forces);
+
+        std::ofstream file;
     };
 
 

@@ -9,6 +9,19 @@ namespace examples::cut::StokesEquation::ex2 {
     using NonMatching::LocationToLevelSet;
 
     template<int dim>
+    RightHandSide<dim>::RightHandSide()
+            : TensorFunction<1, dim>() {}
+
+    template<int dim>
+    Tensor<1, dim> RightHandSide<dim>::
+    value(const Point<dim> &p) const {
+        Tensor<1, dim> gravity;
+        gravity[1] = -9.81;
+        return gravity;
+    }
+
+
+    template<int dim>
     BoundaryValues<dim>::BoundaryValues(const double sphere_radius,
                                         const double half_length,
                                         const double radius)
@@ -49,7 +62,6 @@ namespace examples::cut::StokesEquation::ex2 {
     double MovingDomain<dim>::
     value(const Point<dim> &p, const unsigned int component) const {
         (void) component;
-        double t = this->get_time();
         double x0 = new_position[0];
         double y0 = new_position[1];
         double x = p[0];
@@ -63,9 +75,12 @@ namespace examples::cut::StokesEquation::ex2 {
         last_position = new_position;
         last_velocity = new_velocity;
 
-        new_velocity = last_velocity + tau * acceleration;
-        new_position = last_position + tau * last_velocity
-                       + pow(tau, 2) * acceleration;
+        new_velocity = last_velocity + acceleration * tau;
+        new_position = last_position
+                       + last_velocity * tau
+                       + 0.5 * acceleration * tau * tau;
+        std::cout << " - new v = " << new_velocity << std::endl;
+        std::cout << " - new r = " << new_position << std::endl;
     }
 
     template<int dim>
@@ -103,21 +118,17 @@ namespace examples::cut::StokesEquation::ex2 {
             : StokesEqn<dim>(nu, tau, radius, half_length, n_refines,
                              element_order, write_output, rhs, bdd_values,
                              analytic_vel, analytic_pressure,
-                             levelset_func, do_nothing_id, true, false) {}
+                             levelset_func, do_nothing_id, true, false) {
+        file = std::ofstream("ex2_falling_sphere_data.csv");
+        // TODO output physical quantities to this file.
+
+    }
 
     template<int dim>
     void FallingSphereStokes<dim>::
     post_processing() {
-        // TODO Give time_step as argument??
+        std::cout << "Post processing " << std::endl;
 
-        std::cout << "post processing " << std::endl;
-
-        // compute the acceleration of the ball in this next time step
-        /*
-         * compute the surface forces,
-         * compute the gravity force
-         *
-         */
         auto *domain_func = dynamic_cast<MovingDomain<dim> *>(this->levelset_function);
         auto *boundary_values = dynamic_cast<BoundaryValues<dim> *>(this->boundary_values);
 
@@ -126,8 +137,18 @@ namespace examples::cut::StokesEquation::ex2 {
         gravity[1] = -9.81;
         double sphere_volume = domain_func->get_volume();
 
-        // compute the acceleration
-        Tensor<1, dim> acceleration = gravity + surface_forces / sphere_volume;
+        // Compute the acceleration
+        Tensor<1, dim> acceleration = gravity;
+        Tensor<1, dim> sur_forces = -0.5 * surface_forces /
+                                    sphere_volume; // TODO check sign: is the norm pointing the wrong way?
+        acceleration += sur_forces;
+
+        // TODO gravity seems to make sense, but not the surface forses?
+        //  maybe the viscous forces are ruining thins. Maybe they explode when
+        //  the flow reaches numbers somewhat above zero.
+        std::cout << " - gravity = " << gravity << std::endl;
+        std::cout << " - surface_forces = " << sur_forces << std::endl;
+        std::cout << " - a = " << acceleration << std::endl;
 
         // Set the compute acceleration on the domain object
         domain_func->set_acceleration(acceleration);
@@ -166,7 +187,8 @@ namespace examples::cut::StokesEquation::ex2 {
                                                  this->levelset_dof_handler,
                                                  this->levelset);
 
-        Tensor<1, dim> force_integral;
+        Tensor<1, dim> viscous_forces;
+        Tensor<1, dim> pressure_forces;
         for (const auto &cell : this->dof_handlers.front()->active_cell_iterators()) {
             const unsigned int n_dofs = cell->get_fe().dofs_per_cell;
             std::vector<types::global_dof_index> loc2glb(n_dofs);
@@ -183,18 +205,23 @@ namespace examples::cut::StokesEquation::ex2 {
             if (fe_values_surface) {
                 integrate_surface_forces(*fe_values_surface,
                                          this->solutions.front(),
-                                         force_integral);
+                                         viscous_forces,
+                                         pressure_forces);
             }
         }
-        return force_integral;
+        Tensor<1, dim> surface_forces = viscous_forces + pressure_forces;
+        std::cout << " - Viscous forces = " << viscous_forces << std::endl;
+        std::cout << " - Pressure forces = " << pressure_forces << std::endl;
+        return surface_forces;
     }
 
 
     template<int dim>
-    Tensor<1, dim> FallingSphereStokes<dim>::
+    void FallingSphereStokes<dim>::
     integrate_surface_forces(const FEValuesBase<dim> &fe_v,
                              Vector<double> solution,
-                             Tensor<1, dim> &force_integral) {
+                             Tensor<1, dim> &viscous_forces,
+                             Tensor<1, dim> &pressure_forces) {
 
         const FEValuesExtractors::Vector v(0);
         const FEValuesExtractors::Scalar p(dim);
@@ -207,7 +234,8 @@ namespace examples::cut::StokesEquation::ex2 {
         std::vector<double> p_values(fe_v.n_quadrature_points);
         fe_v[p].get_function_values(solution, p_values);
 
-        Tensor<1, dim> forces;
+        Tensor<1, dim> v_forces;
+        Tensor<1, dim> p_forces;
         Tensor<2, dim> I; // Identity matrix
         I[0][0] = 1;
         I[1][1] = 1;
@@ -216,17 +244,19 @@ namespace examples::cut::StokesEquation::ex2 {
         Tensor<1, dim> normal;
         for (unsigned int q : fe_v.quadrature_point_indices()) {
             normal = fe_v.normal_vector(q);
-            for (const unsigned int i : fe_v.dof_indices()) {
-                // Get the transposed u-gradient, for the symmetric gradient
-                Tensor<2, dim> transposed = transpose(u_gradients[q]);
+            // Get the transposed u-gradient, for the symmetric gradient.
+            Tensor<2, dim> transposed = transpose(u_gradients[q]);
 
-                // The viscous forces and pressure forces act on the submerged body.
-                forces = (this->nu * (u_gradients[q] + transposed)
-                          - p_values[q] * I) * normal;
-                force_integral += forces * fe_v.JxW(q);
-            }
+            // The viscous forces and pressure forces act on the submerged body.
+            v_forces = this->nu * (u_gradients[q] + transposed) * normal;
+            p_forces = -p_values[q] * I * normal;
+            viscous_forces += v_forces * fe_v.JxW(q);
+            pressure_forces += p_forces * fe_v.JxW(q);
         }
     }
+
+    template
+    class RightHandSide<2>;
 
     template
     class BoundaryValues<2>;
