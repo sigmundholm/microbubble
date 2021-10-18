@@ -69,7 +69,7 @@ namespace utils::problems::scalar {
         ScalarProblem(const unsigned int n_refines,
                       const int element_order,
                       const bool write_output,
-                      Function<dim> &levelset_func,
+                      LevelSet<dim> &levelset_func,
                       Function<dim> &analytical_soln,
                       const bool stabilized = true);
 

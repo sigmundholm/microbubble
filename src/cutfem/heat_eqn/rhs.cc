@@ -108,6 +108,12 @@ namespace examples::cut::HeatEquation {
         return sqrt(pow(x - x0, 2) + pow(y - y0, 2)) - sphere_radius;
     }
 
+    template<int dim>
+    double MovingDomain<dim>::
+    get_speed() {
+        return 0.9 * (half_length - sphere_radius) * 2;
+    }
+
 
     template
     class RightHandSide<2>;

@@ -44,7 +44,7 @@ Poisson<dim>::Poisson(const double radius,
                       Function<dim> &rhs,
                       Function<dim> &bdd_values,
                       Function<dim> &analytical_soln,
-                      Function<dim> &domain_func,
+                      LevelSet<dim> &domain_func,
                       const bool stabilized)
         : ScalarProblem<dim>(n_refines, element_order, write_output,
                              domain_func, analytical_soln, stabilized),

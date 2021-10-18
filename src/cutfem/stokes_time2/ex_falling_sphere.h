@@ -38,7 +38,7 @@ namespace examples::cut::StokesEquation::ex2 {
 
 
     template<int dim>
-    class MovingDomain : public Function<dim> {
+    class MovingDomain : public LevelSet<dim> {
     public :
         MovingDomain(const double sphere_radius,
                      const double half_length,
@@ -59,7 +59,7 @@ namespace examples::cut::StokesEquation::ex2 {
         update_position();
 
         Tensor<1, dim>
-        get_velocity();
+        get_velocity() override;
 
     private:
         const double sphere_radius;
@@ -90,7 +90,7 @@ namespace examples::cut::StokesEquation::ex2 {
                             TensorFunction<1, dim> &bdd_values,
                             TensorFunction<1, dim> &analytic_vel,
                             Function<dim> &analytic_pressure,
-                            Function<dim> &levelset_func,
+                            LevelSet<dim> &levelset_func,
                             const int do_nothing_id = 10);
 
     protected:

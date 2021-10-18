@@ -4,8 +4,12 @@
 #include <deal.II/base/function.h>
 #include <deal.II/base/point.h>
 
+#include "../utils/cutfem_problem.h"
+
 
 using namespace dealii;
+using namespace utils::problems;
+
 
 template<int dim>
 class RightHandSide : public Function<dim> {
@@ -56,7 +60,7 @@ private:
 
 
 template<int dim>
-class FlowerDomain : public Function<dim> {
+class FlowerDomain : public LevelSet<dim> {
 public :
     FlowerDomain(const double center_x = 0,
                  const double center_y = 0);

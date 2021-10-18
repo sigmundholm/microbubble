@@ -59,6 +59,15 @@ namespace examples::cut::StokesEquation::ex1 {
         return -sqrt(pow(x - x0, 2) + pow(y - y0, 2)) + sphere_radius;
     }
 
+    template<int dim>
+    Tensor<1, dim> MovingDomain<dim>::
+    get_velocity() {
+        double t = this->get_time();
+        Tensor<1, dim> val;
+        val[0] =  - 0.9 * (half_length - sphere_radius) * 2 * pi * sin(2 * pi * t);
+        return val;
+    }
+
 
     template
     class BoundaryValues<2>;

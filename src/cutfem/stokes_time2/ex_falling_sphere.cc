@@ -113,7 +113,7 @@ namespace examples::cut::StokesEquation::ex2 {
                         TensorFunction<1, dim> &bdd_values,
                         TensorFunction<1, dim> &analytic_vel,
                         Function<dim> &analytic_pressure,
-                        Function<dim> &levelset_func,
+                        LevelSet<dim> &levelset_func,
                         const int do_nothing_id)
             : StokesEqn<dim>(nu, tau, radius, half_length, n_refines,
                              element_order, write_output, rhs, bdd_values,

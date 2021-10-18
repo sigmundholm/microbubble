@@ -5,10 +5,14 @@
 #include <deal.II/base/point.h>
 #include <deal.II/base/tensor_function.h>
 
+#include "../utils/cutfem_problem.h"
+
 using namespace dealii;
 
 
 namespace examples::cut::StokesEquation {
+
+    using namespace utils::problems;
 
 
     template<int dim>
@@ -67,7 +71,7 @@ namespace examples::cut::StokesEquation {
 
 
     template<int dim>
-    class MovingDomain : public Function<dim> {
+    class MovingDomain : public LevelSet<dim> {
     public :
         MovingDomain(const double sphere_radius,
                      const double half_length,
