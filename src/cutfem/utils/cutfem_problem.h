@@ -57,12 +57,23 @@ namespace utils::problems {
 
 
     template<int dim>
+    class LevelSet : public Function<dim> {
+    public:
+        virtual Tensor<1, dim>
+        get_velocity();
+
+        virtual double
+        get_speed();
+    };
+
+
+    template<int dim>
     class CutFEMProblem {
     public:
         CutFEMProblem(const unsigned int n_refines,
                       const int element_order,
                       const bool write_output,
-                      Function<dim> &levelset_func,
+                      LevelSet<dim> &levelset_func,
                       const bool stabilized = true);
 
         ErrorBase *
@@ -280,7 +291,7 @@ namespace utils::problems {
         DoFHandler<dim> levelset_dof_handler;
         Vector<double> levelset;
 
-        Function<dim> *levelset_function;
+        LevelSet<dim> *levelset_function;
 
         // Object managing degrees of freedom for the cutfem method.
         std::deque<std::shared_ptr<hp::DoFHandler<dim>>> dof_handlers;
@@ -291,7 +302,6 @@ namespace utils::problems {
 
         SparseMatrix<double> stiffness_matrix;
         Vector<double> rhs;
-        // Vector<double> solution;
 
         AffineConstraints<double> constraints;
 

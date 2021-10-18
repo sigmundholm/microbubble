@@ -51,7 +51,7 @@ namespace examples::cut::HeatEquation {
                           Function<dim> &rhs,
                           Function<dim> &bdd_values,
                           Function<dim> &analytical_soln,
-                          Function<dim> &levelset_func,
+                          LevelSet<dim> &levelset_func,
                           const bool stabilized,
                           const bool crank_nicholson)
             : ScalarProblem<dim>(n_refines, element_order, write_output,

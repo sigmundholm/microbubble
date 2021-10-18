@@ -41,7 +41,7 @@ namespace examples::cut::projections {
                                         const unsigned int n_refines,
                                         const int element_order,
                                         const bool write_output,
-                                        Function<dim> &levelset_func,
+                                        LevelSet<dim> &levelset_func,
                                         TensorFunction<1, dim> &analytic_vel,
                                         Function<dim> &analytic_pressure,
                                         const double sphere_radius,

@@ -4,7 +4,6 @@
 #include <deal.II/fe/fe_nothing.h>
 #include <deal.II/fe/fe_update_flags.h>
 
-#include <deal.II/grid/grid_generator.h>
 #include <deal.II/grid/grid_out.h>
 #include <deal.II/grid/grid_tools.h>
 #include <deal.II/grid/tria_accessor.h>
@@ -26,11 +25,24 @@
 namespace utils::problems {
 
     template<int dim>
+    Tensor<1, dim> LevelSet<dim>::
+    get_velocity() {
+        Tensor<1, dim> zero;
+        return zero;
+    }
+
+    template<int dim>
+    double LevelSet<dim>::
+    get_speed() {
+        return sqrt(get_velocity().norm_square());
+    }
+
+    template<int dim>
     CutFEMProblem<dim>::
     CutFEMProblem(const unsigned int n_refines,
                   const int element_order,
                   const bool write_output,
-                  Function<dim> &levelset_func,
+                  LevelSet<dim> &levelset_func,
                   const bool stabilized)
             : n_refines(n_refines), element_order(element_order),
               write_output(write_output),
@@ -207,13 +219,16 @@ namespace utils::problems {
         setup_fe_collection();
 
         // TODO compute the speed at each cell, to get a more precise calculation.
-        double buffer_constant = 2;
-        // double size_of_bound = buffer_constant * bdf_type * this->h;
-        // TODO hvorfor klages det fortsatt på at bound er for lite? Det bør vel
-        //  være mer enn stort nokj? Evt kanskej ikke fot BDF-2, når vi trenger
-        //  to celler fremover.
-        double size_of_bound = mesh_bound_multiplier * 0.9 * 2.5 * this->tau *
-                               buffer_constant * bdf_type;
+
+        // Note that when using BDF-2 with BDF-1 for the u1 step, the acitve
+        // mesh for the BDF-1 method should be enlarged with a factor 2 with
+        // the use of the mesh_bound_multiplier, else the mesh will be two
+        // small when solving the step k=3 with BDF-2. This is naturally because
+        // of the constant bdf_type is used in the size_of_bound constant.
+        double buffer_constant = 1.5;
+        double size_of_bound = mesh_bound_multiplier
+                               * levelset_function->get_speed() * this->tau
+                               * buffer_constant * bdf_type;
         std::cout << " # size_of_bound = " << size_of_bound << std::endl;
 
         dof_handlers.emplace_front(new hp::DoFHandler<dim>());
@@ -261,8 +276,9 @@ namespace utils::problems {
 
             // Redistribute the dofs after the level set was updated
             // size_of_bound = buffer_constant * bdf_type * this->h;
-            size_of_bound = mesh_bound_multiplier * 0.9 * 2.5 * this->tau *
-                            buffer_constant * bdf_type;
+            size_of_bound = mesh_bound_multiplier
+                            * levelset_function->get_speed() * this->tau
+                            * buffer_constant * bdf_type;
             std::cout << " # size_of_bound = " << size_of_bound << std::endl;
             dof_handlers.emplace_front(new hp::DoFHandler<dim>());
             distribute_dofs(dof_handlers.front(), size_of_bound);
@@ -723,6 +739,12 @@ namespace utils::problems {
         output_results(dof_handler, solution, k, minimal_output);
     }
 
+
+    template
+    class LevelSet<2>;
+
+    template
+    class LevelSet<3>;
 
     template
     class CutFEMProblem<2>;

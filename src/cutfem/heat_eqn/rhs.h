@@ -69,7 +69,7 @@ namespace examples::cut::HeatEquation {
 
 
     template<int dim>
-    class FlowerDomain : public Function<dim> {
+    class FlowerDomain : public LevelSet<dim> {
     public :
         FlowerDomain(const double center_x = 0,
                      const double center_y = 0);
@@ -84,7 +84,7 @@ namespace examples::cut::HeatEquation {
 
 
     template<int dim>
-    class MovingDomain : public Function<dim> {
+    class MovingDomain : public LevelSet<dim> {
     public :
         MovingDomain(const double sphere_radius,
                      const double half_length,
@@ -92,6 +92,9 @@ namespace examples::cut::HeatEquation {
 
         double
         value(const Point<dim> &p, const unsigned int component) const override;
+
+        double
+        get_speed() override;
 
         const double sphere_radius;
         const double half_length;
