@@ -114,11 +114,13 @@ namespace examples::cut::StokesEquation::ex2 {
                         TensorFunction<1, dim> &analytic_vel,
                         Function<dim> &analytic_pressure,
                         LevelSet<dim> &levelset_func,
+                        const double density_ratio,
                         const int do_nothing_id)
             : StokesEqn<dim>(nu, tau, radius, half_length, n_refines,
                              element_order, write_output, rhs, bdd_values,
                              analytic_vel, analytic_pressure,
-                             levelset_func, do_nothing_id, true, false) {
+                             levelset_func, do_nothing_id, true, false),
+              density_ratio(density_ratio) {
         file = std::ofstream("ex2_falling_sphere_data.csv");
         // TODO output physical quantities to this file.
 
@@ -139,7 +141,7 @@ namespace examples::cut::StokesEquation::ex2 {
 
         // Compute the acceleration
         Tensor<1, dim> acceleration = gravity;
-        Tensor<1, dim> sur_forces = -0.5 * surface_forces /
+        Tensor<1, dim> sur_forces = - density_ratio * surface_forces /
                                     sphere_volume; // TODO check sign: is the norm pointing the wrong way?
         acceleration += sur_forces;
 

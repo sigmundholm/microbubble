@@ -27,8 +27,8 @@ int main() {
     ex2::FallingSphereStokes<dim> stokes(nu, tau, radius, half_length, n_refines,
                                    element_order, write_vtk, rhs,
                                    boundary, zero_tensor, zero_scalar,
-                                   domain, 0);
-    stokes.run_moving_domain(1, n_steps, 10);
+                                   domain, 0.75, 0);
+    stokes.run_moving_domain(1, n_steps);
     // TODO fix the mesh_bound_multiplier: make it depend of velocity of the body instead.
 
 }

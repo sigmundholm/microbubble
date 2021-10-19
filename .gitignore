@@ -9,6 +9,10 @@ cmake-build-debug
 venv
 
 
+# VS Code
+.vscode
+
+
 # General
 *.pdf
 *.png
