@@ -127,7 +127,8 @@ namespace utils::problems::scalar {
         output_results(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
                        Vector<double> &solution,
                        std::string &suffix,
-                       bool minimal_output = false) const override;
+                       bool minimal_output = false,
+                       bool no_outside_dofs = false) const override;
 
         FE_Q<dim> fe;
 

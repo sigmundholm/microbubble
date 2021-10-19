@@ -406,7 +406,6 @@ namespace utils::problems::scalar {
             l2_error_integral += diff_values * diff_values * fe_v.JxW(q);
             h1_error_integral += diff_gradients * diff_gradients * fe_v.JxW(q);
         }
-
     }
 
 
@@ -462,12 +461,26 @@ namespace utils::problems::scalar {
     output_results(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
                    Vector<double> &solution,
                    std::string &suffix,
-                   bool minimal_output) const {
+                   bool minimal_output,
+                   bool no_outside_dofs) const {
         std::cout << "Output results" << std::endl;
-        // Output results, see step-22
+
         DataOut<dim> data_out;
         data_out.attach_dof_handler(*dof_handler);
-        data_out.add_data_vector(solution, "solution");
+
+        Vector<double> copy;
+        if (no_outside_dofs) {
+            // Use the mask to set all dofs outside the physical domain to 0.
+            Vector<double> mask = this->create_zero_dof_mask();
+            copy = Vector<double>(solution);
+            for (unsigned int i = 0; i < solution.size(); ++i) {
+                copy(i) *= mask(i);
+            }
+            data_out.add_data_vector(copy, "solution");
+        } else {
+            copy = Vector<double>(solution);
+            data_out.add_data_vector(copy, "solution");
+        }
         data_out.build_patches();
         std::ofstream out("solution-d" + std::to_string(dim)
                           + "o" + std::to_string(this->element_order)

@@ -41,7 +41,7 @@ int main() {
 
     HeatEqn<dim> heat(nu, tau, radius, half_length, n_refines, degree,
                       write_output, rhs, bdd, soln, domain);
-    ErrorBase *err = heat.run_moving_domain(1, time_steps);
+    ErrorBase *err = heat.run_moving_domain(1, time_steps, 1, true);
     auto *error = dynamic_cast<ErrorScalar *>(err);
     std::cout << "|| u - u_h ||_L2 = " << error->l2_error << std::endl;
     std::cout << "|| u - u_h ||_H1 = " << error->h1_error << std::endl;
