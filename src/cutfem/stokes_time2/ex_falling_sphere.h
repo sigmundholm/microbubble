@@ -81,17 +81,16 @@ namespace examples::cut::StokesEquation::ex2 {
     template<int dim>
     class FallingSphereStokes : public StokesEqn<dim> {
     public:
-        FallingSphereStokes(const double nu, const double tau,
-                            const double radius, const double half_length,
-                            const unsigned int n_refines,
-                            const int element_order,
-                            const bool write_output,
+        FallingSphereStokes(double nu, double tau, double radius,
+                            double half_length, unsigned int n_refines,
+                            int element_order, bool write_output,
                             TensorFunction<1, dim> &rhs,
                             TensorFunction<1, dim> &bdd_values,
                             TensorFunction<1, dim> &analytic_vel,
                             Function<dim> &analytic_pressure,
                             LevelSet<dim> &levelset_func,
-                            const int do_nothing_id = 10);
+                            const double density_ratio,
+                            int do_nothing_id = 10);
 
     protected:
         void
@@ -105,6 +104,10 @@ namespace examples::cut::StokesEquation::ex2 {
                                  Vector<double> solution,
                                  Tensor<1, dim> &viscous_forces,
                                  Tensor<1, dim> &pressure_forces);
+
+
+        // The ratio between the density of the fluid and the moving sphere.
+        const double density_ratio;
 
         std::ofstream file;
     };

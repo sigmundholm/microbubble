@@ -458,7 +458,8 @@ namespace utils::problems::flow {
     output_results(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
                    Vector<double> &solution,
                    std::string &suffix,
-                   bool minimal_output) const {
+                   bool minimal_output,
+                   bool no_outside_dofs) const {
         std::cout << "Output results flow" << std::endl;
         // Output results, see step-22
         std::vector<std::string> solution_names(dim, "velocity");

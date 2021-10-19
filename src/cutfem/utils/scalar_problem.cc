@@ -406,7 +406,6 @@ namespace utils::problems::scalar {
             l2_error_integral += diff_values * diff_values * fe_v.JxW(q);
             h1_error_integral += diff_gradients * diff_gradients * fe_v.JxW(q);
         }
-
     }
 
 
@@ -462,18 +461,46 @@ namespace utils::problems::scalar {
     output_results(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
                    Vector<double> &solution,
                    std::string &suffix,
-                   bool minimal_output) const {
+                   bool minimal_output,
+                   bool no_outside_dofs) const {
         std::cout << "Output results" << std::endl;
+
         // Output results, see step-22
         DataOut<dim> data_out;
         data_out.attach_dof_handler(*dof_handler);
-        data_out.add_data_vector(solution, "solution");
+
+        Vector<double> copy;
+        if (true) {
+            std::cout << " - Cut off the outside dofs." << std::endl;
+            // Use the mask to set all dofs outside the physical domain to 0.
+            Vector<double> mask = this->create_zero_dof_mask();
+            std::cout << " # mask created" << std::endl;
+            copy = Vector<double>(solution);
+            // copy = solution;
+            std::cout << "copy.size() = " << copy.size() << std::endl;
+            std::cout << "mask.size() = " << mask.size() << std::endl;
+            for (unsigned int i = 0; i < solution.size(); ++i) {
+                copy(i) *= mask(i);
+                // std::cout << " # i = " << i << ", copy(i) = " << copy(i) << std::endl;
+            }
+            std::cout << "# her da? 1" << std::endl;
+            data_out.add_data_vector(copy, "solution");
+        } else {
+            std::cout << " # alt regular read" << std::endl;
+            copy = Vector<double>(solution);
+            data_out.add_data_vector(copy, "solution");
+        }
+        std::cout << "# her da? 2" << std::endl;
+
         data_out.build_patches();
+        std::cout << "# her da? 2.5" << std::endl;
         std::ofstream out("solution-d" + std::to_string(dim)
                           + "o" + std::to_string(this->element_order)
                           + "r" + std::to_string(this->n_refines)
                           + "-" + suffix + ".vtk");
         data_out.write_vtk(out);
+        std::cout << "# her da? 3" << std::endl;
+
 
         // Output levelset function.
         if (!minimal_output) {

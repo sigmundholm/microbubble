@@ -168,7 +168,7 @@ namespace utils::problems {
 
             if (this->write_output) {
                 this->output_results(this->dof_handlers.front(),
-                                     this->solutions.front(), k, true);
+                                     this->solutions.front(), k, true, false);
             }
 
             // Remove the oldest solution, since it is no longer needed.
@@ -199,7 +199,8 @@ namespace utils::problems {
     run_moving_domain(unsigned int bdf_type, unsigned int steps,
                       std::vector<Vector<double>> &supplied_solutions,
                       std::vector<std::shared_ptr<hp::DoFHandler<dim>>> &supplied_dof_handlers,
-                      const double mesh_bound_multiplier) {
+                      const double mesh_bound_multiplier,
+                      const bool no_outside_dofs) {
 
         std::cout << "\nBDF-" << bdf_type << ", steps=" << steps << std::endl;
         std::cout << "-------------------------" << std::endl;
@@ -300,7 +301,8 @@ namespace utils::problems {
 
             if (write_output) {
                 output_results(this->dof_handlers.front(),
-                               this->solutions.front(), k, false);
+                               this->solutions.front(), k, false,
+                               no_outside_dofs);
             }
 
             // Remove the oldest solution and dof_handler, since they are
@@ -320,13 +322,14 @@ namespace utils::problems {
     template<int dim>
     ErrorBase *CutFEMProblem<dim>::
     run_moving_domain(unsigned int bdf_type, unsigned int steps,
-                      const double mesh_bound_multiplier) {
+                      const double mesh_bound_multiplier,
+                      const bool no_outside_dofs) {
         // Invoking this method will result in a pure BDF-k method, where all
         // the initial steps will be interpolated.
         std::vector<Vector<double>> empty_solutions;
         std::vector<std::shared_ptr<hp::DoFHandler<dim>>> empty_dof_h;
         return run_moving_domain(bdf_type, steps, empty_solutions, empty_dof_h,
-                                 mesh_bound_multiplier);
+                                 mesh_bound_multiplier, no_outside_dofs);
     }
 
 
@@ -726,9 +729,11 @@ namespace utils::problems {
     void CutFEMProblem<dim>::
     output_results(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
                    Vector<double> &solution,
-                   bool minimal_output) const {
+                   bool minimal_output,
+                   bool no_outside_dofs) const {
         std::string empty;
-        output_results(dof_handler, solution, empty, minimal_output);
+        output_results(dof_handler, solution, empty, minimal_output,
+                       no_outside_dofs);
     }
 
 
@@ -736,9 +741,41 @@ namespace utils::problems {
     void CutFEMProblem<dim>::
     output_results(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
                    Vector<double> &solution,
-                   int time_step, bool minimal_output) const {
+                   int time_step,
+                   bool minimal_output,
+                   bool no_outside_dofs) const {
         std::string k = std::to_string(time_step);
-        output_results(dof_handler, solution, k, minimal_output);
+        output_results(dof_handler, solution, k, minimal_output,
+                       no_outside_dofs);
+    }
+
+
+    template<int dim>
+    Vector<double> CutFEMProblem<dim>::
+    create_zero_dof_mask() const {
+        // int n_dofs = solutions.front().size();
+        int n_dofs = dof_handlers.front()->n_dofs();
+        // rhs.reinit(n_dofs);
+        Vector<double> mask(n_dofs);
+        // mask.reinit(n_dofs);
+
+        for (const auto &cell : this->dof_handlers.front()->active_cell_iterators()) {
+            const unsigned int dofs_per_cell = cell->get_fe().dofs_per_cell;
+            std::vector<types::global_dof_index> loc2glb(dofs_per_cell);
+            cell->get_dof_indices(loc2glb);
+
+            const LocationToLevelSet location =
+                    this->cut_mesh_classifier.location_to_level_set(cell);
+            if (location != LocationToLevelSet::OUTSIDE) {
+                // Set the dofs inside the domain to 1, and let the other be 0.
+                Vector<double> ones(dofs_per_cell);
+                for (unsigned int i = 0; i < dofs_per_cell; ++i) {
+                    ones(i) = 1;
+                }
+                mask.add(loc2glb, ones);
+            }
+        }
+        return mask;
     }
 
 

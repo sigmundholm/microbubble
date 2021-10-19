@@ -108,11 +108,13 @@ namespace utils::problems {
         run_moving_domain(unsigned int bdf_type, unsigned int steps,
                           std::vector<Vector<double>> &supplied_solutions,
                           std::vector<std::shared_ptr<hp::DoFHandler<dim>>> &supplied_dof_handlers,
-                          const double mesh_bound_multiplier = 1);
+                          const double mesh_bound_multiplier = 1,
+                          const bool no_outside_dofs = false);
 
         ErrorBase *
         run_moving_domain(unsigned int bdf_type, unsigned int steps,
-                          const double mesh_bound_multiplier = 1);
+                          const double mesh_bound_multiplier = 1,
+                          const bool no_outside_dofs = false);
 
         static void
         write_header_to_file(std::ofstream &file);
@@ -259,18 +261,31 @@ namespace utils::problems {
         output_results(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
                        Vector<double> &solution,
                        std::string &suffix,
-                       bool minimal_output = false) const = 0;
+                       bool minimal_output = false,
+                       bool no_outside_dofs = false) const = 0;
 
         virtual void
         output_results(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
                        Vector<double> &solution,
                        int time_step,
-                       bool minimal_output = false) const;
+                       bool minimal_output = false,
+                       bool no_outside_dofs = false) const;
 
         virtual void
         output_results(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
                        Vector<double> &solution,
-                       bool minimal_output = false) const;
+                       bool minimal_output = false,
+                       bool no_outside_dofs = false) const;
+
+        /**
+         * Create a mask vector, with a values of 0 values for each dof outside
+         * the domain, and values of 1 inside the domain. This is for preparing
+         * the output files better, so the values on the dofs outisde the domain
+         * can be set to zero. Before the solution is saved, the solution vector
+         * can the be multiplied with the mask vector.
+         */
+        Vector<double>
+        create_zero_dof_mask() const;
 
         virtual void
         post_processing();
