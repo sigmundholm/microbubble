@@ -76,7 +76,7 @@ void solve_for_element_order(int element_order, int max_refinement,
                 write_output, rhs, boundary_values, analytical_velocity,
                 analytical_pressure, domain);
 
-        ErrorBase *bdf1_err = stokes.run_moving_domain(1, 1);
+        ErrorBase *bdf1_err = stokes.run_moving_domain(1, 1, 2.33);
 
         // BDF-2
         Vector<double> u1 = stokes.get_solution();
@@ -84,7 +84,7 @@ void solve_for_element_order(int element_order, int max_refinement,
         std::vector<Vector<double>> initial2 = {u1};
         std::vector<std::shared_ptr<hp::DoFHandler<dim>>> initial_dofh = {dof};
 
-        ErrorBase *bdf2_err = stokes.run_moving_domain(2, time_steps, initial2, initial_dofh);
+        ErrorBase *bdf2_err = stokes.run_moving_domain(2, time_steps, initial2, initial_dofh, 1.33);
         auto *error = dynamic_cast<ErrorFlow *>(bdf2_err);
 
         std::cout << std::endl;
