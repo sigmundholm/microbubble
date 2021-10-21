@@ -378,10 +378,10 @@ def time_error_plots(paths, data_indices, title="", save_fig=True, identifier=1,
             plt.savefig(f"{'-'.join(map(str.lower, title.split()[:2]))}-{identifier}-{data_index}.pdf")
 
 
-def eoc_plot_after_cut_off_time(build_base, factors, folder_names, end_time, cutoff_time, n_refines,
+def eoc_plot_after_cut_off_time(build_base, factors, folder_names, element_orders, end_time, cutoff_time, n_refines,
                                 columns_idx, max_norm_idx=(), max_norm_names=()):
     for folder, factor in zip(folder_names, factors):
-        for poly_order in [1, 2]:
+        for poly_order in element_orders:
             print("\nfactor =", factor, ", order =", poly_order)
             # Errors calculated from the cutoff time
             aggregated_data = []

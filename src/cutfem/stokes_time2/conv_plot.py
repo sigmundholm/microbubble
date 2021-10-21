@@ -10,16 +10,15 @@ def convergence_plot_report():
     # A report ready convergence plot
     paths = [os.path.join(base, f"build/src/cutfem/stokes_time2", folder, f"errors-d2o{d}.csv") for d in [1, 2]]
     plot_for = [r"\|u\|_{L^2L^2}", r"\|u\|_{L^2H^1}", "\|u\|_{l^\infty L^2}", "\|u\|_{l^\infty H^1}"]
-    element_orders = [1, 2]
     conv_plots2(paths, plot_for, element_orders, expected_degrees=[[2, 2], [1, 2], [2, 2], [1, 2]],
                 domain_length=domain_length, save_figs=True, font_size=12, label_size="large", skip=0,
                 guess_degree=False)
 
 
 def time_error_plot():
-    for d in [1, 2]:
+    for d in element_orders:
         paths = [os.path.join(base, f"build/src/cutfem/stokes_time2", folder, f"errors-time-d2o{d}r{r}.csv") for r in
-                 range(2, 8)]
+                 range(3, 8)]
         time_error_plots(paths, data_indices=[3, 4, 5, 6, 7, 8], font_size=12, label_size="large",
                          title=f"Stokes Equations time error, element order ({d + 1}, {d})", save_fig=True,
                          identifier=d)
@@ -31,6 +30,7 @@ radius = 0.1
 end_time = radius
 domain_length = radius
 xlabel = "M"
+element_orders = [2]
 
 if __name__ == '__main__':
     base = split(split(split(os.getcwd())[0])[0])[0]
@@ -41,7 +41,7 @@ if __name__ == '__main__':
     # time_error_plot()
 
     skip = 0
-    for poly_order in [1, 2]:
+    for poly_order in element_orders:
         full_path = os.path.join(base, "build/src/cutfem/stokes_time2", folder, f"errors-d2o{poly_order}.csv")
 
         head = list(map(str.strip, open(full_path).readline().split(",")))[1:]

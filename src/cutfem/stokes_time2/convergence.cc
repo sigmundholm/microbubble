@@ -41,7 +41,7 @@ void solve_for_element_order(int element_order, int max_refinement,
     cutfem::geometry::SignedDistanceSphere<dim> signed_distance_sphere(
             sphere_radius, center, -1);
 
-    for (int n_refines = 2; n_refines < max_refinement + 1; ++n_refines) {
+    for (int n_refines = 3; n_refines < max_refinement + 1; ++n_refines) {
         std::cout << "\nn_refines=" << n_refines << std::endl
                   << "===========" << std::endl;
         // Se feilen for tidsdiskretiseringen dominere hvis n_refines starter på
@@ -76,7 +76,7 @@ void solve_for_element_order(int element_order, int max_refinement,
                 write_output, rhs, boundary_values, analytical_velocity,
                 analytical_pressure, domain);
 
-        ErrorBase *bdf1_err = stokes.run_moving_domain(1, 1, 2.33);
+        stokes.run_moving_domain(1, 1, 3);
 
         // BDF-2
         Vector<double> u1 = stokes.get_solution();
@@ -84,8 +84,17 @@ void solve_for_element_order(int element_order, int max_refinement,
         std::vector<Vector<double>> initial2 = {u1};
         std::vector<std::shared_ptr<hp::DoFHandler<dim>>> initial_dofh = {dof};
 
-        ErrorBase *bdf2_err = stokes.run_moving_domain(2, time_steps, initial2, initial_dofh, 1.33);
-        auto *error = dynamic_cast<ErrorFlow *>(bdf2_err);
+        stokes.run_moving_domain(2, 2, initial2, initial_dofh, 1.5);
+        // auto *error = dynamic_cast<ErrorFlow *>(bdf2_err);
+
+        // BDF-3
+        Vector<double> u2 = stokes.get_solution();
+        std::shared_ptr<hp::DoFHandler<dim>> dof2 = stokes.get_dof_handler();
+        std::vector<Vector<double>> initial3 = {u1, u2};
+        std::vector<std::shared_ptr<hp::DoFHandler<dim>>> initial_dofh3 = {dof, dof2};
+
+        ErrorBase *bdf3_err = stokes.run_moving_domain(3, time_steps, initial3, initial_dofh3, 1);
+        auto *error = dynamic_cast<ErrorFlow *>(bdf3_err);
 
         std::cout << std::endl;
         std::cout << "|| u - u_h ||_L2 = " << error->l2_error_u << std::endl;

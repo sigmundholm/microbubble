@@ -29,8 +29,7 @@ int main() {
                                    boundary, zero_tensor, zero_scalar,
                                    domain, 0.75, 0);
     stokes.run_moving_domain(1, n_steps);
-    // TODO fix the mesh_bound_multiplier: make it depend of velocity of the body instead.
-
+    // TODO NB: this examples does not seem to work, the pressure field
 }
 
 

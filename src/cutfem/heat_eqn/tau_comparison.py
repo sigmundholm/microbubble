@@ -15,6 +15,7 @@ if __name__ == '__main__':
     build_base = os.path.join(base, "build/src/cutfem/heat_eqn")
     factors = [1]
     folder_names = [""]
+    element_orders = [1, 2]
 
     radius = 1.1
     end_time = radius
@@ -24,6 +25,6 @@ if __name__ == '__main__':
     data_columns = [3, 4, 5]
     max_norm_indices = [3, 4]
     max_norm_names = [r'\|u\|_{l^\infty L^2}', r'\|u\|_{l^\infty H^1}']
-    eoc_plot_after_cut_off_time(build_base, factors, folder_names, end_time, cutoff_time, n_refines,
+    eoc_plot_after_cut_off_time(build_base, factors, folder_names, element_orders, end_time, cutoff_time, n_refines,
                                 data_columns, max_norm_indices, max_norm_names)
     plt.show()
