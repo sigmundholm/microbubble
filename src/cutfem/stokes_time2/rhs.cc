@@ -131,11 +131,20 @@ namespace examples::cut::StokesEquation {
     value(const Point<dim> &p, const unsigned int component) const {
         (void) component;
         double t = this->get_time();
-        double x0 = 0.9 * (half_length - sphere_radius) * (2 * t - 1); // sin(2 * pi * t);
+        double x0 = 0.9 * (half_length - sphere_radius) *
+                    (2 * t - 1); // sin(2 * pi * t);
         double y0 = 0;
         double x = p[0];
         double y = p[1];
-        return - sqrt(pow(x - x0, 2) + pow(y - y0, 2)) + sphere_radius;
+        return -sqrt(pow(x - x0, 2) + pow(y - y0, 2)) + sphere_radius;
+    }
+
+    template<int dim>
+    Tensor<1, dim> MovingDomain<dim>::
+    get_velocity() {
+        Tensor<1, dim> val;
+        val[0] = 0.9 * (half_length - sphere_radius) * 2;
+        return val;
     }
 
 
