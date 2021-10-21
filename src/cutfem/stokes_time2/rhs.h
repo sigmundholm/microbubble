@@ -80,6 +80,9 @@ namespace examples::cut::StokesEquation {
         double
         value(const Point<dim> &p, const unsigned int component) const override;
 
+        Tensor<1, dim>
+        get_velocity() override;
+
     private:
         const double sphere_radius;
         const double half_length;
