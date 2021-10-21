@@ -18,6 +18,7 @@
 #include <deal.II/numerics/data_out_dof_data.h>
 #include <deal.II/numerics/vector_tools.h>
 
+#include <algorithm>
 
 #include "cutfem_problem.h"
 
@@ -227,7 +228,8 @@ namespace utils::problems {
         // of the constant bdf_type is used in the size_of_bound constant.
         double buffer_constant = 1.5;
         double size_of_bound = mesh_bound_multiplier
-                               * levelset_function->get_speed() * this->tau
+                               * std::max(levelset_function->get_speed(), h / (tau * bdf_type)) *
+                               tau
                                * buffer_constant * bdf_type;
         std::cout << " # size_of_bound = " << size_of_bound << std::endl;
 
@@ -277,7 +279,7 @@ namespace utils::problems {
             // Redistribute the dofs after the level set was updated
             // size_of_bound = buffer_constant * bdf_type * this->h;
             size_of_bound = mesh_bound_multiplier
-                            * levelset_function->get_speed() * this->tau
+                            * std::max(levelset_function->get_speed(), h / (tau * bdf_type)) * tau
                             * buffer_constant * bdf_type;
             std::cout << " # size_of_bound = " << size_of_bound << std::endl;
             dof_handlers.emplace_front(new hp::DoFHandler<dim>());
