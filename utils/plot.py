@@ -152,7 +152,7 @@ def conv_plots(data, columns, title="", latex=True, domain_length=1, xlabel="N")
     ax.set_title(title)
 
 
-def eoc_plot(data, columns, title="", domain_lenght=1, latex=True, lines_at=None, xlabel="N"):
+def eoc_plot(data, columns, title="", domain_lenght=1, latex=True, lines_at=None, xlabel="N", legend_pos="best"):
     if_latex(latex)
 
     mesh_size = data[:, 0]
@@ -191,7 +191,7 @@ def eoc_plot(data, columns, title="", domain_lenght=1, latex=True, lines_at=None
     ax.set_title(title)
     ax.set_xlabel(f"${xlabel}$")
     ax.set_ylabel(r"\textrm{EOC}")
-    ax.legend()
+    ax.legend(loc=legend_pos)
 
     return ax
 
@@ -215,15 +215,10 @@ def conv_plots2(paths, norm_names, element_orders, expected_degrees, domain_leng
 
     dfs = []
     head = ""
-    mesh_size = []
     for full_path in paths:
         head = list(map(str.strip, open(full_path).readline().split(",")))
         data = np.genfromtxt(full_path, delimiter=",", skip_header=True)
-
-        mesh_size = data[:, 0]
         dfs.append(data)
-
-    ns = list(map(int, domain_length / mesh_size))[skip:]
 
     matplotlib.rcParams['xtick.minor.size'] = 0
     matplotlib.rcParams['xtick.minor.width'] = 0
@@ -241,6 +236,9 @@ def conv_plots2(paths, norm_names, element_orders, expected_degrees, domain_leng
     for i, norm_name in enumerate(norm_names):
         fig, ax = plt.subplots()
         for deg_index, degree in enumerate(element_orders):
+            mesh_size = dfs[deg_index][:, 0]
+            ns = list(map(int, domain_length / mesh_size))[skip:]
+
             data_column = head.index(norm_name)
             errors = dfs[deg_index][skip:, data_column]
             color = None if colors is None else colors[deg_index]
@@ -379,7 +377,8 @@ def time_error_plots(paths, data_indices, title="", save_fig=True, identifier=1,
 
 
 def eoc_plot_after_cut_off_time(build_base, factors, folder_names, end_time, cutoff_time, n_refines,
-                                columns_idx, max_norm_idx=(), max_norm_names=()):
+                                columns_idx, max_norm_idx=(), max_norm_names=(), lines_at=(1, 2, 3),
+                                legend_pos="best"):
     for folder, factor in zip(folder_names, factors):
         for poly_order in [1, 2]:
             print("\nfactor =", factor, ", order =", poly_order)
@@ -400,7 +399,6 @@ def eoc_plot_after_cut_off_time(build_base, factors, folder_names, end_time, cut
                 end_step = int(cutoff_time / tau)
 
                 cut_data = data[end_step:, :]
-                print(cut_data)
 
                 cut_off_norms = np.sqrt((cut_data ** 2 * tau).sum(axis=0))
 
@@ -418,7 +416,7 @@ def eoc_plot_after_cut_off_time(build_base, factors, folder_names, end_time, cut
             eoc_plot(data_cols, cut_head,
                      title=r"\textrm{Heat Equation (CutFEM) EOC, $k=" + str(poly_order) + r"$, $\tau=h/" + str(
                          factor) + r"$, for $t\geq " + str(cutoff_time / end_time) + r"\, T$}",
-                     domain_lenght=end_time, lines_at=np.array([1, 2, 3]), xlabel=xlabel)
+                     domain_lenght=end_time, lines_at=lines_at, xlabel=xlabel, legend_pos=legend_pos)
             plt.savefig(f"eoc-cut-o{poly_order}-h_{factor}tau.pdf")
 
 
