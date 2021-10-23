@@ -25,5 +25,5 @@ if __name__ == '__main__':
     max_norm_indices = [3, 4]
     max_norm_names = [r'\|u\|_{l^\infty L^2}', r'\|u\|_{l^\infty H^1}']
     eoc_plot_after_cut_off_time(build_base, factors, folder_names, end_time, cutoff_time, n_refines,
-                                data_columns, max_norm_indices, max_norm_names)
+                                data_columns, max_norm_indices, max_norm_names, lines_at=[2, 3], legend_pos="center right")
     plt.show()
