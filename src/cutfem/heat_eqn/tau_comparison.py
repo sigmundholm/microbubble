@@ -14,16 +14,18 @@ base = split(split(split(os.getcwd())[0])[0])[0]
 if __name__ == '__main__':
     build_base = os.path.join(base, "build/src/cutfem/heat_eqn")
     factors = [1]
-    folder_names = [""]
+    folder_names = ["e_bdf3"]
 
     radius = 1.1
     end_time = radius
-    cutoff_time = 0  # end_time / 4
+    cutoff_time = end_time / 4
     n_refines = range(3, 8)
+    element_orders = [2, 3]
 
-    data_columns = [3, 4, 5]
+    data_columns = [3, 4]
     max_norm_indices = [3, 4]
     max_norm_names = [r'\|u\|_{l^\infty L^2}', r'\|u\|_{l^\infty H^1}']
     eoc_plot_after_cut_off_time(build_base, factors, folder_names, end_time, cutoff_time, n_refines,
-                                data_columns, max_norm_indices, max_norm_names, lines_at=[2, 3], legend_pos="center right")
+                                data_columns, max_norm_indices, max_norm_names, lines_at=[2, 3],
+                                legend_pos="center right", element_orders=element_orders)
     plt.show()

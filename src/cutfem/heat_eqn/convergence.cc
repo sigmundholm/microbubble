@@ -46,42 +46,41 @@ void solve_for_element_order(int element_order, int max_refinement,
         std::cout << "=========================" << std::endl;
 
         double time_steps = pow(2, n_refines - 1);
-        // time_steps = 2;
         const double tau = end_time / time_steps;
         RightHandSide<dim> rhs(nu, tau);
 
-        // BDF-1
-        double bdf1_steps = pow(2, n_refines - 2);
-        double bdf1_tau = tau / bdf1_steps;
         HeatEqn<dim> heat(nu, tau, radius, half_length, n_refines,
                           element_order, write_output,
                           rhs, bdd, soln, domain, true, false);
-        ErrorBase *err = heat.run_moving_domain(1, time_steps);
-        /*
-        auto *error = dynamic_cast<ErrorScalar *>(err);
+
+        // BDF-1
+        heat.run_moving_domain(1, 1, 3);
+
+        // BDF-2
+        Vector<double> u1 = heat.get_solution();
+        std::shared_ptr<hp::DoFHandler<dim>> u1_dof_h = heat.get_dof_handler();
+        std::vector<Vector<double>> initial = {u1};
+        std::vector<std::shared_ptr<hp::DoFHandler<dim>>> initial_dof_h =
+                {u1_dof_h};
+
+        heat.run_moving_domain(2, 2, initial, initial_dof_h, 1.5);
+
+        // BDF-3
+        Vector<double> u2 = heat.get_solution();
+        std::shared_ptr<hp::DoFHandler<dim>> u2_dof_h = heat.get_dof_handler();
+        std::vector<Vector<double>> initial2 = {u1, u2};
+        std::vector<std::shared_ptr<hp::DoFHandler<dim>>> initial_dof_h2 =
+                {u1_dof_h, u2_dof_h};
+
+        ErrorBase *err3 = heat.run_moving_domain(3, time_steps, initial2,
+                                                 initial_dof_h2, 1);
+        auto *error = dynamic_cast<ErrorScalar *>(err3);
 
         std::cout << "|| u - u_h ||_L2 = " << error->l2_error << std::endl;
         std::cout << "|| u - u_h ||_H1 = " << error->h1_error << std::endl;
         std::cout << "| u - u_h |_H1 = " << error->h1_semi << std::endl;
 
-        Vector<double> u1 = heat.get_solution();
-        std::shared_ptr<hp::DoFHandler<dim>> u1_dof_h = heat.get_dof_handler();
-
-        // BDF-2
-        std::vector<Vector<double>> initial = {u1};
-        std::vector<std::shared_ptr<hp::DoFHandler<dim>>> initial_dof_h = {
-                u1_dof_h};
-        */
-        // ErrorBase *err2 = heat.run_moving_domain(2, time_steps);
-                                                  // initial, initial_dof_h);
-        // auto *error2 = dynamic_cast<ErrorScalar *>(err2);
-        auto *error2 = dynamic_cast<ErrorScalar*>(err); // Use for BDF1.
-
-        std::cout << "|| u - u_h ||_L2 = " << error2->l2_error << std::endl;
-        std::cout << "|| u - u_h ||_H1 = " << error2->h1_error << std::endl;
-        std::cout << "| u - u_h |_H1 = " << error2->h1_semi << std::endl;
-
-        HeatEqn<dim>::write_error_to_file(error2, file);
+        HeatEqn<dim>::write_error_to_file(error, file);
     }
 }
 
@@ -98,5 +97,5 @@ void run_convergence_test(std::vector<int> orders, int max_refinement,
 
 
 int main() {
-    run_convergence_test<2>({1, 2}, 7, true);
+    run_convergence_test<2>({2, 3}, 7, true);
 }
