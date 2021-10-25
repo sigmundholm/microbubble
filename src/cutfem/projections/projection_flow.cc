@@ -43,9 +43,7 @@ namespace examples::cut::projections {
                                         const bool write_output,
                                         LevelSet<dim> &levelset_func,
                                         TensorFunction<1, dim> &analytic_vel,
-                                        Function<dim> &analytic_pressure,
-                                        const double sphere_radius,
-                                        const double sphere_x_coord)
+                                        Function<dim> &analytic_pressure)
             : FlowProblem<dim>(n_refines, element_order, write_output,
                                levelset_func, analytic_vel, analytic_pressure),
               radius(radius), half_length(half_length) {}
@@ -213,6 +211,30 @@ namespace examples::cut::projections {
     assemble_local_over_surface(
             const FEValuesBase<dim> &fe_values,
             const std::vector<types::global_dof_index> &loc2glb) {
+    }
+
+
+    template<int dim>
+    void ProjectionFlow<dim>::
+    write_header_to_file(std::ofstream &file) {
+        file << "h, \\tau, \\|u\\|_{L^2}, \\|u\\|_{H^1}, |u|_{H^1}, "
+                "\\|p\\|_{L^2}, \\|p\\|_{H^1}, |p|_{H^1}"
+             << std::endl;
+    }
+
+
+    template<int dim>
+    void ProjectionFlow<dim>::
+    write_error_to_file(ErrorBase *error, std::ofstream &file) {
+        auto *err = dynamic_cast<ErrorFlow *>(error);
+        file << err->h << ","
+             << err->tau << ","
+             << err->l2_error_u << ","
+             << err->h1_error_u << ","
+             << err->h1_semi_u << ","
+             << err->l2_error_p << ","
+             << err->h1_error_p << ","
+             << err->h1_semi_p << std::endl;
     }
 
 

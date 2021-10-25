@@ -53,9 +53,13 @@ namespace examples::cut::projections {
                        const bool write_output,
                        LevelSet<dim> &levelset_func,
                        TensorFunction<1, dim> &analytic_vel,
-                       Function<dim> &analytic_pressure,
-                       const double sphere_radius, // TODO remove these
-                       const double sphere_x_coord);
+                       Function<dim> &analytic_pressure);
+
+        static void
+        write_header_to_file(std::ofstream &file);
+
+        static void
+        write_error_to_file(ErrorBase *error, std::ofstream &file);
 
     protected:
         void

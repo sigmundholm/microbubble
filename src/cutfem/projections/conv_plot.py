@@ -14,8 +14,9 @@ if __name__ == '__main__':
         full_path = os.path.join(base, f"build/src/cutfem/projections/errors-d2o{poly_order}.csv")
 
         head = list(map(str.strip, open(full_path).readline().split(",")))
+        head = [head[0], *head[2:]]
         data = np.genfromtxt(full_path, delimiter=",", skip_header=True)
-        data = data[skip:, :]
+        data = data[skip:, [0, 2, 3, 4, 5, 6, 7]]
 
         conv_plots(data, head, title=r"$\textrm{$L^2$-projection (CutFEM), element order: (" + str(
             poly_order + 1) + ", " + str(poly_order) + ")}$", domain_length=domain_length)
