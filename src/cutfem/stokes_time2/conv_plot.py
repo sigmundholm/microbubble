@@ -19,7 +19,7 @@ def convergence_plot_report():
 def time_error_plot():
     for d in [1, 2]:
         paths = [os.path.join(base, f"build/src/cutfem/stokes_time2", folder, f"errors-time-d2o{d}r{r}.csv") for r in
-                 range(2, 8)]
+                 range(3, 8)]
         time_error_plots(paths, data_indices=[3, 4, 5, 6, 7, 8], font_size=12, label_size="large",
                          title=f"Stokes Equations time error, element order ({d + 1}, {d})", save_fig=True,
                          identifier=d)
@@ -27,7 +27,7 @@ def time_error_plot():
 
 # Plot settings
 folder = ""
-radius = 0.1
+radius = 0.05
 end_time = radius
 domain_length = radius
 xlabel = "M"

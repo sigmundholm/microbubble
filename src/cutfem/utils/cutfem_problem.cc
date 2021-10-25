@@ -226,9 +226,9 @@ namespace utils::problems {
         // small when solving the step k=3 with BDF-2. This is naturally because
         // of the constant bdf_type is used in the size_of_bound constant.
         double buffer_constant = 1.5;
-        double size_of_bound = mesh_bound_multiplier
-                               * levelset_function->get_speed() * this->tau
-                               * buffer_constant * bdf_type;
+        double size_of_bound = mesh_bound_multiplier * buffer_constant
+                               * (levelset_function->get_speed() * tau
+                                  * bdf_type + h);
         std::cout << " # size_of_bound = " << size_of_bound << std::endl;
 
         dof_handlers.emplace_front(new hp::DoFHandler<dim>());
@@ -239,7 +239,7 @@ namespace utils::problems {
         // Vector for the computed error for each time step.
         std::vector<ErrorBase *> errors(steps + 1);
 
-        interpolate_first_steps(bdf_type, errors, true);
+        interpolate_first_steps(bdf_type, errors, true, mesh_bound_multiplier);
         set_supplied_solutions(bdf_type, supplied_solutions,
                                supplied_dof_handlers, errors, true);
         set_bdf_coefficients(bdf_type);
@@ -276,9 +276,9 @@ namespace utils::problems {
 
             // Redistribute the dofs after the level set was updated
             // size_of_bound = buffer_constant * bdf_type * this->h;
-            size_of_bound = mesh_bound_multiplier
-                            * levelset_function->get_speed() * this->tau
-                            * buffer_constant * bdf_type;
+            size_of_bound = mesh_bound_multiplier * buffer_constant
+                            * (levelset_function->get_speed() * tau
+                               * bdf_type + h);
             std::cout << " # size_of_bound = " << size_of_bound << std::endl;
             dof_handlers.emplace_front(new hp::DoFHandler<dim>());
             distribute_dofs(dof_handlers.front(), size_of_bound);
@@ -372,7 +372,7 @@ namespace utils::problems {
     void CutFEMProblem<dim>::
     interpolate_first_steps(unsigned int bdf_type,
                             std::vector<ErrorBase *> &errors,
-                            bool moving_domain) {
+                            bool moving_domain, double mesh_bound_multiplier) {
         std::cout << "Interpolate first step(s)." << std::endl;
         // Assume the deque of solutions is empty at this point.
         assert(solutions.empty());
@@ -391,8 +391,9 @@ namespace utils::problems {
                 // but the first one should already have been created.
                 double buffer_constant = 2;
                 // TODO take this calculation out of this function.
-                double size_of_bound =
-                        0.9 * 2.5 * this->tau * buffer_constant * bdf_type;
+                double size_of_bound = mesh_bound_multiplier * buffer_constant
+                                       * (levelset_function->get_speed() * tau
+                                          * bdf_type + h);
 
                 // TODO da jeg la til disse to linjene ble feilen regnet ut riktig
                 //  for supplied solution. Betyr dette at dof_handler ikke blir

@@ -127,7 +127,8 @@ namespace utils::problems {
         void
         interpolate_first_steps(unsigned int bdf_type,
                                 std::vector<ErrorBase *> &errors,
-                                bool moving_domain = false);
+                                bool moving_domain = false,
+                                double mesh_bound_multiplier = 1);
 
         void
         set_supplied_solutions(unsigned int bdf_type,

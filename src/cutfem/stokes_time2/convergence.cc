@@ -15,10 +15,10 @@ void solve_for_element_order(int element_order, int max_refinement,
     using namespace examples::cut::StokesEquation;
     using namespace examples::cut;
 
-    double radius = 0.1; // TODO gjør mindre, for bedre tall for feil når løsningen er eksponential i tid.
-    double half_length = 2 * radius;
+    double radius = 0.05;
+    double half_length = radius;
 
-    double nu = 0.4;
+    double nu = 1;
 
     double end_time = radius;
 
@@ -41,7 +41,7 @@ void solve_for_element_order(int element_order, int max_refinement,
     cutfem::geometry::SignedDistanceSphere<dim> signed_distance_sphere(
             sphere_radius, center, -1);
 
-    for (int n_refines = 2; n_refines < max_refinement + 1; ++n_refines) {
+    for (int n_refines = 3; n_refines < max_refinement + 1; ++n_refines) {
         std::cout << "\nn_refines=" << n_refines << std::endl
                   << "===========" << std::endl;
         // Se feilen for tidsdiskretiseringen dominere hvis n_refines starter på
@@ -76,7 +76,7 @@ void solve_for_element_order(int element_order, int max_refinement,
                 write_output, rhs, boundary_values, analytical_velocity,
                 analytical_pressure, domain);
 
-        ErrorBase *bdf1_err = stokes_bdf1.run_moving_domain(1, time_steps);
+        ErrorBase *bdf1_err = stokes_bdf1.run_moving_domain(1, time_steps, 1.333);
 
         /*
         // std::cout << std::endl << "BDF-2" << std::endl << std::endl;
