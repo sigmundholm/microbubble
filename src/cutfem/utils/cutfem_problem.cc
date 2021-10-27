@@ -540,9 +540,9 @@ namespace utils::problems {
     template<int dim>
     void CutFEMProblem<dim>::
     setup_quadrature() {
-        const unsigned int quadOrder = 2 * element_order + 1;
-        q_collection.push_back(QGauss<dim>(quadOrder));
-        q_collection1D.push_back(QGauss<1>(quadOrder));
+        const unsigned int n_quad_points = element_order + 1;
+        q_collection.push_back(QGauss<dim>(n_quad_points));
+        q_collection1D.push_back(QGauss<1>(n_quad_points));
     }
 
 

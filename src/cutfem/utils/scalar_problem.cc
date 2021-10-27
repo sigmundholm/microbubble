@@ -187,22 +187,20 @@ namespace utils::problems::scalar {
 
         // The the values of the previous solutions, and insert into the
         // matrix initialized above.
-        for (unsigned long k = 0; k < this->solutions.size(); ++k) {
+        for (unsigned long k = 1; k < this->solutions.size(); ++k) {
             fe_values.get_function_values(this->solutions[k],
                                           prev_solution_values[k]);
         }
         double phi_iq;
         double prev_values;
         for (unsigned int q = 0; q < fe_values.n_quadrature_points; ++q) {
+            prev_values = 0;
+            for (unsigned long k = 1; k < this->solutions.size(); ++k) {
+                prev_values +=
+                        this->bdf_coeffs[k] * prev_solution_values[k][q];
+            }
+
             for (const unsigned int i : fe_values.dof_indices()) {
-
-                prev_values = 0;
-                // TODO endre til å loope fra k=1?
-                for (unsigned long k = 0; k < this->solutions.size(); ++k) {
-                    prev_values +=
-                            this->bdf_coeffs[k] * prev_solution_values[k][q];
-                }
-
                 phi_iq = fe_values.shape_value(i, q);
                 local_rhs(i) += (this->tau * rhs_values[q] * phi_iq // (f, v)
                                  - prev_values * phi_iq       // (u_n, v)
@@ -307,9 +305,21 @@ namespace utils::problems::scalar {
                                      update_gradients |
                                      update_quadrature_points;
 
+        // Use a quadrature of higher degree when computing the error, than
+        // when the stiffness matrix is assembled. This is to make sure we do
+        // not use the same quadrature points when computing the error, since
+        // these points can get a better approximation than the other point in
+        // the cell.
+        // TODO fix og test for FlowProblem også.
+        const unsigned int n_quad_points = this->element_order + 3;
+        hp::QCollection<dim> q_collection;
+        q_collection.push_back(QGauss<dim>(n_quad_points));
+        hp::QCollection<1> q_collection1D;
+        q_collection1D.push_back(QGauss<1>(n_quad_points));
+
         NonMatching::FEValues<dim> cut_fe_values(this->mapping_collection,
                                                  this->fe_collection,
-                                                 this->q_collection,
+                                                 q_collection,
                                                  this->q_collection1D,
                                                  region_update_flags,
                                                  this->cut_mesh_classifier,
@@ -323,6 +333,7 @@ namespace utils::problems::scalar {
             // over the full cell.
             const boost::optional<const FEValues<dim> &> fe_values_bulk =
                     cut_fe_values.get_inside_fe_values();
+            // TODO hva med intersected celler?
 
             if (fe_values_bulk) {
                 integrate_cell(*fe_values_bulk, solution, l2_error_integral,
