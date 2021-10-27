@@ -300,7 +300,7 @@ namespace examples::cut::HeatEquation {
 
     template<int dim>
     void
-    HeatEqn<dim>::assemble_rhs(int time_step, bool moving_domain) {
+    HeatEqn<dim>::assemble_rhs(int time_step) {
         std::cout << "Assembling RHS: Heat Equation" << std::endl;
 
         this->rhs = 0;
@@ -351,7 +351,7 @@ namespace examples::cut::HeatEquation {
                     assemble_rhs_local_over_cell_cn(*fe_values_bulk, loc2glb,
                                                     time_step);
                 } else {
-                    if (moving_domain) {
+                    if (this->moving_domain) {
                         this->assemble_rhs_and_bdf_terms_local_over_cell_moving_domain(
                                 *fe_values_bulk, loc2glb);
                     } else {

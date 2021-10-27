@@ -158,7 +158,7 @@ namespace utils::problems {
             // TODO nødvendig??
             this->rhs.reinit(this->solutions.front().size());
 
-            assemble_rhs(k, false);
+            assemble_rhs(k);
             this->solve();
             errors[k] = this->compute_error(dof_handlers.front(),
                                             solutions.front());
@@ -203,6 +203,7 @@ namespace utils::problems {
 
         std::cout << "\nBDF-" << bdf_type << ", steps=" << steps << std::endl;
         std::cout << "-------------------------" << std::endl;
+        moving_domain = true;
 
         // One dof_handler must be supplied for each supplied solution vector.
         assert(supplied_solutions.size() == supplied_dof_handlers.size());
@@ -288,7 +289,7 @@ namespace utils::problems {
             initialize_matrices();
 
             assemble_matrix();
-            assemble_rhs(k, true);
+            assemble_rhs(k);
 
             solve();
             errors[k] = compute_error(dof_handlers.front(), solutions.front());
@@ -652,7 +653,7 @@ namespace utils::problems {
 
     template<int dim>
     void CutFEMProblem<dim>::
-    assemble_rhs(int time_step, bool moving_domain) {
+    assemble_rhs(int time_step) {
         throw std::logic_error("Not implemented.");
     }
 

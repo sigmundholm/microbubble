@@ -202,7 +202,7 @@ namespace utils::problems {
                 const std::vector<types::global_dof_index> &loc2glb);
 
         virtual void
-        assemble_rhs(int time_step, bool moving_domain);
+        assemble_rhs(int time_step);
 
         virtual void
         assemble_rhs_local_over_cell(const FEValues<dim> &fe_values,
@@ -293,6 +293,7 @@ namespace utils::problems {
         Vector<double> levelset;
 
         LevelSet<dim> *levelset_function;
+        bool moving_domain = false;
 
         // Object managing degrees of freedom for the cutfem method.
         std::deque<std::shared_ptr<hp::DoFHandler<dim>>> dof_handlers;

@@ -89,7 +89,7 @@ namespace examples::cut::StokesEquation {
                 const std::vector<types::global_dof_index> &loc2glb) override;
 
         void
-        assemble_rhs(int time_step, bool moving_domain) override;
+        assemble_rhs(int time_step) override;
 
         void
         assemble_rhs_local_over_surface(

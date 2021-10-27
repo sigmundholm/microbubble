@@ -340,7 +340,7 @@ namespace examples::cut::StokesEquation {
 
     template<int dim>
     void StokesEqn<dim>::
-    assemble_rhs(int time_step, bool moving_domain) {
+    assemble_rhs(int time_step) {
         std::cout << "Assembling rhs: Stokes" << std::endl;
 
         NonMatching::RegionUpdateFlags region_update_flags;
@@ -389,7 +389,7 @@ namespace examples::cut::StokesEquation {
                     cut_fe_values.get_inside_fe_values();
 
             if (fe_values_bulk) {
-                if (moving_domain) {
+                if (this->moving_domain) {
                     this->assemble_rhs_and_bdf_terms_local_over_cell_moving_domain(
                             *fe_values_bulk, loc2glb);
                 } else {
