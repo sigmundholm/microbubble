@@ -125,6 +125,9 @@ namespace utils::problems {
         set_bdf_coefficients(unsigned int bdf_type);
 
         void
+        set_extrapolation_coefficients(unsigned int bdf_type);
+
+        void
         interpolate_first_steps(unsigned int bdf_type,
                                 std::vector<ErrorBase *> &errors,
                                 bool moving_domain = false,
@@ -317,6 +320,11 @@ namespace utils::problems {
         //   u_t = (au^(n+1) + bu^n + cu^(n-1))/τ, where u = u^(n+1)
         // For BDF-1: (a, b), and (a, b, c) for BDF-2.
         std::vector<double> bdf_coeffs;
+
+        // Extrapolation coefficients, used for the discretisation of the
+        // convection term for Navier-Stokes.
+        std::vector<double> extrap_coeffs;
+
         bool crank_nicholson;
 
         const bool stabilized;

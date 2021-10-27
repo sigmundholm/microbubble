@@ -19,17 +19,11 @@
 #include <deal.II/numerics/data_out_dof_data.h>
 #include <deal.II/numerics/vector_tools.h>
 
-#include <boost/optional.hpp>
-
 #include <cmath>
 #include <fstream>
-#include <stdexcept>
 
 #include "cutfem/geometry/SignedDistanceSphere.h"
 #include "cutfem/nla/sparsity_pattern.h"
-#include "cutfem/stabilization/jump_stabilization.h"
-
-#include "../utils/utils.h"
 
 #include "navier_stokes.h"
 
@@ -54,14 +48,19 @@ namespace examples::cut::NavierStokes {
                     TensorFunction<1, dim> &bdd_values,
                     TensorFunction<1, dim> &analytic_vel,
                     Function<dim> &analytic_pressure,
-                    LevelSet <dim> &levelset_func,
+                    LevelSet<dim> &levelset_func,
+                    const bool semi_implicit,
                     const int do_nothing_id,
                     const bool stabilized)
-            : StokesEquation::StokesEqn<dim>(nu, tau, radius, half_length, n_refines,
-                             element_order, write_output,
-                             rhs, bdd_values,
-                             analytic_vel, analytic_pressure, levelset_func,
-                             do_nothing_id, stabilized, false) {}
+            : StokesEquation::StokesEqn<dim>(nu, tau, radius, half_length,
+                                             n_refines,
+                                             element_order, write_output,
+                                             rhs, bdd_values,
+                                             analytic_vel, analytic_pressure,
+                                             levelset_func,
+                                             do_nothing_id, stabilized,
+                                             false),
+              semi_implicit(semi_implicit) {}
 
 
     template<int dim>
@@ -87,6 +86,16 @@ namespace examples::cut::NavierStokes {
     assemble_matrix_local_over_cell(
             const FEValues<dim> &fe_values,
             const std::vector<types::global_dof_index> &loc2glb) {
+        // Assemble the convection terms.
+        if (semi_implicit) {
+            if (this->moving_domain) {
+                assemble_convection_over_cell_moving_domain(fe_values, loc2glb);
+            } else {
+                assemble_convection_over_cell(fe_values, loc2glb);
+            }
+        }
+        // The following is identical to the method in the solver for the
+        // Stokes equation.
 
         // Matrix and vector for the contribution of each cell
         const unsigned int dofs_per_cell = fe_values.get_fe().dofs_per_cell;
@@ -123,13 +132,165 @@ namespace examples::cut::NavierStokes {
                              * phi_u[j] * phi_u[i]  // (u, v)
                              +
                              (this->nu * scalar_product(grad_phi_u[j],
-                                                  grad_phi_u[i]) // (grad u, grad v)
+                                                        grad_phi_u[i]) // (grad u, grad v)
                               - (div_phi_u[i] * phi_p[j])   // -(div v, p)
                               - (div_phi_u[j] * phi_p[i])   // -(div u, q)
                              ) * this->tau) *
                             fe_values.JxW(q); // dx
                 }
                 // NB: rhs is assembled in assemble_rhs().
+            }
+        }
+        this->stiffness_matrix.add(loc2glb, local_matrix);
+    }
+
+
+    template<int dim>
+    void NavierStokesEqn<dim>::
+    assemble_convection_over_cell(
+            const FEValues<dim> &fe_v,
+            const std::vector<types::global_dof_index> &loc2glb) {
+        // Vector for the contribution of each cell
+        const unsigned int dofs_per_cell = fe_v.get_fe().dofs_per_cell;
+        FullMatrix<double> local_matrix(dofs_per_cell, dofs_per_cell);
+
+        // Create vector of the previous solutions values
+        std::vector<Tensor<1, dim>> val(fe_v.n_quadrature_points,
+                                        Tensor<1, dim>());
+        // This vector contains (-, u^n, u^(n-1)) for BDF-2.
+        std::vector<std::vector<Tensor<1, dim>>> prev_solution_values(
+                this->solutions.size(), val);
+
+        const FEValuesExtractors::Vector v(0);
+
+        // Get the values of the previous solutions, and insert into the
+        // vector initialized above.
+        for (unsigned long k = 1; k < this->solutions.size(); ++k) {
+            fe_v[v].get_function_values(this->solutions[k],
+                                        prev_solution_values[k]);
+        }
+
+        Tensor<1, dim> extrapolation;
+        std::vector<Tensor<2, dim>> grad_phi_u(dofs_per_cell);
+        std::vector<Tensor<1, dim>> phi_u(dofs_per_cell);
+        for (unsigned int q = 0; q < fe_v.n_quadrature_points; ++q) {
+            // Compute the extrapolated value by using the previous steps.
+            extrapolation = Tensor<1, dim>();
+            for (unsigned long k = 1; k < this->solutions.size(); ++k) {
+                extrapolation +=
+                        this->extrap_coeffs[k] * prev_solution_values[k][q];
+            }
+
+            // Compute the gradient values at the dofs, for these quadrature
+            // points.
+            for (const unsigned int k : fe_v.dof_indices()) {
+                grad_phi_u[k] = fe_v[v].gradient(k, q);
+                phi_u[k] = fe_v[v].value(k, q);
+            }
+
+            // Compute the addition to the local matrix
+            for (const unsigned int i : fe_v.dof_indices()) {
+                for (const unsigned int j : fe_v.dof_indices()) {
+                    // TODO check index!
+                    // Assemble the term (u·∇)u = (∇u)u_e, where u_e is the
+                    // extrapolated u-value.
+                    local_matrix(i, j) +=
+                            (grad_phi_u[j] * extrapolation * phi_u[i]) *
+                            fe_v.JxW(q);
+                }
+            }
+        }
+        //this->rhs.add(loc2glb, local_rhs);
+        this->stiffness_matrix.add(loc2glb, local_matrix);
+    }
+
+
+    template<int dim>
+    void NavierStokesEqn<dim>::
+    assemble_convection_over_cell_moving_domain(
+            const FEValues<dim> &fe_v,
+            const std::vector<types::global_dof_index> &loc2glb) {
+
+        // TODO needed?
+        const hp::FECollection<dim> &fe_collection = this->dof_handlers.front()->get_fe_collection();
+        const hp::QCollection<dim> q_collection(fe_v.get_quadrature());
+
+        // Vector for the contribution of each cell
+        const unsigned int dofs_per_cell = fe_v.get_fe().dofs_per_cell;
+        FullMatrix<double> local_matrix(dofs_per_cell, dofs_per_cell);
+
+        const FEValuesExtractors::Vector v(0);
+
+        // Create vector of the previous solutions values
+        std::vector<Tensor<1, dim>> val(fe_v.n_quadrature_points,
+                                        Tensor<1, dim>());
+        std::vector<std::vector<Tensor<1, dim>>> prev_solution_values(
+                this->solutions.size(), val);
+
+        // Get the values of the previous solutions, and insert into the
+        // vector initialized above.
+
+        // First get a FEValues object that can do calculations over the
+        // current cell, but over the solutions in previous time steps.
+        const typename Triangulation<dim>::active_cell_iterator &cell =
+                fe_v.get_cell();
+        hp::FEValues<dim> hp_fe_values(this->mapping_collection,
+                                       fe_collection,
+                                       q_collection,
+                                       update_values);
+
+        // Read out the solution values from the previous time steps that we
+        // need for the BDF-method.
+        for (unsigned long k = 1; k < this->solutions.size(); ++k) {
+            typename hp::DoFHandler<dim>::active_cell_iterator cell_prev(
+                    &(this->triangulation), cell->level(), cell->index(),
+                    this->dof_handlers[k].get());
+            const FiniteElement<dim> &fe = cell_prev->get_fe();
+            if (fe.n_dofs_per_cell() == 0) {
+                // This means that in the previous solution step, this cell had
+                // FE_Nothing elements. We can therefore not use that cell to
+                // get the values we need for the BDF-formula. If this happens
+                // then the active mesh in the previous step(s) need to be
+                // extended, such that the cells outside the physical domain
+                // can be stabilized. When the aftive mesh is sufficiently
+                // big in all time steps, we should never enter this clause.
+                // If this happens, the values of 0 vill be used.
+                std::cout << "# NB: need larger cell buffer outside the "
+                             "physical domain, to compute the convection term."
+                          << std::endl;
+            } else {
+                // Get the function values from the previous time steps.
+                // TODO check that this is actually done.
+                hp_fe_values.reinit(cell_prev);
+                const FEValues<dim> &fe_values_prev = hp_fe_values.get_present_fe_values();
+                fe_values_prev[v].get_function_values(this->solutions[k],
+                                                      prev_solution_values[k]);
+            }
+        }
+
+        Tensor<1, dim> extrapolation;
+        std::vector<Tensor<2, dim>> grad_phi_u(dofs_per_cell);
+        std::vector<Tensor<1, dim>> phi_u(dofs_per_cell);
+        for (unsigned int q = 0; q < fe_v.n_quadrature_points; ++q) {
+            extrapolation = Tensor<1, dim>();
+            for (unsigned int k = 1; k < this->solutions.size(); ++k) {
+                extrapolation +=
+                        this->extrap_coeffs[k] * prev_solution_values[k][q];
+            }
+
+            for (const unsigned int k : fe_v.dof_indices()) {
+                grad_phi_u[k] = fe_v[v].gradient(k, q);
+                phi_u[k] = fe_v[v].value(k, q);
+            }
+
+            for (const unsigned int i : fe_v.dof_indices()) {
+                for (const unsigned int j : fe_v.dof_indices()) {
+                    // Assemble the term (u·∇)u = (∇u)u_e, where u_e is the
+                    // extrapolated u-value.
+                    local_matrix(i, j) +=
+                            (grad_phi_u[j] * extrapolation * phi_u[i]) *
+                            fe_v.JxW(q);
+                }
             }
         }
         this->stiffness_matrix.add(loc2glb, local_matrix);

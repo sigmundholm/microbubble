@@ -125,6 +125,7 @@ namespace utils::problems {
         set_supplied_solutions(bdf_type, supplied_solutions,
                                no_dof_handlers, errors);
         set_bdf_coefficients(bdf_type);
+        set_extrapolation_coefficients(bdf_type);
 
         // TODO note that the next solution vector is not yet set in solutions,
         //  this may lead to problems. Eg for Crank-Nicholson?
@@ -244,6 +245,7 @@ namespace utils::problems {
         set_supplied_solutions(bdf_type, supplied_solutions,
                                supplied_dof_handlers, errors, true);
         set_bdf_coefficients(bdf_type);
+        set_extrapolation_coefficients(bdf_type);
 
         std::ofstream file("errors-time-d" + std::to_string(dim)
                            + "o" + std::to_string(element_order)
@@ -355,6 +357,40 @@ namespace utils::problems {
                     std::to_string(bdf_type) + ".");
         }
     }
+
+
+    template<int dim>
+    void CutFEMProblem<dim>::
+    set_extrapolation_coefficients(unsigned int bdf_type) {
+        // Initialize the vector with extrapolation coefficients.
+        extrap_coeffs = std::vector<double>(bdf_type + 1);
+        switch (bdf_type) {
+            case 1:
+                // 1st order extrapolation.
+                extrap_coeffs[0] = 0;
+                extrap_coeffs[1] = 1;
+                break;
+            case 2:
+                // 2nd order extrapolation.
+                extrap_coeffs[0] = 0;
+                extrap_coeffs[1] = 2;
+                extrap_coeffs[2] = -1;
+                break;
+            case 3:
+                // 3rd order extrapolation.
+                extrap_coeffs[0] = 0;
+                extrap_coeffs[1] = 3;
+                extrap_coeffs[2] = -3;
+                extrap_coeffs[3] = 1;
+                break;
+            default:
+                throw std::invalid_argument(
+                        "Extrapolation of order k = "
+                        + std::to_string(this->solutions.size() - 1)
+                        + ", is not implemented.");
+        }
+    }
+
 
     /**
      *

@@ -24,8 +24,6 @@ namespace examples::cut::NavierStokes {
         double y = p[1];
         double t = this->get_time();
         Tensor<1, dim> val;
-        val[0] = pi * exp(-4 * pi * pi * nu * t) * sin(2 * pi * x) / 2;
-        val[1] = pi * exp(-4 * pi * pi * nu * t) * sin(2 * pi * y) / 2;
         return val;
     }
 

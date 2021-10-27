@@ -45,30 +45,48 @@ namespace examples::cut::NavierStokes {
 
 
     template<int dim>
-class NavierStokesEqn : public StokesEquation::StokesEqn<dim> {
+    class NavierStokesEqn : public StokesEquation::StokesEqn<dim> {
     public:
-        NavierStokesEqn(const double nu,
-                  const double tau,
-                  const double radius,
-                  const double half_length,
-                  const unsigned int n_refines,
-                  const int element_order,
-                  const bool write_output,
-                  TensorFunction<1, dim> &rhs,
-                  TensorFunction<1, dim> &bdd_values,
-                  TensorFunction<1, dim> &analytic_vel,
-                  Function<dim> &analytic_pressure,
-                  LevelSet<dim> &levelset_func,
-                  const int do_nothing_id = 10,
-                  const bool stabilized = true);
+        NavierStokesEqn(double nu,
+                        double tau,
+                        double radius,
+                        double half_length,
+                        unsigned int n_refines,
+                        int element_order,
+                        bool write_output,
+                        TensorFunction<1, dim> &rhs,
+                        TensorFunction<1, dim> &bdd_values,
+                        TensorFunction<1, dim> &analytic_vel,
+                        Function<dim> &analytic_pressure,
+                        LevelSet<dim> &levelset_func,
+                        bool semi_implicit,
+                        int do_nothing_id = 10,
+                        bool stabilized = true);
 
     protected:
         void
         make_grid(Triangulation<dim> &tria) override;
 
         void
-        assemble_matrix_local_over_cell(const FEValues<dim> &fe_values,
-                                        const std::vector<types::global_dof_index> &loc2glb) override;
+        assemble_matrix_local_over_cell(
+                const FEValues<dim> &fe_v,
+                const std::vector<types::global_dof_index> &loc2glb) override;
+
+        void
+        assemble_convection_over_cell(
+                const FEValues<dim> &fe_v,
+                const std::vector<types::global_dof_index> &loc2glb);
+
+        void
+        assemble_convection_over_cell_moving_domain(
+                const FEValues<dim> &fe_v,
+                const std::vector<types::global_dof_index> &loc2glb);
+
+        // If true, a semi-implicit discretisation is used for the convection
+        // term. Else, it an explicit discretisation is used.
+        const bool semi_implicit;
+
+
     };
 
 } // namespace examples::cut::NavierStokes
