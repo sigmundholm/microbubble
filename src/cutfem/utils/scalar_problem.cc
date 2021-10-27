@@ -310,7 +310,6 @@ namespace utils::problems::scalar {
         // not use the same quadrature points when computing the error, since
         // these points can get a better approximation than the other point in
         // the cell.
-        // TODO fix og test for FlowProblem også.
         const unsigned int n_quad_points = this->element_order + 3;
         hp::QCollection<dim> q_collection;
         q_collection.push_back(QGauss<dim>(n_quad_points));
@@ -320,7 +319,7 @@ namespace utils::problems::scalar {
         NonMatching::FEValues<dim> cut_fe_values(this->mapping_collection,
                                                  this->fe_collection,
                                                  q_collection,
-                                                 this->q_collection1D,
+                                                 q_collection1D,
                                                  region_update_flags,
                                                  this->cut_mesh_classifier,
                                                  this->levelset_dof_handler,
