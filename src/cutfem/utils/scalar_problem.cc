@@ -50,13 +50,18 @@ namespace utils::problems::scalar {
     template<int dim>
     void ScalarProblem<dim>::
     interpolate_solution(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
-                         int time_step,
-                         bool moving_domain) {
-        // TODO if k = 0, interpolate the boundary_values function
-        // TODO take solution as an argument.
-        VectorTools::interpolate(*dof_handler,
-                                 *(this->analytical_solution),
-                                 this->solutions.front());
+                         int time_step) {
+        // For time_step = 0, interpolate the boundary_values function, since
+        // for t=0, this function should contain the initial values.
+        if (time_step == 0) {
+            VectorTools::interpolate(*dof_handler,
+                                     *(this->boundary_values),
+                                     this->solutions.front());
+        } else {
+            VectorTools::interpolate(*dof_handler,
+                                     *(this->analytical_solution),
+                                     this->solutions.front());
+        }
     }
 
 

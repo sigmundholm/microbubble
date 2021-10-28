@@ -82,8 +82,7 @@ namespace utils::problems::flow {
     protected:
         virtual void
         interpolate_solution(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
-                             int time_step,
-                             bool moving_domain = false) override;
+                             int time_step) override;
 
         virtual void
         setup_fe_collection() override;

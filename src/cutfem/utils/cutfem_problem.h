@@ -130,7 +130,6 @@ namespace utils::problems {
         void
         interpolate_first_steps(unsigned int bdf_type,
                                 std::vector<ErrorBase *> &errors,
-                                bool moving_domain = false,
                                 double mesh_bound_multiplier = 1);
 
         void
@@ -145,7 +144,7 @@ namespace utils::problems {
 
         virtual void
         interpolate_solution(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
-                             int time_step, bool moving_domain = false);
+                             int time_step);
 
 
         virtual void

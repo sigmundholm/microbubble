@@ -241,7 +241,7 @@ namespace utils::problems {
         // Vector for the computed error for each time step.
         std::vector<ErrorBase *> errors(steps + 1);
 
-        interpolate_first_steps(bdf_type, errors, true, mesh_bound_multiplier);
+        interpolate_first_steps(bdf_type, errors, mesh_bound_multiplier);
         set_supplied_solutions(bdf_type, supplied_solutions,
                                supplied_dof_handlers, errors, true);
         set_bdf_coefficients(bdf_type);
@@ -409,7 +409,7 @@ namespace utils::problems {
     void CutFEMProblem<dim>::
     interpolate_first_steps(unsigned int bdf_type,
                             std::vector<ErrorBase *> &errors,
-                            bool moving_domain, double mesh_bound_multiplier) {
+                            double mesh_bound_multiplier) {
         std::cout << "Interpolate first step(s)." << std::endl;
         // Assume the deque of solutions is empty at this point.
         assert(solutions.empty());
@@ -443,7 +443,7 @@ namespace utils::problems {
             int n_dofs = dof_handlers.front()->n_dofs();
             solutions.emplace_front(n_dofs);
 
-            interpolate_solution(dof_handlers.front(), k, moving_domain);
+            interpolate_solution(dof_handlers.front(), k);
 
             // Compute the error for this step.
             errors[k] = this->compute_error(dof_handlers.front(),
@@ -567,8 +567,7 @@ namespace utils::problems {
     template<int dim>
     void CutFEMProblem<dim>::
     interpolate_solution(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
-                         int time_step,
-                         bool moving_domain) {
+                         int time_step) {
         throw std::logic_error(
                 "Override this method to run a time dependent problem.");
     }

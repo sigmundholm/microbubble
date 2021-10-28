@@ -57,27 +57,21 @@ namespace utils::problems::flow {
     template<int dim>
     void FlowProblem<dim>::
     interpolate_solution(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
-                         int time_step,
-                         bool moving_domain) {
-        Utils::AnalyticalSolutionWrapper<dim> wrapper(*analytical_velocity,
-                                                      *analytical_pressure);
-        VectorTools::interpolate(*dof_handler, wrapper,
-                                 this->solutions.front());
-        // TODO burde kanskje heller interpolere boundary_values for
-        //  initial verdier?
-        // Important that the boundary_values function uses t=0, when
-        // we interpolate the initial value from it.
-        // boundary_values->set_time(0);
-
-        // Use the boundary_values as initial values. Interpolate the
-        // boundary_values function into the finite element space.
-        // const unsigned int n_components_on_element = dim + 1;
-        // FEValuesExtractors::Vector velocities(0);
-        //VectorFunctionFromTensorFunction<dim> adapter(
-        //        *boundary_values,
-        //        velocities.first_vector_component,
-        //        n_components_on_element);
-
+                         int time_step) {
+        if (time_step == 0) {
+            // Use the boundary_values as initial values. Interpolate the
+            // boundary_values function into the finite element space.
+            boundary_values->set_time(0);
+            Utils::AnalyticalSolutionWrapper<dim> wrapper(*boundary_values,
+                                                          *analytical_pressure);
+            VectorTools::interpolate(*dof_handler, wrapper,
+                                     this->solutions.front());
+        } else {
+            Utils::AnalyticalSolutionWrapper<dim> wrapper(*analytical_velocity,
+                                                          *analytical_pressure);
+            VectorTools::interpolate(*dof_handler, wrapper,
+                                     this->solutions.front());
+        }
     }
 
     template<int dim>
@@ -131,13 +125,14 @@ namespace utils::problems::flow {
         Tensor<1, dim> prev_values;
 
         for (unsigned int q = 0; q < fe_v.n_quadrature_points; ++q) {
+            // RHS
+            prev_values = Tensor<1, dim>();
+            for (unsigned int k = 1; k < this->solutions.size(); ++k) {
+                prev_values +=
+                        this->bdf_coeffs[k] * prev_solutions_values[k][q];
+            }
+
             for (const unsigned int i : fe_v.dof_indices()) {
-                // RHS
-                prev_values = Tensor<1, dim>();
-                for (unsigned int k = 1; k < this->solutions.size(); ++k) {
-                    prev_values +=
-                            this->bdf_coeffs[k] * prev_solutions_values[k][q];
-                }
 
                 phi_u = fe_v[v].value(i, q);
                 local_rhs(i) += (this->tau * rhs_values[q] * phi_u    // τ(f, v)
@@ -172,7 +167,8 @@ namespace utils::problems::flow {
                                        rhs_values);
 
         // Create vector of the previous solutions values
-        std::vector<Tensor<1, dim>> val(fe_v.n_quadrature_points, Tensor<1, dim>());
+        std::vector<Tensor<1, dim>> val(fe_v.n_quadrature_points,
+                                        Tensor<1, dim>());
         std::vector<std::vector<Tensor<1, dim>>> prev_solution_values(
                 this->solutions.size(), val);
 
@@ -208,19 +204,19 @@ namespace utils::problems::flow {
                 hp_fe_values.reinit(cell_prev);
                 const FEValues<dim> &fe_values_prev = hp_fe_values.get_present_fe_values();
                 fe_values_prev[v].get_function_values(this->solutions[k],
-                                                   prev_solution_values[k]);
+                                                      prev_solution_values[k]);
             }
 
         }
         Tensor<1, dim> phi_u;
         Tensor<1, dim> prev_values;
         for (unsigned int q = 0; q < fe_v.n_quadrature_points; ++q) {
+            prev_values = 0;
+            for (unsigned long k = 1; k < this->solutions.size(); ++k) {
+                prev_values +=
+                        this->bdf_coeffs[k] * prev_solution_values[k][q];
+            }
             for (const unsigned int i : fe_v.dof_indices()) {
-                prev_values = 0;
-                for (unsigned long k = 1; k < this->solutions.size(); ++k) {
-                    prev_values +=
-                            this->bdf_coeffs[k] * prev_solution_values[k][q];
-                }
                 phi_u = fe_v[v].value(i, q);
                 local_rhs(i) += (this->tau * rhs_values[q] * phi_u // (f, v)
                                  - prev_values * phi_u       // (u_n, v)
@@ -245,7 +241,7 @@ namespace utils::problems::flow {
                                       update_quadrature_points |
                                       update_normal_vectors;
 
-        // Use a higher order quadrature formula when computing the error, than
+        // Use a higher order quadrature formula when computing the error than
         // when assembling the stiffness matrix.
         const unsigned int n_quad_points = this->element_order + 3;
         hp::QCollection<dim> q_collection;
