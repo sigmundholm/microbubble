@@ -82,6 +82,20 @@ namespace examples::cut::NavierStokes {
                 const FEValues<dim> &fe_v,
                 const std::vector<types::global_dof_index> &loc2glb);
 
+        void
+        assemble_rhs(int time_step) override;
+
+        virtual void
+        assemble_rhs_and_bdf_terms_local_over_cell(
+                const FEValues<dim> &fe_v,
+                const std::vector<types::global_dof_index> &loc2glb) override;
+
+        virtual void
+        assemble_rhs_and_bdf_terms_local_over_cell_moving_domain(
+                const FEValues<dim> &fe_v,
+                const std::vector<types::global_dof_index> &loc2glb) override;
+
+
         // If true, a semi-implicit discretisation is used for the convection
         // term. Else, it an explicit discretisation is used.
         const bool semi_implicit;
