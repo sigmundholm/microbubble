@@ -13,31 +13,37 @@ int main() {
     printf("numRefines=%d\n", n_refines);
     printf("elementOrder=%d\n", elementOrder);
     const bool write_vtk = true;
-
-    double radius = 0.05;
-    double half_length = 2 * radius;
-
-    double nu = 1;
-    double end_time = 0.05;
-    unsigned int n_steps = 20;
-    double tau = end_time / n_steps;
-
-    double sphere_radius = radius * 0.75;
-
     const int dim = 2;
 
-    RightHandSide<dim> rhs(nu);
-    BoundaryValues<dim> boundary(nu);
+    const double radius = 1;
+    const double half_length = 2 * radius;
+
+    const double nu = 0.01;
+    const double end_time = 1;
+    unsigned int n_steps = 100;
+    const double tau = end_time / n_steps;
+
+    const double sphere_radius = radius * 0.3;
+
+    RightHandSide<dim> rhs;
+
+    // BoundaryValues<dim> boundary(nu);
+    const double max_speed = half_length;
+    ParabolicFlow<dim> boundary(radius, half_length, max_speed, 0.1);
+
     AnalyticalVelocity<dim> analytical_velocity(nu);
     AnalyticalPressure<dim> analytical_pressure(nu);
-    MovingDomain<dim> domain(sphere_radius, half_length, radius);
+
+    // MovingDomain<dim> domain(sphere_radius, half_length, radius);
+    Sphere<dim> domain(sphere_radius, half_length, radius,
+                       -half_length / 3, radius / 3);
 
     NavierStokesEqn<dim> ns(nu, tau, radius, half_length, n_refines,
                             elementOrder, write_vtk, rhs, boundary,
                             analytical_velocity, analytical_pressure,
-                            domain);
+                            domain, false, 2);
 
-    ErrorBase *err = ns.run_moving_domain(1, n_steps, 1.333);
+    ErrorBase *err = ns.run_time(1, n_steps);
     auto *error = dynamic_cast<ErrorFlow *>(err);
 
     std::cout << "Mesh size h = " << error->h << std::endl;

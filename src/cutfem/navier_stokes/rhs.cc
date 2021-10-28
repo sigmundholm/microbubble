@@ -12,8 +12,8 @@
 namespace examples::cut::NavierStokes {
 
     template<int dim>
-    RightHandSide<dim>::RightHandSide(const double nu)
-            : TensorFunction<1, dim>(), nu(nu) {}
+    RightHandSide<dim>::RightHandSide()
+            : TensorFunction<1, dim>() {}
 
     template<int dim>
     Tensor<1, dim> RightHandSide<dim>::
@@ -42,6 +42,33 @@ namespace examples::cut::NavierStokes {
         Tensor<1, dim> val;
         val[0] = -exp(-2 * pi * pi * nu * t) * sin(pi * y) * cos(pi * x);
         val[1] = exp(-2 * pi * pi * nu * t) * sin(pi * x) * cos(pi * y);
+        return val;
+    }
+
+
+    template<int dim>
+    ParabolicFlow<dim>::ParabolicFlow(const double radius,
+                                      const double half_length,
+                                      const double max_speed,
+                                      const double boundary_layer)
+            : TensorFunction<1, dim>(), radius(radius),
+              half_length(half_length), max_speed(max_speed),
+              boundary_layer(boundary_layer) {}
+
+    template<int dim>
+    Tensor<1, dim> ParabolicFlow<dim>::
+    value(const Point<dim> &p) const {
+        double x = p[0];
+        double y = p[1];
+        double t = this->get_time();
+        Tensor<1, dim> val;
+
+        if (x == - half_length) {
+            // No-slip boundary conditions.
+            val[0] = max_speed * (1 - pow(y / radius, 2))
+                     * (1 - exp(-t / boundary_layer));
+            val[1] = 0;
+        }
         return val;
     }
 
@@ -132,8 +159,8 @@ namespace examples::cut::NavierStokes {
         // Here it is assumed that T = 0.05, since for T = 1, the analytical
         // solution used is very small at the end time.
         double x0 = 0.9 * (half_length - sphere_radius) *
-                    (2 * t/0.05 - 1); // sin(2 * pi * t);
-        double y0 = 0.9 * (radius - sphere_radius) * (2 * t/0.05 - 1);
+                    (2 * t / 0.05 - 1); // sin(2 * pi * t);
+        double y0 = 0.9 * (radius - sphere_radius) * (2 * t / 0.05 - 1);
         double x = p[0];
         double y = p[1];
         return -sqrt(pow(x - x0, 2) + pow(y - y0, 2)) + sphere_radius;
@@ -149,11 +176,34 @@ namespace examples::cut::NavierStokes {
     }
 
 
+    template<int dim>
+    Sphere<dim>::Sphere(const double sphere_radius,
+                        const double half_length,
+                        const double radius,
+                        const double center_x,
+                        const double center_y)
+            : sphere_radius(sphere_radius), half_length(half_length),
+              radius(radius), center_x(center_x), center_y(center_y) {}
+
+    template<int dim>
+    double Sphere<dim>::
+    value(const Point<dim> &p, const unsigned int component) const {
+        (void) component;
+        double x = p[0];
+        double y = p[1];
+        return -sqrt(pow(x - center_x, 2) + pow(y - center_y, 2)) +
+               sphere_radius;
+    }
+
+
     template
     class RightHandSide<2>;
 
     template
     class BoundaryValues<2>;
+
+    template
+    class ParabolicFlow<2>;
 
     template
     class AnalyticalVelocity<2>;
@@ -165,6 +215,6 @@ namespace examples::cut::NavierStokes {
     class MovingDomain<2>;
 
     template
-    class MovingDomain<3>;
+    class Sphere<2>;
 
 } // namespace examples::cut::NavierStokes
