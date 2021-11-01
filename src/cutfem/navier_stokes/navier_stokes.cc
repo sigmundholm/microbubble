@@ -196,7 +196,7 @@ namespace examples::cut::NavierStokes {
                     // extrapolated u-value.
                     local_matrix(i, j) +=
                             ((grad_phi_u[j] * extrapolation) * phi_u[i]) *
-                            fe_v.JxW(q);
+                            this->tau * fe_v.JxW(q);
                 }
             }
         }
@@ -289,7 +289,7 @@ namespace examples::cut::NavierStokes {
                     // extrapolated u-value.
                     local_matrix(i, j) +=
                             ((grad_phi_u[j] * extrapolation) * phi_u[i]) *
-                            fe_v.JxW(q);
+                            this->tau * fe_v.JxW(q);
                 }
             }
         }
@@ -449,7 +449,8 @@ namespace examples::cut::NavierStokes {
                 phi_u = fe_v[v].value(i, q);
                 local_rhs(i) += (this->tau * rhs_values[q] * phi_u // τ(f, v)
                                  - bdf_terms * phi_u               // BDF-terms
-                                 - (grad_extrap * extrap) * phi_u  // convection
+                                 - (grad_extrap * extrap)          // convection
+                                 * phi_u * this->tau
                                 ) * fe_v.JxW(q);                   // dx
             }
         }
@@ -564,7 +565,8 @@ namespace examples::cut::NavierStokes {
                 phi_u = fe_v[v].value(i, q);
                 local_rhs(i) += (this->tau * rhs_values[q] * phi_u // τ(f, v)
                                  - bdf_terms * phi_u               // BDF-terms
-                                 - (grad_extrap * extrap) * phi_u  // convection
+                                 - (grad_extrap * extrap)
+                                 * phi_u * this->tau               // convection
                                 ) * fe_v.JxW(q);                   // dx
             }
         }
