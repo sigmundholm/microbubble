@@ -27,6 +27,7 @@ def time_error_plot():
 
 # Plot settings
 folder = ""
+prefix = "e-test1-"
 radius = 0.05
 end_time = radius
 domain_length = radius
@@ -36,12 +37,12 @@ element_order = [1, 2]
 if __name__ == '__main__':
     base = split(split(split(os.getcwd())[0])[0])[0]
 
-    time_error_plot()
+    # time_error_plot()
     # convergence_plot_report()
 
     skip = 0
     for poly_order in element_order:
-        full_path = os.path.join(base, "build/src/cutfem/navier_stokes", folder, f"errors-d2o{poly_order}.csv")
+        full_path = os.path.join(base, "build/src/cutfem/navier_stokes", folder, f"{prefix}errors-d2o{poly_order}.csv")
 
         head = list(map(str.strip, open(full_path).readline().split(",")))[1:]
         data = np.genfromtxt(full_path, delimiter=",", skip_header=True)
