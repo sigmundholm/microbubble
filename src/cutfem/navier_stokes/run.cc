@@ -25,7 +25,7 @@ int main() {
 
     const double sphere_radius = radius * 0.3;
 
-    RightHandSide<dim> rhs;
+    RightHandSide<dim> rhs(nu);
 
     // BoundaryValues<dim> boundary(nu);
     const double max_speed = half_length;

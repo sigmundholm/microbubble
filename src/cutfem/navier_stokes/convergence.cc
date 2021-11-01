@@ -44,9 +44,10 @@ void solve_for_element_order(int element_order, int max_refinement,
 
         NavierStokesEqn<dim> ns(nu, tau, radius, half_length, n_refines,
                            element_order, write_output, rhs, boundary_values,
-                           analytical_velocity, analytical_pressure, domain);
+                           analytical_velocity, analytical_pressure,
+                           domain, false);
 
-        ErrorBase *err = ns.run_moving_domain(1, time_steps, 1.333);
+        ErrorBase *err = ns.run_time(2, time_steps);
         auto *error = dynamic_cast<ErrorFlow *>(err);
 
         std::cout << std::endl;

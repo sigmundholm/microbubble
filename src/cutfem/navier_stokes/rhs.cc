@@ -12,8 +12,8 @@
 namespace examples::cut::NavierStokes {
 
     template<int dim>
-    RightHandSide<dim>::RightHandSide()
-            : TensorFunction<1, dim>() {}
+    RightHandSide<dim>::RightHandSide(const double nu)
+            : TensorFunction<1, dim>(), nu(nu) {}
 
     template<int dim>
     Tensor<1, dim> RightHandSide<dim>::

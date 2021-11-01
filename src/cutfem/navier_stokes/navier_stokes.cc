@@ -194,6 +194,7 @@ namespace examples::cut::NavierStokes {
                     // TODO check index!
                     // Assemble the term (u·∇)u = (∇u)u_e, where u_e is the
                     // extrapolated u-value.
+                    // TODO er grad_phi matrisa riktig transponert?
                     local_matrix(i, j) +=
                             ((grad_phi_u[j] * extrapolation) * phi_u[i]) *
                             this->tau * fe_v.JxW(q);
