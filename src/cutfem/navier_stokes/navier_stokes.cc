@@ -161,40 +161,30 @@ namespace examples::cut::NavierStokes {
         std::vector<std::vector<Tensor<1, dim>>> prev_solution_values(
                 this->solutions.size(), val);
 
-        std::vector<Tensor<2, dim>> grad_val(fe_v.n_quadrature_points,
-                                        Tensor<2, dim>());
-        std::vector<std::vector<Tensor<2, dim>>> prev_solution_grads(
-                this->solutions.size(), grad_val);
-
         const FEValuesExtractors::Vector v(0);
-        std::cout << "#assemble test1";
 
         // Get the values of the previous solutions, and insert into the
         // vector initialized above.
         for (unsigned long k = 1; k < this->solutions.size(); ++k) {
-            // fe_v[v].get_function_values(this->solutions[k],
-                                        // prev_solution_values[k]);
-            fe_v[v].get_function_gradients(this->solutions[k],
-                    prev_solution_grads[k]);
+            fe_v[v].get_function_values(this->solutions[k],
+                                        prev_solution_values[k]);
         }
 
         Tensor<1, dim> extrapolation;
-        Tensor<2, dim> grad_extrap;
         std::vector<Tensor<2, dim>> grad_phi_u(dofs_per_cell);
         std::vector<Tensor<1, dim>> phi_u(dofs_per_cell);
         for (unsigned int q = 0; q < fe_v.n_quadrature_points; ++q) {
             // Compute the extrapolated value by using the previous steps.
-            extrapolation = 0;
-            grad_extrap = 0;
+            extrapolation = Tensor<1, dim>();
             for (unsigned long k = 1; k < this->solutions.size(); ++k) {
-                // extrapolation += this->extrap_coeffs[k] * prev_solution_values[k][q];
-                grad_extrap += this->extrap_coeffs[k] * prev_solution_grads[k][q];
+                extrapolation +=
+                        this->extrap_coeffs[k] * prev_solution_values[k][q];
             }
 
             // Compute the gradient values at the dofs, for these quadrature
             // points.
             for (const unsigned int k : fe_v.dof_indices()) {
-                // grad_phi_u[k] = fe_v[v].gradient(k, q);
+                grad_phi_u[k] = fe_v[v].gradient(k, q);
                 phi_u[k] = fe_v[v].value(k, q);
             }
 
@@ -206,7 +196,7 @@ namespace examples::cut::NavierStokes {
                     // extrapolated u-value.
                     // TODO er grad_phi matrisa riktig transponert?
                     local_matrix(i, j) +=
-                            ((grad_extrap * phi_u[j]) * phi_u[i]) *
+                            ((grad_phi_u[j] * extrapolation) * phi_u[i]) *
                             this->tau * fe_v.JxW(q);
                 }
             }
