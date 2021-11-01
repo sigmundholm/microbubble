@@ -15,7 +15,7 @@ void solve_for_element_order(int element_order, int max_refinement,
     double radius = 0.05;
     double half_length = radius;
 
-    double nu = 1;
+    double nu = 10;
 
     double end_time = radius;
 
@@ -47,7 +47,7 @@ void solve_for_element_order(int element_order, int max_refinement,
                            analytical_velocity, analytical_pressure,
                            domain, false);
 
-        ErrorBase *err = ns.run_time(2, time_steps);
+        ErrorBase *err = ns.run_time(1, time_steps);
         auto *error = dynamic_cast<ErrorFlow *>(err);
 
         std::cout << std::endl;
