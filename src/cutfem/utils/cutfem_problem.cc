@@ -127,10 +127,6 @@ namespace utils::problems {
         set_bdf_coefficients(bdf_type);
         set_extrapolation_coefficients(bdf_type);
 
-        // TODO note that the next solution vector is not yet set in solutions,
-        //  this may lead to problems. Eg for Crank-Nicholson?
-        assemble_matrix();
-
         std::ofstream file("errors-time-d" + std::to_string(dim)
                            + "o" + std::to_string(this->element_order)
                            + "r" + std::to_string(this->n_refines) + ".csv");
@@ -155,6 +151,13 @@ namespace utils::problems {
             // Create a new solution vector to contain the next solution.
             int n_dofs = this->dof_handlers.front()->n_dofs();
             this->solutions.emplace_front(n_dofs);
+
+            if (k == bdf_type) {
+                // Assemble the matrix after the new solution vector is created.
+                // This is to omit index problems when assembling a stiffness
+                // matrix that is dependent on previous solutions.
+                assemble_matrix();
+            }
 
             // TODO nødvendig??
             this->rhs.reinit(this->solutions.front().size());
