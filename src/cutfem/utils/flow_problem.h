@@ -86,6 +86,9 @@ namespace utils::problems::flow {
                              bool moving_domain = false) override;
 
         virtual void
+        setup_quadrature() override;
+
+        virtual void
         setup_fe_collection() override;
 
 
