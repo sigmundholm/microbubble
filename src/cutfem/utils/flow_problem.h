@@ -85,6 +85,9 @@ namespace utils::problems::flow {
                              int time_step) override;
 
         virtual void
+        setup_quadrature() override;
+
+        virtual void
         setup_fe_collection() override;
 
 

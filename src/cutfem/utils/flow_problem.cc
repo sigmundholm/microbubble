@@ -74,6 +74,7 @@ namespace utils::problems::flow {
         }
     }
 
+
     template<int dim>
     void FlowProblem<dim>::
     setup_fe_collection() {
@@ -83,6 +84,15 @@ namespace utils::problems::flow {
         this->fe_collection.push_back(
                 FESystem<dim>(FESystem<dim>(FE_Nothing<dim>(), dim), 1,
                               FE_Nothing<dim>(), 1));
+    }
+
+
+    template<int dim>
+    void FlowProblem<dim>::
+    setup_quadrature() {
+        const unsigned int n_quad_points = this->element_order + 2;
+        this->q_collection.push_back(QGauss<dim>(n_quad_points));
+        this->q_collection1D.push_back(QGauss<1>(n_quad_points));
     }
 
 
@@ -243,7 +253,7 @@ namespace utils::problems::flow {
 
         // Use a higher order quadrature formula when computing the error than
         // when assembling the stiffness matrix.
-        const unsigned int n_quad_points = this->element_order + 3;
+        const unsigned int n_quad_points = this->element_order + 4;
         hp::QCollection<dim> q_collection;
         q_collection.push_back(QGauss<dim>(n_quad_points));
         hp::QCollection<1> q_collection1D;
