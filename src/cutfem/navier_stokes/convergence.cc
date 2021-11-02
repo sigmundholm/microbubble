@@ -15,7 +15,7 @@ void solve_for_element_order(int element_order, int max_refinement,
     double radius = 0.05;
     double half_length = radius;
 
-    double nu = 1;
+    double nu = 10;
 
     double end_time = radius;
 
@@ -26,7 +26,7 @@ void solve_for_element_order(int element_order, int max_refinement,
                        + "o" + std::to_string(element_order) + ".csv");
     NavierStokesEqn<dim>::write_header_to_file(file);
 
-    RightHandSide <dim> rhs(nu);
+    RightHandSide <dim> rhs;
     BoundaryValues <dim> boundary_values(nu);
     AnalyticalVelocity <dim> analytical_velocity(nu);
     AnalyticalPressure <dim> analytical_pressure(nu);
@@ -40,13 +40,15 @@ void solve_for_element_order(int element_order, int max_refinement,
         double tau = end_time / time_steps;
 
         std::cout << "T = " << end_time << ", tau = " << tau
-               << ", steps = " << time_steps << std::endl << std::endl;
+                  << ", steps = " << time_steps << std::endl << std::endl;
 
-        NavierStokesEqn<dim> ns(nu, tau, radius, half_length, n_refines,
-                           element_order, write_output, rhs, boundary_values,
-                           analytical_velocity, analytical_pressure, domain);
+        NavierStokesEqn <dim> ns(nu, tau, radius, half_length, n_refines,
+                                 element_order, write_output, rhs,
+                                 boundary_values,
+                                 analytical_velocity, analytical_pressure,
+                                 domain, false);
 
-        ErrorBase *err = ns.run_moving_domain(1, time_steps, 1.333);
+        ErrorBase *err = ns.run_time(2, time_steps);
         auto *error = dynamic_cast<ErrorFlow *>(err);
 
         std::cout << std::endl;
