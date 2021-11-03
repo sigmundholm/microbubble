@@ -300,8 +300,10 @@ namespace examples::cut::StokesEquation {
         std::vector<Tensor<1, dim>> phi_u(dofs_per_cell, Tensor<1, dim>());
         std::vector<double> phi_p(dofs_per_cell);
 
-        // TODO denne skal vel avhenge av element_order?
-        double mu = 50 / this->h; // Nitsche penalty parameter
+        // Nitsche penalty parameter
+        double gamma = 20 * nu * this->element_order * (this->element_order + 1);
+        double mu = gamma / this->h;
+
         Tensor<1, dim> normal;
 
         for (unsigned int q : fe_values.quadrature_point_indices()) {
@@ -439,8 +441,10 @@ namespace examples::cut::StokesEquation {
         const FEValuesExtractors::Vector v(0);
         const FEValuesExtractors::Scalar p(dim);
 
-        // TODO denne skal vel avhenge av element_order?
-        double mu = 50 / this->h; // Nitsche penalty parameter
+        // Nitsche penalty parameter
+        double gamma = 20 * nu * this->element_order * (this->element_order + 1);
+        double mu = gamma / this->h;
+
         Tensor<1, dim> normal;
 
         for (unsigned int q : fe_values.quadrature_point_indices()) {
@@ -449,9 +453,9 @@ namespace examples::cut::StokesEquation {
             for (const unsigned int i : fe_values.dof_indices()) {
                 // These terms comes from Nitsches method.
                 Tensor<1, dim> prod_r =
-                        mu * fe_values[v].value(i, q) -             // mu v
-                        nu * fe_values[v].gradient(i, q) * normal + // nu ∇v n
-                        fe_values[p].value(i, q) * normal;          // q * n
+                        mu * fe_values[v].value(i, q)               // mu v
+                        - nu * fe_values[v].gradient(i, q) * normal // nu ∇v n
+                        + fe_values[p].value(i, q) * normal;        // q * n
 
                 local_rhs(i) +=
                         this->tau * prod_r *
