@@ -253,7 +253,7 @@ namespace utils::problems::flow {
 
         // Use a higher order quadrature formula when computing the error than
         // when assembling the stiffness matrix.
-        const unsigned int n_quad_points = this->element_order + 4;
+        const unsigned int n_quad_points = this->element_order + 3;
         hp::QCollection<dim> q_collection;
         q_collection.push_back(QGauss<dim>(n_quad_points));
         hp::QCollection<1> q_collection1D;
