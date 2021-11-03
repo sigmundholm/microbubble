@@ -216,7 +216,7 @@ namespace examples::cut::StokesEquation {
                     this->stiffness_matrix);
             // Compute and add the pressure stabilisation.
             pressure_stab.compute_stabilization(cell);
-            pressure_stab.add_stabilization_to_matrix(-gamma_A,
+            pressure_stab.add_stabilization_to_matrix(-gamma_A * this->tau,
                                                       this->stiffness_matrix);
         }
     }
