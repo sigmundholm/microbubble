@@ -320,7 +320,7 @@ namespace examples::cut::StokesEquation {
                             (-nu * (grad_phi_u[j] * normal) *
                              phi_u[i]  // -(grad u * n, v)
                              -
-                             (grad_phi_u[i] * normal) *
+                             nu * (grad_phi_u[i] * normal) *
                              phi_u[j] // -(grad v * n, u) [Nitsche]
                              + mu * (phi_u[j] * phi_u[i]) // mu (u, v) [Nitsche]
                              + (normal * phi_u[i]) *
@@ -449,13 +449,13 @@ namespace examples::cut::StokesEquation {
             for (const unsigned int i : fe_values.dof_indices()) {
                 // These terms comes from Nitsches method.
                 Tensor<1, dim> prod_r =
-                        mu * fe_values[v].value(i, q) -
-                        fe_values[v].gradient(i, q) * normal +
-                        fe_values[p].value(i, q) * normal;
+                        mu * fe_values[v].value(i, q) -             // mu v
+                        nu * fe_values[v].gradient(i, q) * normal + // nu ∇v n
+                        fe_values[p].value(i, q) * normal;          // q * n
 
                 local_rhs(i) +=
                         this->tau * prod_r *
-                        bdd_values[q] // (g, mu v - n grad v + q * n)
+                        bdd_values[q] // (g, mu v - nu ∇v n + q * n)
                         * fe_values.JxW(q);    // ds
             }
         }
