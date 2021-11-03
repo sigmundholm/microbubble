@@ -345,7 +345,7 @@ namespace examples::cut::StokesEquation {
 
         NonMatching::RegionUpdateFlags region_update_flags;
         region_update_flags.inside = update_values | update_quadrature_points
-                                     |
+                                     | update_gradients |
                                      update_JxW_values; //  | update_gradients;
         region_update_flags.surface =
                 update_values | update_JxW_values |
@@ -457,6 +457,77 @@ namespace examples::cut::StokesEquation {
                         this->tau * prod_r *
                         bdd_values[q] // (g, mu v - n grad v + q * n)
                         * fe_values.JxW(q);    // ds
+            }
+        }
+        this->rhs.add(loc2glb, local_rhs);
+    }
+
+
+    template<int dim>
+    void StokesEqn<dim>::
+    assemble_rhs_and_bdf_terms_local_over_cell(
+            const FEValues<dim> &fe_v,
+            const std::vector<types::global_dof_index> &loc2glb) {
+        // Vector for the contribution of each cell
+        const unsigned int dofs_per_cell = fe_v.get_fe().dofs_per_cell;
+        Vector<double> local_rhs(dofs_per_cell);
+
+        // Vector for values of the RightHandSide for all quadrature points on a cell.
+        std::vector<Tensor<1, dim>> rhs_values(fe_v.n_quadrature_points,
+                                               Tensor<1, dim>());
+        this->rhs_function->value_list(fe_v.get_quadrature_points(),
+                                       rhs_values);
+
+        const FEValuesExtractors::Vector v(0);
+
+        std::vector<Tensor<1, dim>> val(fe_v.n_quadrature_points,
+                                        Tensor<1, dim>());
+        std::vector<std::vector<Tensor<1, dim >>> prev_solutions_values(
+                this->solutions.size(), val);
+
+        // Previous gradients
+        std::vector<Tensor<2, dim>> grad_val(fe_v.n_quadrature_points,
+                                             Tensor<2, dim>());
+        std::vector<std::vector<Tensor<2, dim >>> prev_gradients(
+                this->solutions.size(), grad_val);
+
+        for (unsigned int k = 1; k < this->solutions.size(); ++k) {
+            fe_v[v].get_function_values(this->solutions[k],
+                                        prev_solutions_values[k]);
+            fe_v[v].get_function_gradients(this->solutions[k],
+                                           prev_gradients[k]);
+        }
+
+        Tensor<1, dim> phi_u;
+        Tensor<1, dim> prev_values;
+
+        Tensor<1, dim> extrap;
+        Tensor<2, dim> grad_extrap;
+
+        // std::cout << "# soln.size() = " << this->solutions.size() << std::endl;
+        for (unsigned int q = 0; q < fe_v.n_quadrature_points; ++q) {
+
+            extrap = 0;
+            grad_extrap = 0;
+
+            // TODO this is hardcoded for BDF-2 (should crash for bdf-1 with seg-fault (?))
+            extrap = 2 * prev_solutions_values[1][q] - prev_solutions_values[2][q];
+            grad_extrap = 2 * prev_gradients[1][q] - prev_gradients[2][q];
+
+            // RHS
+            prev_values = Tensor<1, dim>();
+            for (unsigned int k = 1; k < this->solutions.size(); ++k) {
+                prev_values +=
+                        this->bdf_coeffs[k] * prev_solutions_values[k][q];
+            }
+
+            for (const unsigned int i : fe_v.dof_indices()) {
+
+                phi_u = fe_v[v].value(i, q);
+                local_rhs(i) += (this->tau * rhs_values[q] * phi_u    // τ(f, v)
+                                 - prev_values * phi_u
+                                 - grad_extrap * extrap * phi_u * this->tau
+                                ) * fe_v.JxW(q);      // dx
             }
         }
         this->rhs.add(loc2glb, local_rhs);

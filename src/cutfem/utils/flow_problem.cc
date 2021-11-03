@@ -126,7 +126,7 @@ namespace utils::problems::flow {
         std::vector<std::vector<Tensor<1, dim >>> prev_solutions_values(
                 this->solutions.size(), val);
 
-        for (unsigned int k = 0; k < this->solutions.size(); ++k) {
+        for (unsigned int k = 1; k < this->solutions.size(); ++k) {
             fe_v[v].get_function_values(this->solutions[k],
                                         prev_solutions_values[k]);
         }

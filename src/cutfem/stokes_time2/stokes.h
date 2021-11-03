@@ -96,6 +96,11 @@ namespace examples::cut::StokesEquation {
                 const FEValuesBase<dim> &fe_values,
                 const std::vector<types::global_dof_index> &loc2glb) override;
 
+        virtual void
+        assemble_rhs_and_bdf_terms_local_over_cell(
+                const FEValues<dim> &fe_v,
+                const std::vector<types::global_dof_index> &loc2glb) override;
+
 
         const double nu;
 
