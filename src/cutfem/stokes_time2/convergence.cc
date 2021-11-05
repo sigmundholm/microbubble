@@ -76,7 +76,7 @@ void solve_for_element_order(int element_order, int max_refinement,
                 write_output, rhs, boundary_values, analytical_velocity,
                 analytical_pressure, domain);
 
-        ErrorBase *bdf1_err = stokes_bdf1.run_moving_domain(1, time_steps, 1.333);
+        ErrorBase *bdf1_err = stokes_bdf1.run_time(2, time_steps);
 
         /*
         // std::cout << std::endl << "BDF-2" << std::endl << std::endl;
