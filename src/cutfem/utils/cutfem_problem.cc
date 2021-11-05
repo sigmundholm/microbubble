@@ -107,6 +107,7 @@ namespace utils::problems {
 
         make_grid(triangulation);
         setup_quadrature();
+        set_function_times(0);
         setup_level_set();
         cut_mesh_classifier.reclassify();
         setup_fe_collection();
