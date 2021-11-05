@@ -79,7 +79,7 @@ namespace examples::cut::StokesEquation {
         this->boundary_values->set_time(time);
         this->analytical_velocity->set_time(time);
         this->analytical_pressure->set_time(time);
-        this->levelset_function->set_time(time);
+        this->levelset_function->set_time(time); // TODO for stationary domains too?
     }
 
 
@@ -216,7 +216,7 @@ namespace examples::cut::StokesEquation {
                     this->stiffness_matrix);
             // Compute and add the pressure stabilisation.
             pressure_stab.compute_stabilization(cell);
-            pressure_stab.add_stabilization_to_matrix(-gamma_A,
+            pressure_stab.add_stabilization_to_matrix(-gamma_A * this->tau / nu,
                                                       this->stiffness_matrix);
         }
     }
