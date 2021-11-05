@@ -132,11 +132,10 @@ namespace examples::cut::StokesEquation {
         pressure_stab.set_weight_function(stabilization::taylor_weights);
         pressure_stab.set_extractor(pressure);
 
-        double beta_0 = 0.1;
-        double gamma_A =
-                beta_0 * this->element_order * (this->element_order + 1);
-        double gamma_M =
-                beta_0 * this->element_order * (this->element_order + 1);
+        double beta_0 = 1.5;
+        double gamma_A = beta_0 * pow(10, this->element_order);
+        double gamma_M = beta_0 * pow(10, this->element_order);
+        double gamma_p_A = beta_0 * pow(10, this->element_order - 1);
 
         NonMatching::RegionUpdateFlags region_update_flags;
         region_update_flags.inside = update_values | update_JxW_values |
@@ -216,7 +215,7 @@ namespace examples::cut::StokesEquation {
                     this->stiffness_matrix);
             // Compute and add the pressure stabilisation.
             pressure_stab.compute_stabilization(cell);
-            pressure_stab.add_stabilization_to_matrix(-gamma_A * this->tau,
+            pressure_stab.add_stabilization_to_matrix(-gamma_p_A * this->tau,
                                                       this->stiffness_matrix);
         }
     }
@@ -301,7 +300,7 @@ namespace examples::cut::StokesEquation {
         std::vector<double> phi_p(dofs_per_cell);
 
         // Nitsche penalty parameter
-        double gamma = 20 * nu * this->element_order * (this->element_order + 1);
+        double gamma = 5 * nu * this->element_order * (this->element_order + 1);
         double mu = gamma / this->h;
 
         Tensor<1, dim> normal;
@@ -442,7 +441,7 @@ namespace examples::cut::StokesEquation {
         const FEValuesExtractors::Scalar p(dim);
 
         // Nitsche penalty parameter
-        double gamma = 20 * nu * this->element_order * (this->element_order + 1);
+        double gamma = 5 * nu * this->element_order * (this->element_order + 1);
         double mu = gamma / this->h;
 
         Tensor<1, dim> normal;
