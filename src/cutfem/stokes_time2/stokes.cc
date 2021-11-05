@@ -264,7 +264,7 @@ namespace examples::cut::StokesEquation {
                              (nu * scalar_product(grad_phi_u[j],
                                                   grad_phi_u[i]) // (grad u, grad v)
                               - (div_phi_u[i] * phi_p[j])   // -(div v, p)
-                              - (div_phi_u[j] * phi_p[i])   // -(div u, q)
+                              + (div_phi_u[j] * phi_p[i])   // -(div u, q)
                              ) * this->tau) *
                             fe_values.JxW(q); // dx
                 }
@@ -325,7 +325,7 @@ namespace examples::cut::StokesEquation {
                              + mu * (phi_u[j] * phi_u[i]) // mu (u, v) [Nitsche]
                              + (normal * phi_u[i]) *
                                phi_p[j]                  // (n * v, p) [from ∇p]
-                             + (normal * phi_u[j]) *
+                             - (normal * phi_u[j]) *
                                phi_p[i]                  // (q*n, u) [Nitsche]
                             ) * this->tau *
                             // Multiply all terms with the time step
@@ -449,9 +449,9 @@ namespace examples::cut::StokesEquation {
             for (const unsigned int i : fe_values.dof_indices()) {
                 // These terms comes from Nitsches method.
                 Tensor<1, dim> prod_r =
-                        mu * fe_values[v].value(i, q) -             // mu v
-                        nu * fe_values[v].gradient(i, q) * normal + // nu ∇v n
-                        fe_values[p].value(i, q) * normal;          // q * n
+                        mu * fe_values[v].value(i, q)               // mu v
+                        - nu * fe_values[v].gradient(i, q) * normal // nu ∇v n
+                        - fe_values[p].value(i, q) * normal;        // q * n
 
                 local_rhs(i) +=
                         this->tau * prod_r *
