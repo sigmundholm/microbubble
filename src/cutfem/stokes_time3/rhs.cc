@@ -10,7 +10,7 @@
 #define pi 3.141592653589793
 
 
-namespace GeneralizedStokes {
+namespace examples::cut::StokesEquation2 {
 
 
     template<int dim>
@@ -91,6 +91,39 @@ namespace GeneralizedStokes {
         return value;
     }
 
+
+    template<int dim>
+    MovingDomain<dim>::MovingDomain(const double sphere_radius,
+                                    const double half_length,
+                                    const double radius)
+            : sphere_radius(sphere_radius), half_length(half_length),
+              radius(radius) {}
+
+    template<int dim>
+    double MovingDomain<dim>::
+    value(const Point<dim> &p, const unsigned int component) const {
+        (void) component;
+        double t = 0.5; //this->get_time();
+        // Here it is assumed that T = 0.05, since for T = 1, the analytical
+        // solution used is very small at the end time.
+        double x0 = 0.9 * (half_length - sphere_radius) *
+                    (2 * t/0.05 - 1); // sin(2 * pi * t);
+        double y0 = 0.9 * (radius - sphere_radius) * (2 * t/0.05 - 1);
+        double x = p[0];
+        double y = p[1];
+        return -sqrt(pow(x - x0, 2) + pow(y - y0, 2)) + sphere_radius;
+    }
+
+    template<int dim>
+    Tensor<1, dim> MovingDomain<dim>::
+    get_velocity() {
+        Tensor<1, dim> val;
+        val[0] = 0; // 0.9 * (half_length - sphere_radius) * 2 / 0.05;
+        val[1] = 0; // 0.9 * (radius - sphere_radius) * 2 / 0.05;
+        return val;
+    }
+
+
     template
     class RightHandSide<2>;
 
@@ -103,4 +136,7 @@ namespace GeneralizedStokes {
     template
     class AnalyticalPressure<2>;
 
-} // namespace GeneralizedStokes
+    template
+    class MovingDomain<2>;
+
+} // namespace examples::cut::StokesEquation2

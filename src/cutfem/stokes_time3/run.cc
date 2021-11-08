@@ -2,7 +2,7 @@
 
 
 int main() {
-    using namespace GeneralizedStokes;
+    using namespace examples::cut::StokesEquation2;
 
     const unsigned int n_refines = 4;
     const unsigned int elementOrder = 1;
@@ -23,21 +23,23 @@ int main() {
 
     const int dim = 2;
 
-    RightHandSide<dim> rhs(delta, nu, tau);
-    BoundaryValues<dim> boundary;
-    AnalyticalVelocity<dim> analytical_velocity;
-    AnalyticalPressure<dim> analytical_pressure;
+    RightHandSide <dim> rhs(delta, nu, tau);
+    BoundaryValues <dim> boundary;
+    AnalyticalVelocity <dim> analytical_velocity;
+    AnalyticalPressure <dim> analytical_pressure;
+    MovingDomain<dim> domain(sphere_radius, half_length, radius);
 
-    StokesCylinder<dim> stokes(radius, half_length, n_refines, delta, nu, tau,
-                               elementOrder, write_vtk, rhs, boundary,
-                               analytical_velocity, analytical_pressure,
-                               sphere_radius, sphere_x_coord);
-    Error error = stokes.run();
-    std::cout << "Mesh size: " << error.mesh_size << std::endl;
-    std::cout << "|| u - u_h ||_L2 = " << error.l2_error_u << std::endl;
-    std::cout << "|| u - u_h ||_H1 = " << error.h1_error_u << std::endl;
-    std::cout << "| u - u_h |_H1 = " << error.h1_semi_u << std::endl;
-    std::cout << "|| p - p_h ||_L2 = " << error.l2_error_p << std::endl;
-    std::cout << "|| p - p_h ||_H1 = " << error.h1_error_p << std::endl;
-    std::cout << "| p - p_h |_H1 = " << error.h1_semi_p << std::endl;
+    StokesEqn2 <dim> stokes(radius, half_length, n_refines, delta, nu, tau,
+                            elementOrder, write_vtk, rhs, boundary,
+                            analytical_velocity, analytical_pressure,
+                            domain);
+    ErrorBase *err = stokes.run_step();
+    auto *error = dynamic_cast<ErrorFlow *>(err);
+    std::cout << "Mesh size: " << error->h << std::endl;
+    std::cout << "|| u - u_h ||_L2 = " << error->l2_error_u << std::endl;
+    std::cout << "|| u - u_h ||_H1 = " << error->h1_error_u << std::endl;
+    std::cout << "| u - u_h |_H1 = " << error->h1_semi_u << std::endl;
+    std::cout << "|| p - p_h ||_L2 = " << error->l2_error_p << std::endl;
+    std::cout << "|| p - p_h ||_H1 = " << error->h1_error_p << std::endl;
+    std::cout << "| p - p_h |_H1 = " << error->h1_semi_p << std::endl;
 }

@@ -7,7 +7,7 @@
 template<int dim>
 void solve_for_element_order(int element_order, int max_refinement,
                              bool write_output) {
-    using namespace GeneralizedStokes;
+    using namespace examples::cut::StokesEquation2;
 
     double radius = 0.205;
     double half_length = 0.205;
@@ -21,28 +21,29 @@ void solve_for_element_order(int element_order, int max_refinement,
 
     std::ofstream file("errors-d" + std::to_string(dim)
                        + "o" + std::to_string(element_order) + ".csv");
-    StokesCylinder<dim>::write_header_to_file(file);
+    StokesEqn2<dim>::write_header_to_file(file);
 
     RightHandSide<dim> rhs(delta, nu, tau);
     BoundaryValues<dim> boundary_values;
     AnalyticalVelocity<dim> analytical_velocity;
     AnalyticalPressure<dim> analytical_pressure;
+    MovingDomain<dim> domain(sphere_radius, half_length, radius);
 
     for (int n_refines = 1; n_refines < max_refinement + 1; ++n_refines) {
         std::cout << "\nn_refines=" << n_refines << std::endl;
 
-        StokesCylinder<dim> stokes(radius, half_length, n_refines, delta, nu,
+        StokesEqn2<dim> stokes(radius, half_length, n_refines, delta, nu,
                                    tau, element_order, write_output, rhs,
                                    boundary_values, analytical_velocity,
-                                   analytical_pressure,
-                                   sphere_radius, sphere_x_coord);
-        Error error = stokes.run();
+                                   analytical_pressure, domain);
+        ErrorBase *err = stokes.run_step();
+        auto *error = dynamic_cast<ErrorFlow *>(err);
 
-        std::cout << "|| u - u_h ||_L2 = " << error.l2_error_u << std::endl;
-        std::cout << "|| u - u_h ||_H1 = " << error.h1_error_u << std::endl;
-        std::cout << "|| p - p_h ||_L2 = " << error.l2_error_p << std::endl;
-        std::cout << "|| p - p_h ||_H1 = " << error.h1_error_p << std::endl;
-        StokesCylinder<dim>::write_error_to_file(error, file);
+        std::cout << "|| u - u_h ||_L2 = " << error->l2_error_u << std::endl;
+        std::cout << "|| u - u_h ||_H1 = " << error->h1_error_u << std::endl;
+        std::cout << "|| p - p_h ||_L2 = " << error->l2_error_p << std::endl;
+        std::cout << "|| p - p_h ||_H1 = " << error->h1_error_p << std::endl;
+        StokesEqn2<dim>::write_error_to_file(error, file);
     }
 }
 
