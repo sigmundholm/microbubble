@@ -24,36 +24,44 @@ namespace examples::cut::StokesEquation2 {
     value(const Point<dim> &p) const {
         double x = p[0];
         double y = p[1];
+        double t = this->get_time();
         Tensor<1, dim> val;
-        val[0] = -delta * sin(pi * y) * cos(pi * x) -
-                 2 * pi * pi * nu * tau * sin(pi * y) * cos(pi * x) +
-                 pi * tau * sin(2 * pi * x) / 2;
-        val[1] = delta * sin(pi * x) * cos(pi * y) +
-                 2 * pi * pi * nu * tau * sin(pi * x) * cos(pi * y) +
-                 pi * tau * sin(2 * pi * y) / 2;
+        val[0] = pi * exp(-4 * pi * pi * nu * t) * sin(2 * pi * x) / 2;
+        val[1] = pi * exp(-4 * pi * pi * nu * t) * sin(2 * pi * y) / 2;
         return val;
     }
+
+
+    template<int dim>
+    BoundaryValues<dim>::BoundaryValues(const double nu)
+            : TensorFunction<1, dim>(), nu(nu) {}
 
     template<int dim>
     Tensor<1, dim> BoundaryValues<dim>::
     value(const Point<dim> &p) const {
         double x = p[0];
         double y = p[1];
+        double t = this->get_time();
         Tensor<1, dim> val;
-        val[0] = -sin(pi * y) * cos(pi * x);
-        val[1] = sin(pi * x) * cos(pi * y);
+        val[0] = -exp(-2 * pi * pi * nu * t) * sin(pi * y) * cos(pi * x);
+        val[1] = exp(-2 * pi * pi * nu * t) * sin(pi * x) * cos(pi * y);
         return val;
     }
 
+
+    template<int dim>
+    AnalyticalVelocity<dim>::AnalyticalVelocity(const double nu)
+            : TensorFunction<1, dim>(), nu(nu) {}
 
     template<int dim>
     Tensor<1, dim> AnalyticalVelocity<dim>::
     value(const Point<dim> &p) const {
         double x = p[0];
         double y = p[1];
+        double t = this->get_time();
         Tensor<1, dim> val;
-        val[0] = -sin(pi * y) * cos(pi * x);
-        val[1] = sin(pi * x) * cos(pi * y);
+        val[0] = -exp(-2 * pi * pi * nu * t) * sin(pi * y) * cos(pi * x);
+        val[1] = exp(-2 * pi * pi * nu * t) * sin(pi * x) * cos(pi * y);
         return val;
     }
 
@@ -62,13 +70,23 @@ namespace examples::cut::StokesEquation2 {
     gradient(const Point<dim> &p) const {
         double x = p[0];
         double y = p[1];
+        double t = this->get_time();
         Tensor<2, dim> value;
-        value[0][0] = pi * sin(pi * x) * sin(pi * y);
-        value[0][1] = -pi * cos(pi * x) * cos(pi * y);
-        value[1][0] = pi * cos(pi * x) * cos(pi * y);
-        value[1][1] = -pi * sin(pi * x) * sin(pi * y);
+        value[0][0] = pi * exp(-2 * pi * pi * nu * t) *
+                      sin(pi * x) * sin(pi * y);
+        value[0][1] = -pi * exp(-2 * pi * pi * nu * t) *
+                      cos(pi * x) * cos(pi * y);
+        value[1][0] = pi * exp(-2 * pi * pi * nu * t) *
+                      cos(pi * x) * cos(pi * y);
+        value[1][1] = -pi * exp(-2 * pi * pi * nu * t) *
+                      sin(pi * x) * sin(pi * y);
         return value;
     }
+
+
+    template<int dim>
+    AnalyticalPressure<dim>::AnalyticalPressure(const double nu)
+            : Function<dim>(1), nu(nu) {}
 
     template<int dim>
     double AnalyticalPressure<dim>::
@@ -76,7 +94,9 @@ namespace examples::cut::StokesEquation2 {
         (void) component;
         double x = p[0];
         double y = p[1];
-        return -cos(2 * pi * x) / 4 - cos(2 * pi * y) / 4;
+        double t = this->get_time();
+        return (-cos(2 * pi * x) / 4 - cos(2 * pi * y) / 4) *
+               exp(-4 * pi * pi * nu * t);
     }
 
     template<int dim>
@@ -85,9 +105,10 @@ namespace examples::cut::StokesEquation2 {
         (void) component;
         double x = p[0];
         double y = p[1];
+        double t = this->get_time();
         Tensor<1, dim> value;
-        value[0] = pi * sin(2 * pi * x) / 2;
-        value[1] = pi * sin(2 * pi * y) / 2;
+        value[0] = pi * exp(-4 * pi * pi * nu * t) * sin(2 * pi * x) / 2;
+        value[1] = pi * exp(-4 * pi * pi * nu * t) * sin(2 * pi * y) / 2;
         return value;
     }
 
@@ -107,8 +128,8 @@ namespace examples::cut::StokesEquation2 {
         // Here it is assumed that T = 0.05, since for T = 1, the analytical
         // solution used is very small at the end time.
         double x0 = 0.9 * (half_length - sphere_radius) *
-                    (2 * t/0.05 - 1); // sin(2 * pi * t);
-        double y0 = 0.9 * (radius - sphere_radius) * (2 * t/0.05 - 1);
+                    (2 * t / 0.05 - 1); // sin(2 * pi * t);
+        double y0 = 0.9 * (radius - sphere_radius) * (2 * t / 0.05 - 1);
         double x = p[0];
         double y = p[1];
         return -sqrt(pow(x - x0, 2) + pow(y - y0, 2)) + sphere_radius;

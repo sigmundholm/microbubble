@@ -11,12 +11,15 @@ int main() {
     printf("elementOrder=%d\n", elementOrder);
     const bool write_vtk = true;
 
-    double radius = 0.205;
+    double radius = 0.05;
     double half_length = 1.1;
 
     double delta = 1;
     double nu = 1;
-    double tau = 1;
+
+    const double end_time = radius;
+    const int n_steps = 10;
+    double tau = end_time / n_steps;
 
     double sphere_radius = radius / 4;
     double sphere_x_coord = -half_length / 2;
@@ -24,16 +27,16 @@ int main() {
     const int dim = 2;
 
     RightHandSide <dim> rhs(delta, nu, tau);
-    BoundaryValues <dim> boundary;
-    AnalyticalVelocity <dim> analytical_velocity;
-    AnalyticalPressure <dim> analytical_pressure;
+    BoundaryValues <dim> boundary(nu);
+    AnalyticalVelocity <dim> analytical_velocity(nu);
+    AnalyticalPressure <dim> analytical_pressure(nu);
     MovingDomain<dim> domain(sphere_radius, half_length, radius);
 
     StokesEqn2 <dim> stokes(radius, half_length, n_refines, delta, nu, tau,
                             elementOrder, write_vtk, rhs, boundary,
                             analytical_velocity, analytical_pressure,
                             domain);
-    ErrorBase *err = stokes.run_step();
+    ErrorBase *err = stokes.run_time(2, n_steps);
     auto *error = dynamic_cast<ErrorFlow *>(err);
     std::cout << "Mesh size: " << error->h << std::endl;
     std::cout << "|| u - u_h ||_L2 = " << error->l2_error_u << std::endl;

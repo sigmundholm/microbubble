@@ -30,31 +30,43 @@ namespace examples::cut::StokesEquation2 {
     template<int dim>
     class BoundaryValues : public TensorFunction<1, dim> {
     public:
+        BoundaryValues(double nu);
+
         Tensor<1, dim>
         value(const Point<dim> &p) const override;
+
+        const double nu;
     };
 
 
     template<int dim>
     class AnalyticalVelocity : public TensorFunction<1, dim> {
     public:
+        AnalyticalVelocity(const double nu);
+
         Tensor<1, dim>
         value(const Point<dim> &p) const override;
 
         Tensor<2, dim>
         gradient(const Point<dim> &p) const override;
+
+        const double nu;
     };
 
 
     template<int dim>
     class AnalyticalPressure : public Function<dim> {
     public:
+        AnalyticalPressure(const double nu);
+
         double
         value(const Point<dim> &p, const unsigned int component) const override;
 
         Tensor<1, dim>
         gradient(const Point<dim> &p,
                  const unsigned int component) const override;
+
+        const double nu;
     };
 
 

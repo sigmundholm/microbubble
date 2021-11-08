@@ -69,20 +69,34 @@ namespace examples::cut::StokesEquation2 {
 
     protected:
         void
+        set_function_times(double time) override;
+
+
+        void
         make_grid(Triangulation<dim> &tria) override;
 
         void
-        assemble_system();
+        assemble_system() override;
 
         void
-        assemble_local_over_cell(const FEValues<dim> &fe_values,
+        assemble_matrix() override;
+
+        void
+        assemble_matrix_local_over_cell(const FEValues<dim> &fe_values,
                                  const std::vector<types::global_dof_index> &loc2glb) override;
 
         void
-        assemble_local_over_surface(
+        assemble_matrix_local_over_surface(
                 const FEValuesBase<dim> &fe_values,
                 const std::vector<types::global_dof_index> &loc2glb) override;
 
+        void
+        assemble_rhs(int time_step, bool moving_domain) override;
+
+        void
+        assemble_rhs_local_over_surface(
+                const FEValuesBase <dim> &fe_values,
+                const std::vector <types::global_dof_index> &loc2glb) override;
 
         const double radius;
         const double half_length;
