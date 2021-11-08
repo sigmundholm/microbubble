@@ -5,7 +5,7 @@
 
 #include <iostream>
 
-#include "rhs_gen.h"
+#include "rhs.h"
 
 #define pi 3.141592653589793
 

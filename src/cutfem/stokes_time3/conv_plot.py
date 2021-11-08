@@ -10,7 +10,7 @@ if __name__ == '__main__':
 
     skip = 0
     for poly_order in [1, 2]:
-        full_path = os.path.join(base, f"build/src/cutfem/stokes_gen/errors-d2o{poly_order}.csv")
+        full_path = os.path.join(base, f"build/src/cutfem/stokes_time3/errors-d2o{poly_order}.csv")
 
         head = list(map(str.strip, open(full_path).readline().split(",")))
         data = np.genfromtxt(full_path, delimiter=",", skip_header=True)

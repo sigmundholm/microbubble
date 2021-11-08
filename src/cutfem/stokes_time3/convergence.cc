@@ -2,7 +2,7 @@
 #include <iostream>
 #include <vector>
 
-#include "stokes_gen.h"
+#include "stokes.h"
 
 template<int dim>
 void solve_for_element_order(int element_order, int max_refinement,
@@ -13,7 +13,7 @@ void solve_for_element_order(int element_order, int max_refinement,
     double half_length = 0.205;
 
     double delta = 1.3;
-    double nu = 0.4;
+    double nu = 10;
     double tau = 0.1;
 
     double sphere_radius = radius / 4;
@@ -59,6 +59,6 @@ void run_convergence_test(std::vector<int> orders, int max_refinement,
 
 int main() {
 
-    run_convergence_test<2>({1, 2}, 8, true);
+    run_convergence_test<2>({1, 2}, 7, true);
 
 }

@@ -31,7 +31,7 @@
 #include "cutfem/stabilization/jump_stabilization.h"
 
 #include "../../utils/integration.h"
-#include "stokes_gen.h"
+#include "stokes.h"
 
 
 using namespace cutfem;

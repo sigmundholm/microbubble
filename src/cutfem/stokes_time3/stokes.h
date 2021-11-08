@@ -32,7 +32,7 @@
 
 #include "cutfem/errors/error_calculator.h"
 
-#include "rhs_gen.h"
+#include "rhs.h"
 
 
 using namespace dealii;
