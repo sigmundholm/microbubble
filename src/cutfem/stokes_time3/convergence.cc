@@ -11,10 +11,10 @@ void solve_for_element_order(int element_order, int max_refinement,
 
     double radius = 0.05;
     double half_length = radius;
-    const double end_time = radius / 2;
+    const double end_time = radius;
 
     double delta = 1.3;
-    double nu = 10;
+    double nu = 0.1;
     double tau;
 
     int time_steps;

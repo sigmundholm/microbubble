@@ -17,7 +17,7 @@ def time_error_plot():
 
 folder = ""
 
-radius = 0.05 / 2
+radius = 0.05
 end_time = radius
 domain_length = radius
 element_orders = [1, 2]
