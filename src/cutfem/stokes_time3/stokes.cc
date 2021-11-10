@@ -58,7 +58,7 @@ namespace examples::cut::StokesEquation2 {
             : FlowProblem<dim>(n_refines, element_order, write_output,
                                levelset_func, analytic_vel, analytic_pressure,
                                true),
-              delta(delta), nu(nu), radius(radius), half_length(half_length) {
+              radius(radius), half_length(half_length), delta(delta), nu(nu) {
         this->tau = tau;
 
         // Use Dirichlet boundary conditions everywhere.
@@ -119,8 +119,8 @@ namespace examples::cut::StokesEquation2 {
 
         // TODO sett disse litt ordentlig.
         double beta_0 = 0.1;
-        double gamma_A = beta_0 * this->element_order * this->element_order;
-        double gamma_M = beta_0 * this->element_order * this->element_order;
+        double gamma_u = beta_0 * this->element_order * this->element_order;
+        double gamma_p = beta_0 * this->element_order * this->element_order;
 
         NonMatching::RegionUpdateFlags region_update_flags;
         region_update_flags.inside = update_values | update_JxW_values |
@@ -187,12 +187,13 @@ namespace examples::cut::StokesEquation2 {
             // Compute and add the velocity stabilization.
             velocity_stab.compute_stabilization(cell);
             velocity_stab.add_stabilization_to_matrix(
-                    gamma_M * delta + gamma_A * this->tau * nu / (this->h * this->h),
+                    gamma_u * (1 + this->tau * nu / (this->h * this->h)),
                     this->stiffness_matrix);
             // Compute and add the pressure stabilisation.
             pressure_stab.compute_stabilization(cell);
-            pressure_stab.add_stabilization_to_matrix(-gamma_A,
-                                                      this->stiffness_matrix);
+            pressure_stab.add_stabilization_to_matrix(
+                    -gamma_p * this->tau / (nu + pow(this->h, 2) / this->tau),
+                    this->stiffness_matrix);
             // TODO et stabilierings ledd til for trykket også?
         }
     }
@@ -297,7 +298,7 @@ namespace examples::cut::StokesEquation2 {
                             (-nu * (grad_phi_u[j] * normal) *
                              phi_u[i]  // -(grad u * n, v)
                              -
-                             (grad_phi_u[i] * normal) *
+                             nu * (grad_phi_u[i] * normal) *
                              phi_u[j] // -(grad v * n, u) [Nitsche]
                              + mu * (phi_u[j] * phi_u[i]) // mu (u, v) [Nitsche]
                              + (normal * phi_u[i]) *
@@ -310,7 +311,7 @@ namespace examples::cut::StokesEquation2 {
 
                 // These terms comes from Nitsches method.
                 Tensor<1, dim> prod_r =
-                        mu * phi_u[i] - grad_phi_u[i] * normal +
+                        mu * phi_u[i] - nu * grad_phi_u[i] * normal +
                         phi_p[i] * normal;
 
                 local_rhs(i) +=
