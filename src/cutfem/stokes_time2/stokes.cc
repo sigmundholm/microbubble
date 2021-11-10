@@ -133,9 +133,9 @@ namespace examples::cut::StokesEquation {
         pressure_stab.set_extractor(pressure);
 
         double beta_0 = 0.1;
-        double gamma_A =
+        double gamma_u =
                 beta_0 * this->element_order * (this->element_order + 1);
-        double gamma_M =
+        double gamma_p =
                 beta_0 * this->element_order * (this->element_order + 1);
 
         NonMatching::RegionUpdateFlags region_update_flags;
@@ -212,12 +212,13 @@ namespace examples::cut::StokesEquation {
             // Compute and add the velocity stabilization.
             velocity_stab.compute_stabilization(cell);
             velocity_stab.add_stabilization_to_matrix(
-                    gamma_M + gamma_A * this->tau * nu / (this->h * this->h),
+                    gamma_u * (1 + this->tau * nu / pow(this->h, 2)),
                     this->stiffness_matrix);
             // Compute and add the pressure stabilisation.
             pressure_stab.compute_stabilization(cell);
-            pressure_stab.add_stabilization_to_matrix(-2 * gamma_A * this->tau / nu,
-                                                      this->stiffness_matrix);
+            pressure_stab.add_stabilization_to_matrix(
+                    -gamma_p * this->tau / (nu + pow(this->h, 2) / this->tau),
+                    this->stiffness_matrix);
         }
     }
 

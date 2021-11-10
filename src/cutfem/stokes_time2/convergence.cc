@@ -18,7 +18,7 @@ void solve_for_element_order(int element_order, int max_refinement,
     double radius = 0.05;
     double half_length = radius;
 
-    double nu = 1;
+    double nu = 10;
 
     double end_time = radius;
 
