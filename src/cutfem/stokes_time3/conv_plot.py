@@ -10,7 +10,7 @@ if __name__ == '__main__':
     domain_length = 0.2
 
     skip = 0
-    for poly_order in [2]:
+    for poly_order in [1, 2]:
         full_path = os.path.join(base, f"build/src/cutfem/stokes_time3/errors-d2o{poly_order}.csv")
 
         head = list(map(str.strip, open(full_path).readline().split(",")))[1:-2]
