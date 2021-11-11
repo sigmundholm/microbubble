@@ -1,3 +1,5 @@
+import itertools
+
 import matplotlib.pyplot as plt
 from matplotlib import rc
 import matplotlib.ticker
@@ -5,6 +7,10 @@ from matplotlib.ticker import StrMethodFormatter, NullFormatter
 import numpy as np
 
 import os
+
+
+def get_markers():
+    return itertools.cycle((',', '+', '.', 'o', '*'))
 
 
 def convergence_plot(ns, errors, yscale="log2", desired_order=2, reference_line_offset=0.5,
@@ -62,7 +68,7 @@ def convergence_plot(ns, errors, yscale="log2", desired_order=2, reference_line_
     plt.show()
 
 
-def add_convergence_line(ax, ns, errors, yscale="log2", xlabel="$N$", name="", color=None, regression=True):
+def add_convergence_line(ax, ns, errors, yscale="log2", xlabel="$N$", name="", color=None, regression=True, marker="."):
     # Remove small tick lines on the axes, that doesnt have any number with them.
     matplotlib.rcParams['xtick.minor.size'] = 0
     matplotlib.rcParams['xtick.minor.width'] = 0
@@ -79,7 +85,7 @@ def add_convergence_line(ax, ns, errors, yscale="log2", xlabel="$N$", name="", c
     print("Order of convergence", -res[0])
 
     label = f'${name}$' if not regression else f'${name}: {abs(round(res[0], 3))}$'
-    ax.plot(ns, errors, "-o", label=label, color=color)
+    ax.plot(ns, errors, "-o", label=label, color=color, marker=marker)
     if yscale == "log2":
         ax.set_yscale("log", base=2)
     else:
@@ -130,11 +136,13 @@ def plot3d(field, title="", latex=False, z_label="z", xs=None, ys=None):
     return ax
 
 
-def conv_plots(data, columns, title="", latex=True, domain_length=1, xlabel="N"):
+def conv_plots(data, columns, title="", latex=True, domain_length=1, xlabel="N", unique_marker=True):
     if_latex(latex)
 
     mesh_size = data[:, 0]
     ns = list(map(round, domain_length / mesh_size))
+
+    marker = get_markers()
 
     matplotlib.rcParams['xtick.minor.size'] = 0
     matplotlib.rcParams['xtick.minor.width'] = 0
@@ -148,15 +156,19 @@ def conv_plots(data, columns, title="", latex=True, domain_length=1, xlabel="N")
         print()
         print(col_name, data_col)
         ax = add_convergence_line(ax, ns, data_col, "log2", name=col_name, xlabel=f"${xlabel}$",
-                                  color=cmap(k / (len(columns) - 1 - int(len(columns) > 7))))
+                                  color=cmap(k / (len(columns) - 1 - int(len(columns) > 7))),
+                                  marker=next(marker) if unique_marker else ".")
     ax.set_title(title)
 
 
-def eoc_plot(data, columns, title="", domain_lenght=1, latex=True, lines_at=None, xlabel="N", legend_pos="best"):
+def eoc_plot(data, columns, title="", domain_lenght=1, latex=True, lines_at=None, xlabel="N", legend_pos="best",
+             max_contrast=True, unique_marker=True):
     if_latex(latex)
 
     mesh_size = data[:, 0]
     ns = domain_lenght / mesh_size
+
+    marker = get_markers()
 
     # Remove small tick lines on the axes, that doesnt have any number with them.
     matplotlib.rcParams['xtick.minor.size'] = 0
@@ -177,8 +189,9 @@ def eoc_plot(data, columns, title="", domain_lenght=1, latex=True, lines_at=None
         eoc = np.log(data_col[:-1] / data_col[1:]) / np.log(mesh_size[:-1] / mesh_size[1:])
         print(col_name, eoc)
 
-        ax.plot(ns[1:], eoc, label=r"${" + col_name + "}$", linestyle='--', marker='.',
-                color=cmap(k / (len(columns) - 1 - int(len(columns) > 7))))
+        ax.plot(ns[1:], eoc, label=r"${" + col_name + "}$", linestyle='--',
+                marker=next(marker) if unique_marker else '.',
+                color=cmap(k / (len(columns[1:]) - 1 - int(max_contrast))))
 
     # Remove scientific notation along x-axis
     ax.xaxis.set_major_formatter(StrMethodFormatter('{x:.0f}'))

@@ -49,14 +49,15 @@ if __name__ == '__main__':
         data = data[skip:, 1:]
 
         conv_plots(data, head, title=r"$\textrm{Navier-Stokes, element order: (" + str(
-            poly_order + 1) + ", " + str(poly_order) + ")}$", domain_length=domain_length, xlabel=xlabel)
+            poly_order + 1) + ", " + str(poly_order) + ")}$", domain_length=domain_length,
+                   xlabel=xlabel)
         plt.savefig(f"bdf2-error-o{poly_order}.pdf")
 
         # Create a EOC-plot
         eoc_plot(data, head,
                  title=r"\textrm{Navier-Stokes EOC, element order: (" + str(poly_order + 1) + ", " + str(
                      poly_order) + ")}",
-                 domain_lenght=domain_length, lines_at=np.array([1, 2]), xlabel=xlabel)
+                 domain_lenght=domain_length, lines_at=np.array([1, 2]), xlabel=xlabel, max_contrast=True)
         plt.savefig(f"bdf2-eoc-o{poly_order}.pdf")
 
     plt.show()
