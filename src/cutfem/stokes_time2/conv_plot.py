@@ -27,7 +27,7 @@ def time_error_plot():
 
 # Plot settings
 folder = ""
-radius = 0.05
+radius = 0.005
 end_time = radius
 domain_length = radius
 xlabel = "M"
@@ -40,7 +40,7 @@ if __name__ == '__main__':
 
     # time_error_plot()
 
-    skip = 0
+    skip = 1
     for poly_order in [1, 2]:
         full_path = os.path.join(base, "build/src/cutfem/stokes_time2", folder, f"errors-d2o{poly_order}.csv")
 
