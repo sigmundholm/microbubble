@@ -79,7 +79,12 @@ namespace examples::cut::StokesEquation {
         this->boundary_values->set_time(time);
         this->analytical_velocity->set_time(time);
         this->analytical_pressure->set_time(time);
-        this->levelset_function->set_time(time);
+
+        if (this->moving_domain) {
+            this->levelset_function->set_time(time);
+        } else {
+            this->levelset_function->set_time(0);
+        }
     }
 
 
@@ -132,11 +137,8 @@ namespace examples::cut::StokesEquation {
         pressure_stab.set_weight_function(stabilization::taylor_weights);
         pressure_stab.set_extractor(pressure);
 
-        double beta_0 = 0.1;
-        double gamma_u =
-                beta_0 * this->element_order * (this->element_order + 1);
-        double gamma_p =
-                beta_0 * this->element_order * (this->element_order + 1);
+        double gamma_u = 0.5;
+        double gamma_p = 0.5;
 
         NonMatching::RegionUpdateFlags region_update_flags;
         region_update_flags.inside = update_values | update_JxW_values |
@@ -301,8 +303,9 @@ namespace examples::cut::StokesEquation {
         std::vector<Tensor<1, dim>> phi_u(dofs_per_cell, Tensor<1, dim>());
         std::vector<double> phi_p(dofs_per_cell);
 
-        // TODO denne skal vel avhenge av element_order?
-        double mu = 50 / this->h; // Nitsche penalty parameter
+        // Nitsche penalty parameter
+        double mu = 5 * nu * this->element_order * (this->element_order + 1) /
+                    this->h;
         Tensor<1, dim> normal;
 
         for (unsigned int q : fe_values.quadrature_point_indices()) {
@@ -440,8 +443,9 @@ namespace examples::cut::StokesEquation {
         const FEValuesExtractors::Vector v(0);
         const FEValuesExtractors::Scalar p(dim);
 
-        // TODO denne skal vel avhenge av element_order?
-        double mu = 50 / this->h; // Nitsche penalty parameter
+        // Nitsche penalty parameter
+        double mu = 5 * nu * this->element_order * (this->element_order + 1) /
+                    this->h;
         Tensor<1, dim> normal;
 
         for (unsigned int q : fe_values.quadrature_point_indices()) {
