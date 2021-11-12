@@ -10,7 +10,7 @@ import os
 
 
 def get_markers():
-    return itertools.cycle((',', '+', '.', 'o', '*'))
+    return itertools.cycle(('+', '.', '2', '*', 'p', '1', 'd'))
 
 
 def convergence_plot(ns, errors, yscale="log2", desired_order=2, reference_line_offset=0.5,
@@ -136,7 +136,8 @@ def plot3d(field, title="", latex=False, z_label="z", xs=None, ys=None):
     return ax
 
 
-def conv_plots(data, columns, title="", latex=True, domain_length=1, xlabel="N", unique_marker=True):
+def conv_plots(data, columns, title="", latex=True, domain_length=1, xlabel="N",
+               max_contrast=True, unique_marker=True):
     if_latex(latex)
 
     mesh_size = data[:, 0]
@@ -156,7 +157,7 @@ def conv_plots(data, columns, title="", latex=True, domain_length=1, xlabel="N",
         print()
         print(col_name, data_col)
         ax = add_convergence_line(ax, ns, data_col, "log2", name=col_name, xlabel=f"${xlabel}$",
-                                  color=cmap(k / (len(columns) - 1 - int(len(columns) > 7))),
+                                  color=cmap(k / (len(columns[1:]) - 1 - int(max_contrast))),
                                   marker=next(marker) if unique_marker else ".")
     ax.set_title(title)
 

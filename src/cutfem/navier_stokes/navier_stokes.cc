@@ -84,22 +84,22 @@ namespace examples::cut::NavierStokes {
     template<int dim>
     void NavierStokesEqn<dim>::
     pre_matrix_assembly() {
-        std::cout << "Stabilization constants set for Navier-Stokes."
-                  << std::endl;
-
         // Set the velocity and pressure stabilization scalings. These can
         // be overridden in a subclass constructor.
         double gamma_u = 0.5;
         double gamma_p = 0.5;
 
-        // TODO the velocity scaling should be different for semi_implicit
-        //  convection term.
         if (semi_implicit) {
+            std::cout << "Stabilization constants set for Navier-Stokes "
+                         "(semi-implicit convection term)." << std::endl;
             this->velocity_stab_scaling =
-                    gamma_u * (2 + this->tau * this->nu / pow(this->h, 2));
+                    gamma_u * (1 + this->tau / this->h + this->tau * this->nu / pow(this->h, 2));
             this->pressure_stab_scaling =
-                    -gamma_p * this->tau / this->h; // TODO fix
+                    -gamma_p * this->tau /
+                    (this->nu + this->h + pow(this->h, 2) / this->tau);
         } else {
+            std::cout << "Stabilization constants set for Navier-Stokes "
+                         "(explicit convection term)." << std::endl;
             this->velocity_stab_scaling =
                     gamma_u * (1 + this->tau * this->nu / pow(this->h, 2));
             this->pressure_stab_scaling =
