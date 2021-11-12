@@ -71,6 +71,7 @@ namespace utils::problems {
         initialize_matrices();
         int n_dofs = dof_handlers.front()->n_dofs();
         solutions.emplace_front(n_dofs);
+        pre_matrix_assembly();
         this->assemble_system();
         solve();
         if (write_output) {
@@ -156,6 +157,7 @@ namespace utils::problems {
                 // Assemble the matrix after the new solution vector is created.
                 // This is to omit index problems when assembling a stiffness
                 // matrix that is dependent on previous solutions.
+                pre_matrix_assembly();
                 assemble_matrix();
             }
 
@@ -293,6 +295,7 @@ namespace utils::problems {
             // was updated.
             initialize_matrices();
 
+            pre_matrix_assembly();
             assemble_matrix();
             assemble_rhs(k);
 
@@ -644,6 +647,11 @@ namespace utils::problems {
                                                           sparsity_pattern);
         stiffness_matrix.reinit(sparsity_pattern);
     }
+
+
+    template<int dim>
+    void CutFEMProblem<dim>::
+    pre_matrix_assembly() {}
 
 
     template<int dim>

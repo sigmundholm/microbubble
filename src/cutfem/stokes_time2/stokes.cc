@@ -65,8 +65,9 @@ namespace examples::cut::StokesEquation {
         this->tau = tau;
         this->crank_nicholson = crank_nicholson;
 
-        // Use Dirichlet boundary conditions everywhere.
-        // do_nothing_id = 10;
+        // Use Dirichlet boundary conditions everywhere, this is done by
+        // default by constructor definition.
+        // this->do_nothing_id = 10;
 
         this->rhs_function = &rhs;
         this->boundary_values = &bdd_values;
@@ -108,6 +109,21 @@ namespace examples::cut::StokesEquation {
 
     template<int dim>
     void StokesEqn<dim>::
+    pre_matrix_assembly() {
+        std::cout << "Stabilization constants set for StokesEqn." << std::endl;
+        // Set the velocity and pressure stabilization scalings. These can
+        // be overridden in a subclass constructor.
+        double gamma_u = 0.5;
+        double gamma_p = 0.5;
+        this->velocity_stab_scaling =
+                gamma_u * (1 + this->tau * nu / pow(this->h, 2));
+        this->pressure_stab_scaling =
+                -gamma_p * this->tau / (nu + pow(this->h, 2) / this->tau);
+    }
+
+
+    template<int dim>
+    void StokesEqn<dim>::
     assemble_matrix() {
         std::cout << "Assembling: Stokes" << std::endl;
 
@@ -137,8 +153,8 @@ namespace examples::cut::StokesEquation {
         pressure_stab.set_weight_function(stabilization::taylor_weights);
         pressure_stab.set_extractor(pressure);
 
-        double gamma_u = 0.5;
-        double gamma_p = 0.5;
+        assert(velocity_stab_scaling != 0);
+        assert(pressure_stab_scaling != 0);
 
         NonMatching::RegionUpdateFlags region_update_flags;
         region_update_flags.inside = update_values | update_JxW_values |
@@ -214,15 +230,14 @@ namespace examples::cut::StokesEquation {
             // Compute and add the velocity stabilization.
             velocity_stab.compute_stabilization(cell);
             velocity_stab.add_stabilization_to_matrix(
-                    gamma_u * (1 + this->tau * nu / pow(this->h, 2)),
-                    this->stiffness_matrix);
+                    this->velocity_stab_scaling, this->stiffness_matrix);
             // Compute and add the pressure stabilisation.
             pressure_stab.compute_stabilization(cell);
             pressure_stab.add_stabilization_to_matrix(
-                    -gamma_p * this->tau / (nu + pow(this->h, 2) / this->tau),
-                    this->stiffness_matrix);
+                    this->pressure_stab_scaling, this->stiffness_matrix);
         }
     }
+
 
     template<int dim>
     void StokesEqn<dim>::

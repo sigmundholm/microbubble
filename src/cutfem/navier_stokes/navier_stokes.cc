@@ -83,6 +83,34 @@ namespace examples::cut::NavierStokes {
 
     template<int dim>
     void NavierStokesEqn<dim>::
+    pre_matrix_assembly() {
+        std::cout << "Stabilization constants set for Navier-Stokes."
+                  << std::endl;
+
+        // Set the velocity and pressure stabilization scalings. These can
+        // be overridden in a subclass constructor.
+        double gamma_u = 0.5;
+        double gamma_p = 0.5;
+
+        // TODO the velocity scaling should be different for semi_implicit
+        //  convection term.
+        if (semi_implicit) {
+            this->velocity_stab_scaling =
+                    gamma_u * (2 + this->tau * this->nu / pow(this->h, 2));
+            this->pressure_stab_scaling =
+                    -gamma_p * this->tau / this->h; // TODO fix
+        } else {
+            this->velocity_stab_scaling =
+                    gamma_u * (1 + this->tau * this->nu / pow(this->h, 2));
+            this->pressure_stab_scaling =
+                    -gamma_p * this->tau /
+                    (this->nu + pow(this->h, 2) / this->tau);
+        }
+    }
+
+
+    template<int dim>
+    void NavierStokesEqn<dim>::
     assemble_matrix_local_over_cell(
             const FEValues<dim> &fe_values,
             const std::vector<types::global_dof_index> &loc2glb) {
@@ -450,7 +478,7 @@ namespace examples::cut::NavierStokes {
                 local_rhs(i) += (this->tau * rhs_values[q] * phi_u // τ(f, v)
                                  - bdf_terms * phi_u               // BDF-terms
                                  - (grad_extrap * extrap)          // convection
-                                 * phi_u * this->tau
+                                   * phi_u * this->tau
                                 ) * fe_v.JxW(q);                   // dx
             }
         }
@@ -566,7 +594,7 @@ namespace examples::cut::NavierStokes {
                 local_rhs(i) += (this->tau * rhs_values[q] * phi_u // τ(f, v)
                                  - bdf_terms * phi_u               // BDF-terms
                                  - (grad_extrap * extrap)
-                                 * phi_u * this->tau               // convection
+                                   * phi_u * this->tau             // convection
                                 ) * fe_v.JxW(q);                   // dx
             }
         }

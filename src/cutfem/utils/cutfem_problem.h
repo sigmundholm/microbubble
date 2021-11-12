@@ -166,6 +166,9 @@ namespace utils::problems {
         virtual void
         initialize_matrices();
 
+        virtual void
+        pre_matrix_assembly();
+
 
         // Methods related to assembling the stiffness matrix and rhs vector.
         // -------------------------------------------------------------------

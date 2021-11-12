@@ -80,26 +80,26 @@ namespace utils::problems::flow {
         write_error_to_file(ErrorBase *error, std::ofstream &file);
 
     protected:
-        virtual void
+        void
         interpolate_solution(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
                              int time_step) override;
 
-        virtual void
+        void
         setup_quadrature() override;
 
-        virtual void
+        void
         setup_fe_collection() override;
 
-
-        virtual void
+        void
         assemble_system() override;
 
-        virtual void
+
+        void
         assemble_rhs_and_bdf_terms_local_over_cell(
                 const FEValues<dim> &fe_v,
                 const std::vector<types::global_dof_index> &loc2glb) override;
 
-        virtual void
+        void
         assemble_rhs_and_bdf_terms_local_over_cell_moving_domain(
                 const FEValues<dim> &fe_v,
                 const std::vector<types::global_dof_index> &loc2glb) override;
@@ -123,15 +123,15 @@ namespace utils::problems::flow {
                        const double &mean_exact_pressure) const;
 
 
-        virtual void
+        void
         write_time_header_to_file(std::ofstream &file) override;
 
-        virtual void
+        void
         write_time_error_to_file(ErrorBase *error,
                                  std::ofstream &file) override;
 
 
-        virtual void
+        void
         output_results(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
                        Vector<double> &solution,
                        std::string &suffix,

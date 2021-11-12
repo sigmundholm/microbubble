@@ -47,21 +47,21 @@ namespace examples::cut::StokesEquation {
     template<int dim>
     class StokesEqn : public FlowProblem<dim> {
     public:
-        StokesEqn(const double nu,
-                       const double tau,
-                       const double radius,
-                       const double half_length,
-                       const unsigned int n_refines,
-                       const int element_order,
-                       const bool write_output,
-                       TensorFunction<1, dim> &rhs,
-                       TensorFunction<1, dim> &bdd_values,
-                       TensorFunction<1, dim> &analytic_vel,
-                       Function<dim> &analytic_pressure,
-                       LevelSet<dim> &levelset_func,
-                       const int do_nothing_id = 10,
-                       const bool stabilized = true,
-                       const bool crank_nicholson = false);
+        StokesEqn(double nu,
+                  double tau,
+                  double radius,
+                  double half_length,
+                  unsigned int n_refines,
+                  int element_order,
+                  bool write_output,
+                  TensorFunction<1, dim> &rhs,
+                  TensorFunction<1, dim> &bdd_values,
+                  TensorFunction<1, dim> &analytic_vel,
+                  Function<dim> &analytic_pressure,
+                  LevelSet<dim> &levelset_func,
+                  int do_nothing_id = 10,
+                  bool stabilized = true,
+                  bool crank_nicholson = false);
 
         static void
         write_header_to_file(std::ofstream &file);
@@ -75,6 +75,9 @@ namespace examples::cut::StokesEquation {
 
         void
         make_grid(Triangulation<dim> &tria) override;
+
+        void
+        pre_matrix_assembly() override;
 
         void
         assemble_matrix() override;
@@ -102,7 +105,11 @@ namespace examples::cut::StokesEquation {
         const double radius;
         const double half_length;
 
-        unsigned int do_nothing_id = 2;
+        unsigned int do_nothing_id;
+
+        // Scaling constants for the stabilizations.
+        double velocity_stab_scaling = 0;
+        double pressure_stab_scaling = 0;
     };
 
 } // namespace examples::cut::StokesEquation
