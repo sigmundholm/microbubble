@@ -12,8 +12,8 @@
 namespace examples::cut::NavierStokes {
 
     template<int dim>
-    RightHandSide<dim>::RightHandSide()
-            : TensorFunction<1, dim>() {}
+    RightHandSide<dim>::RightHandSide(const double nu)
+            : TensorFunction<1, dim>(), nu(nu) {}
 
     template<int dim>
     Tensor<1, dim> RightHandSide<dim>::
@@ -24,6 +24,35 @@ namespace examples::cut::NavierStokes {
         double y = p[1];
         double t = this->get_time();
         Tensor<1, dim> val;
+        val[0] = pi * exp(-2 * pi * pi * nu * t) * sin(pi * x) * sin(pi * y) *
+                 cos(pi * x) -
+                 pi * exp(-2 * pi * pi * nu * t) * sin(pi * y) * cos(pi * x) *
+                 cos(pi * y) +
+                 pi * exp(-4 * pi * pi * nu * t) * sin(2 * pi * x) / 2;
+        val[1] = -pi * exp(-2 * pi * pi * nu * t) * sin(pi * x) * sin(pi * y) *
+                 sin(pi * y) +
+                 pi * exp(-2 * pi * pi * nu * t) * cos(pi * x) * cos(pi * y) *
+                 cos(pi * x) +
+                 pi * exp(-4 * pi * pi * nu * t) * sin(2 * pi * y) / 2;
+        return val;
+    }
+
+
+    template<int dim>
+    ConvectionField<dim>::ConvectionField(const double nu)
+            : TensorFunction<1, dim>(), nu(nu) {}
+
+    template<int dim>
+    Tensor<1, dim> ConvectionField<dim>::
+    value(const Point<dim> &p) const {
+        // The analytical solution used (Ethier-Steinman, 1994), solves the
+        // homogeneous Navier-Stokes equations.
+        double x = p[0];
+        double y = p[1];
+        double t = this->get_time();
+        Tensor<1, dim> val;
+        val[0] = cos(pi * x);
+        val[1] = sin(pi * y);
         return val;
     }
 
@@ -63,7 +92,7 @@ namespace examples::cut::NavierStokes {
         double t = this->get_time();
         Tensor<1, dim> val;
 
-        if (x == - half_length) {
+        if (x == -half_length) {
             // No-slip boundary conditions.
             val[0] = max_speed * (1 - pow(y / radius, 2))
                      * (1 - exp(-t / boundary_layer));
@@ -198,6 +227,9 @@ namespace examples::cut::NavierStokes {
 
     template
     class RightHandSide<2>;
+
+    template
+    class ConvectionField<2>;
 
     template
     class BoundaryValues<2>;

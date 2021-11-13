@@ -55,6 +55,7 @@ namespace examples::cut::NavierStokes {
                         int element_order,
                         bool write_output,
                         TensorFunction<1, dim> &rhs,
+                        TensorFunction<1, dim> &conv_field,
                         TensorFunction<1, dim> &bdd_values,
                         TensorFunction<1, dim> &analytic_vel,
                         Function<dim> &analytic_pressure,
@@ -102,6 +103,8 @@ namespace examples::cut::NavierStokes {
         // If true, a semi-implicit discretisation is used for the convection
         // term. Else, it an explicit discretisation is used.
         const bool semi_implicit;
+
+        TensorFunction<1, dim> *convection_field;
 
 
     };

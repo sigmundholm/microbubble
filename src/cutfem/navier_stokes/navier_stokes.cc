@@ -45,6 +45,7 @@ namespace examples::cut::NavierStokes {
                     const int element_order,
                     const bool write_output,
                     TensorFunction<1, dim> &rhs,
+                    TensorFunction<1, dim> &conv_field,
                     TensorFunction<1, dim> &bdd_values,
                     TensorFunction<1, dim> &analytic_vel,
                     Function<dim> &analytic_pressure,
@@ -60,7 +61,9 @@ namespace examples::cut::NavierStokes {
                                              levelset_func,
                                              do_nothing_id, stabilized,
                                              false),
-              semi_implicit(semi_implicit) {}
+              semi_implicit(semi_implicit) {
+        convection_field = &conv_field;
+    }
 
 
     template<int dim>
@@ -93,7 +96,8 @@ namespace examples::cut::NavierStokes {
             std::cout << "Stabilization constants set for Navier-Stokes "
                          "(semi-implicit convection term)." << std::endl;
             this->velocity_stab_scaling =
-                    gamma_u * (1 + this->tau / this->h + this->tau * this->nu / pow(this->h, 2));
+                    gamma_u * (1 + this->tau / this->h +
+                               this->tau * this->nu / pow(this->h, 2));
             this->pressure_stab_scaling =
                     -gamma_p * this->tau /
                     (this->nu + this->h + pow(this->h, 2) / this->tau);
@@ -198,6 +202,11 @@ namespace examples::cut::NavierStokes {
                                         prev_solution_values[k]);
         }
 
+        std::vector<Tensor<1, dim>> conv_field(fe_v.n_quadrature_points,
+                                               Tensor<1, dim>());
+        this->convection_field->value_list(fe_v.get_quadrature_points(),
+                                           conv_field);
+
         Tensor<1, dim> extrapolation;
         std::vector<Tensor<2, dim>> grad_phi_u(dofs_per_cell);
         std::vector<Tensor<1, dim>> phi_u(dofs_per_cell);
@@ -223,12 +232,11 @@ namespace examples::cut::NavierStokes {
                     // Assemble the term (u·∇)u = (∇u)u_e, where u_e is the
                     // extrapolated u-value.
                     local_matrix(i, j) +=
-                            ((grad_phi_u[j] * extrapolation) * phi_u[i]) *
+                            ((grad_phi_u[j] * conv_field[q]) * phi_u[i]) *
                             this->tau * fe_v.JxW(q);
                 }
             }
         }
-        //this->rhs.add(loc2glb, local_rhs);
         this->stiffness_matrix.add(loc2glb, local_matrix);
     }
 

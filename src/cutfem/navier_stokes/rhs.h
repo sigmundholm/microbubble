@@ -18,10 +18,24 @@ namespace examples::cut::NavierStokes {
     template<int dim>
     class RightHandSide : public TensorFunction<1, dim> {
     public:
-        RightHandSide();
+        RightHandSide(double nu);
 
         Tensor<1, dim>
         value(const Point<dim> &p) const override;
+
+        const double nu;
+    };
+
+
+    template<int dim>
+    class ConvectionField : public TensorFunction<1, dim> {
+    public:
+        ConvectionField(double nu);
+
+        Tensor<1, dim>
+        value(const Point<dim> &p) const override;
+
+        const double nu;
     };
 
 

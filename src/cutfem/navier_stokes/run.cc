@@ -25,7 +25,8 @@ int main() {
 
     const double sphere_radius = radius * 0.3;
 
-    RightHandSide<dim> rhs;
+    RightHandSide<dim> rhs(nu);
+    ConvectionField <dim> conv_field(nu);
 
     // BoundaryValues<dim> boundary(nu);
     const double max_speed = half_length;
@@ -39,7 +40,7 @@ int main() {
                        -half_length / 3, radius / 3);
 
     NavierStokesEqn<dim> ns(nu, tau, radius, half_length, n_refines,
-                            elementOrder, write_vtk, rhs, boundary,
+                            elementOrder, write_vtk, rhs, conv_field, boundary,
                             analytical_velocity, analytical_pressure,
                             domain, false, 2);
 
