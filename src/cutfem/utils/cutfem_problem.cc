@@ -432,7 +432,7 @@ namespace utils::problems {
             if (moving_domain && k > 0) {
                 // For moving domains we need a new dof_handler for each step,
                 // but the first one should already have been created.
-                double buffer_constant = 2;
+                double buffer_constant = 1.5;
                 // TODO take this calculation out of this function.
                 double size_of_bound = mesh_bound_multiplier * buffer_constant
                                        * (levelset_function->get_speed() * tau
