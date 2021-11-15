@@ -37,7 +37,7 @@ void solve_for_element_order(int element_order, int max_refinement,
          << "sphere_radius = " << sphere_radius << std::endl
          << "nu = " << nu << std::endl
          << "bdf_type = " << bdf_type << std::endl
-         << "semi_implicit = " << semi_implicit << std::endl;
+         << "semi_implicit = " << semi_implicit << std::endl << std::endl;
 
     NavierStokesEqn<dim>::write_header_to_file(file);
 
@@ -51,6 +51,7 @@ void solve_for_element_order(int element_order, int max_refinement,
     for (int n_refines = 3; n_refines < max_refinement + 1; ++n_refines) {
         std::cout << "\nn_refines=" << n_refines << std::endl
                   << "===========" << std::endl;
+        meta << " - n_refines = " << n_refines << std::endl;
 
         double time_steps = pow(2, n_refines - 1);
         double tau = end_time / time_steps;
