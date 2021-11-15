@@ -24,16 +24,14 @@ namespace examples::cut::NavierStokes {
         double y = p[1];
         double t = this->get_time();
         Tensor<1, dim> val;
-        val[0] = pi * exp(-2 * pi * pi * nu * t) * sin(pi * x) * sin(pi * y) *
-                 cos(pi * x) -
-                 pi * exp(-2 * pi * pi * nu * t) * sin(pi * y) * cos(pi * x) *
-                 cos(pi * y) +
-                 pi * exp(-4 * pi * pi * nu * t) * sin(2 * pi * x) / 2;
-        val[1] = -pi * exp(-2 * pi * pi * nu * t) * sin(pi * x) * sin(pi * y) *
-                 sin(pi * y) +
-                 pi * exp(-2 * pi * pi * nu * t) * cos(pi * x) * cos(pi * y) *
-                 cos(pi * x) +
-                 pi * exp(-4 * pi * pi * nu * t) * sin(2 * pi * y) / 2;
+        val[0] = -2 * nu * pi * pi * sin(pi * y) * cos(t) * cos(pi * x) -
+                 pi * sin(pi * x) * cos(t) * cos(t) * cos(pi * x) +
+                 sin(t) * sin(pi * y) * cos(pi * x) +
+                 pi * sin(pi * x) * cos(t) * cos(pi * x);
+        val[1] = 2 * nu * pi * pi * sin(pi * x) * cos(t) * cos(pi * y) -
+                 pi * sin(pi * y) * cos(t) * cos(t) * cos(pi * y) -
+                 sin(t) * sin(pi * x) * cos(pi * y) +
+                 pi * sin(pi * y) * cos(t) * cos(pi * y);
         return val;
     }
 
@@ -51,8 +49,8 @@ namespace examples::cut::NavierStokes {
         double y = p[1];
         double t = this->get_time();
         Tensor<1, dim> val;
-        val[0] = cos(pi * x);
-        val[1] = sin(pi * y);
+        val[0] = -sin(pi * y) * cos(t) * cos(pi * x);
+        val[1] = sin(pi * x) * cos(t) * cos(pi * y);
         return val;
     }
 
@@ -69,8 +67,8 @@ namespace examples::cut::NavierStokes {
         double t = this->get_time();
 
         Tensor<1, dim> val;
-        val[0] = -exp(-2 * pi * pi * nu * t) * sin(pi * y) * cos(pi * x);
-        val[1] = exp(-2 * pi * pi * nu * t) * sin(pi * x) * cos(pi * y);
+        val[0] = -sin(pi * y) * cos(t) * cos(pi * x);
+        val[1] = sin(pi * x) * cos(t) * cos(pi * y);
         return val;
     }
 
@@ -116,8 +114,8 @@ namespace examples::cut::NavierStokes {
         // Analytical solution to the Navier-Stokes equations in 2D, see
         // Ethier-Steinman (1994).
         Tensor<1, dim> val;
-        val[0] = -exp(-2 * pi * pi * nu * t) * sin(pi * y) * cos(pi * x);
-        val[1] = exp(-2 * pi * pi * nu * t) * sin(pi * x) * cos(pi * y);
+        val[0] = -sin(pi * y) * cos(t) * cos(pi * x);
+        val[1] = sin(pi * x) * cos(t) * cos(pi * y);
         return val;
     }
 
@@ -129,14 +127,10 @@ namespace examples::cut::NavierStokes {
         double t = this->get_time();
 
         Tensor<2, dim> value;
-        value[0][0] = pi * exp(-2 * pi * pi * nu * t) *
-                      sin(pi * x) * sin(pi * y);
-        value[0][1] = -pi * exp(-2 * pi * pi * nu * t) *
-                      cos(pi * x) * cos(pi * y);
-        value[1][0] = pi * exp(-2 * pi * pi * nu * t) *
-                      cos(pi * x) * cos(pi * y);
-        value[1][1] = -pi * exp(-2 * pi * pi * nu * t) *
-                      sin(pi * x) * sin(pi * y);
+        value[0][0] = pi * sin(pi * x) * sin(pi * y) * cos(t);
+        value[0][1] = -pi * cos(t) * cos(pi * x) * cos(pi * y);
+        value[1][0] = pi * cos(t) * cos(pi * x) * cos(pi * y);
+        value[1][1] = -pi * sin(pi * x) * sin(pi * y) * cos(t);
         return value;
     }
 
@@ -154,8 +148,7 @@ namespace examples::cut::NavierStokes {
         double t = this->get_time();
         // Analytical solution to the Navier-Stokes equations in 2D, see
         // Ethier-Steinman (1994).
-        return (-cos(2 * pi * x) / 4 - cos(2 * pi * y) / 4) *
-               exp(-4 * pi * pi * nu * t);
+        return (-cos(2 * pi * x) / 4 - cos(2 * pi * y) / 4) * cos(t);
     }
 
     template<int dim>
@@ -167,8 +160,8 @@ namespace examples::cut::NavierStokes {
         double t = this->get_time();
 
         Tensor<1, dim> value;
-        value[0] = pi * exp(-4 * pi * pi * nu * t) * sin(2 * pi * x) / 2;
-        value[1] = pi * exp(-4 * pi * pi * nu * t) * sin(2 * pi * y) / 2;
+        value[0] = pi * sin(2 * pi * x) * cos(t) / 2;
+        value[1] = pi * sin(2 * pi * y) * cos(t) / 2;
         return value;
     }
 

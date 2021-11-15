@@ -22,11 +22,26 @@ void solve_for_element_order(int element_order, int max_refinement,
     double sphere_radius = 0.75 * radius;
     double sphere_x_coord = 0;
 
+    const bool semi_implicit = true;
+    const int bdf_type = 2;
+
     std::ofstream file("errors-d" + std::to_string(dim)
                        + "o" + std::to_string(element_order) + ".csv");
+    std::ofstream meta("e-meta-d" + std::to_string(dim)
+                       + "o" + std::to_string(element_order) + ".txt");
+    meta << "Navier-Stokes convergence test" << std::endl
+         << "==============================" << std::endl
+         << "radius = " << radius << std::endl
+         << "half_length = " << half_length << std::endl
+         << "end_time = " << end_time << std::endl
+         << "sphere_radius = " << sphere_radius << std::endl
+         << "nu = " << nu << std::endl
+         << "bdf_type = " << bdf_type << std::endl
+         << "semi_implicit = " << semi_implicit << std::endl;
+
     NavierStokesEqn<dim>::write_header_to_file(file);
 
-    RightHandSide<dim> rhs(nu);
+    RightHandSide <dim> rhs(nu);
     ConvectionField <dim> conv_field(nu);
     BoundaryValues <dim> boundary_values(nu);
     AnalyticalVelocity <dim> analytical_velocity(nu);
@@ -47,9 +62,9 @@ void solve_for_element_order(int element_order, int max_refinement,
                                  element_order, write_output, rhs, conv_field,
                                  boundary_values,
                                  analytical_velocity, analytical_pressure,
-                                 domain, true);
+                                 domain, semi_implicit);
 
-        ErrorBase *err = ns.run_time(2, time_steps);
+        ErrorBase *err = ns.run_time(bdf_type, time_steps);
         auto *error = dynamic_cast<ErrorFlow *>(err);
 
         std::cout << std::endl;
