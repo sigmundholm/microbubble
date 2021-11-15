@@ -49,8 +49,8 @@ namespace examples::cut::NavierStokes {
         double y = p[1];
         double t = this->get_time();
         Tensor<1, dim> val;
-        val[0] = -sin(pi * y) * cos(t) * cos(pi * x);
-        val[1] = sin(pi * x) * cos(t) * cos(pi * y);
+        val[0] = 0;
+        val[1] = 0;
         return val;
     }
 

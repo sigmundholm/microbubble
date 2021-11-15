@@ -202,11 +202,6 @@ namespace examples::cut::NavierStokes {
                                         prev_solution_values[k]);
         }
 
-        std::vector<Tensor<1, dim>> conv_field(fe_v.n_quadrature_points,
-                                               Tensor<1, dim>());
-        this->convection_field->value_list(fe_v.get_quadrature_points(),
-                                           conv_field);
-
         Tensor<1, dim> extrapolation;
         std::vector<Tensor<2, dim>> grad_phi_u(dofs_per_cell);
         std::vector<Tensor<1, dim>> phi_u(dofs_per_cell);
@@ -228,11 +223,10 @@ namespace examples::cut::NavierStokes {
             // Compute the addition to the local matrix
             for (const unsigned int i : fe_v.dof_indices()) {
                 for (const unsigned int j : fe_v.dof_indices()) {
-                    // TODO check index!
                     // Assemble the term (u·∇)u = (∇u)u_e, where u_e is the
                     // extrapolated u-value.
                     local_matrix(i, j) +=
-                            ((grad_phi_u[j] * conv_field[q]) * phi_u[i]) *
+                            ((grad_phi_u[j] * extrapolation) * phi_u[i]) *
                             this->tau * fe_v.JxW(q);
                 }
             }
