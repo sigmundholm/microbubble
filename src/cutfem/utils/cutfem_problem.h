@@ -53,6 +53,15 @@ namespace utils::problems {
         virtual void output() {
             std::cout << "h = " << h << std::endl;
         }
+
+        /**
+         * This method is used to get a representative error for the object.
+         * This is used for the fixed point iteration.
+         * @return
+         */
+        virtual double repr_error() {
+            return 0;
+        }
     };
 
 
@@ -70,14 +79,18 @@ namespace utils::problems {
     template<int dim>
     class CutFEMProblem {
     public:
-        CutFEMProblem(const unsigned int n_refines,
-                      const int element_order,
-                      const bool write_output,
+        CutFEMProblem(unsigned int n_refines,
+                      int element_order,
+                      bool write_output,
                       LevelSet<dim> &levelset_func,
-                      const bool stabilized = true);
+                      bool stabilized = true,
+                      bool stationary = false);
 
         ErrorBase *
         run_step();
+
+        ErrorBase *
+        run_step_non_linear(double tol);
 
         Vector<double>
         get_solution();
@@ -334,6 +347,8 @@ namespace utils::problems {
         bool crank_nicholson;
 
         const bool stabilized;
+
+        const bool stationary;
 
         // When this flag is set to false, the stiffness matrix is assembled
         // again in every time step in the run_time method, created for

@@ -56,10 +56,11 @@ namespace examples::cut::StokesEquation {
               LevelSet<dim> &levelset_func,
               const int do_nothing_id,
               const bool stabilized,
+              const bool stationary,
               const bool crank_nicholson)
             : FlowProblem<dim>(n_refines, element_order, write_output,
                                levelset_func, analytic_vel, analytic_pressure,
-                               stabilized),
+                               stabilized, stationary),
               nu(nu), radius(radius), half_length(half_length),
               do_nothing_id(do_nothing_id) {
         this->tau = tau;
@@ -267,6 +268,10 @@ namespace examples::cut::StokesEquation {
         std::vector<Tensor<1, dim>> phi_u(dofs_per_cell, Tensor<1, dim>());
         std::vector<double> phi_p(dofs_per_cell);
 
+        std::cout << "hei1" << std::endl;
+        const int time_switch = this->stationary ? 0 : 1;
+        std::cout << "hei2" << std::endl;
+
         for (unsigned int q = 0; q < fe_values.n_quadrature_points; ++q) {
             for (const unsigned int k : fe_values.dof_indices()) {
                 grad_phi_u[k] = fe_values[velocities].gradient(k, q);
@@ -279,7 +284,7 @@ namespace examples::cut::StokesEquation {
                 for (const unsigned int j : fe_values.dof_indices()) {
                     local_matrix(i, j) +=
                             (this->bdf_coeffs[0]
-                             * phi_u[j] * phi_u[i]  // (u, v)
+                             * phi_u[j] * phi_u[i] * time_switch // (u, v)
                              +
                              (nu * scalar_product(grad_phi_u[j],
                                                   grad_phi_u[i]) // (grad u, grad v)

@@ -62,7 +62,8 @@ namespace examples::cut::NavierStokes {
                         LevelSet<dim> &levelset_func,
                         bool semi_implicit,
                         int do_nothing_id = 10,
-                        bool stabilized = true);
+                        bool stabilized = true,
+                        bool stationary = false);
 
     protected:
         void

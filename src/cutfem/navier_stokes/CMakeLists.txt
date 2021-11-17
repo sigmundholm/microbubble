@@ -10,3 +10,7 @@ target_link_libraries(run-ns stokes-time2 flow base cutfem)
 add_executable(convergence-ns convergence.cc)
 deal_ii_setup_target(convergence-ns)
 target_link_libraries(convergence-ns navier-stokes stokes-time2 flow base cutfem)
+
+add_executable(stat-conv-ns convergence_stationary.cc rhs_stat.cc)
+deal_ii_setup_target(stat-conv-ns)
+target_link_libraries(stat-conv-ns navier-stokes stokes-time2 flow base cutfem)

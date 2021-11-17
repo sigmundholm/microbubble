@@ -54,7 +54,8 @@ namespace examples::cut::NavierStokes {
                     LevelSet<dim> &levelset_func,
                     const bool semi_implicit,
                     const int do_nothing_id,
-                    const bool stabilized)
+                    const bool stabilized,
+                    const bool stationary)
             : StokesEquation::StokesEqn<dim>(nu, tau, radius, half_length,
                                              n_refines,
                                              element_order, write_output,
@@ -62,7 +63,7 @@ namespace examples::cut::NavierStokes {
                                              analytic_vel, analytic_pressure,
                                              levelset_func,
                                              do_nothing_id, stabilized,
-                                             false),
+                                             stationary, false),
               semi_implicit(semi_implicit) {
         convection_field = &conv_field;
 
@@ -114,6 +115,12 @@ namespace examples::cut::NavierStokes {
         // be overridden in a subclass constructor.
         double gamma_u = 0.5;
         double gamma_p = 0.5;
+
+        // If we are solving a stationary problem, set tau to 1, to keep
+        // the stabilization scalings correct.
+        if (this->stationary) {
+            this->tau = 1;
+        }
 
         if (semi_implicit) {
             std::cout << "Stabilization constants set for Navier-Stokes "
@@ -279,6 +286,8 @@ namespace examples::cut::NavierStokes {
         std::vector<Tensor<1, dim>> phi_u(dofs_per_cell, Tensor<1, dim>());
         std::vector<double> phi_p(dofs_per_cell);
 
+        const int time_switch = this->stationary ? 0 : 1;
+
         for (unsigned int q = 0; q < fe_values.n_quadrature_points; ++q) {
             for (const unsigned int k : fe_values.dof_indices()) {
                 grad_phi_u[k] = fe_values[velocities].gradient(k, q);
@@ -291,7 +300,7 @@ namespace examples::cut::NavierStokes {
                 for (const unsigned int j : fe_values.dof_indices()) {
                     local_matrix(i, j) +=
                             (this->bdf_coeffs[0]
-                             * phi_u[j] * phi_u[i]  // (u, v)
+                             * phi_u[j] * phi_u[i] * time_switch // (u, v)
                              +
                              (this->nu * scalar_product(grad_phi_u[j],
                                                         grad_phi_u[i]) // (grad u, grad v)
@@ -319,10 +328,10 @@ namespace examples::cut::NavierStokes {
         assert(!this->stationary_stiffness_matrix);
 
         // Create vector of the previous solutions values
-        std::vector <Tensor<1, dim>> val(fe_v.n_quadrature_points,
-                                         Tensor<1, dim>());
+        std::vector<Tensor<1, dim>> val(fe_v.n_quadrature_points,
+                                        Tensor<1, dim>());
         // This vector contains (-, u^n, u^(n-1)) for BDF-2.
-        std::vector < std::vector < Tensor < 1, dim >> > prev_solution_values(
+        std::vector<std::vector<Tensor<1, dim >>> prev_solution_values(
                 this->solutions.size(), val);
 
         const FEValuesExtractors::Vector v(0);
@@ -335,8 +344,8 @@ namespace examples::cut::NavierStokes {
         }
 
         Tensor<1, dim> extrapolation;
-        std::vector <Tensor<2, dim>> grad_phi_u(dofs_per_cell);
-        std::vector <Tensor<1, dim>> phi_u(dofs_per_cell);
+        std::vector<Tensor<2, dim>> grad_phi_u(dofs_per_cell);
+        std::vector<Tensor<1, dim>> phi_u(dofs_per_cell);
         for (unsigned int q = 0; q < fe_v.n_quadrature_points; ++q) {
             // Compute the extrapolated value by using the previous steps.
             extrapolation = Tensor<1, dim>();
@@ -586,6 +595,7 @@ namespace examples::cut::NavierStokes {
         Tensor<2, dim> grad_extrap;
         Tensor<1, dim> phi_u;
         Tensor<1, dim> bdf_terms;
+        const int time_switch = this->stationary ? 0 : 1;
 
         for (unsigned int q = 0; q < fe_v.n_quadrature_points; ++q) {
             // Compute the extrapolated value by using the previous steps.
@@ -610,7 +620,7 @@ namespace examples::cut::NavierStokes {
             for (const unsigned int i : fe_v.dof_indices()) {
                 phi_u = fe_v[v].value(i, q);
                 local_rhs(i) += (this->tau * rhs_values[q] * phi_u // τ(f, v)
-                                 - bdf_terms * phi_u               // BDF-terms
+                                 - bdf_terms * phi_u * time_switch // BDF-terms
                                  - (grad_extrap * extrap)          // convection
                                    * phi_u * this->tau
                                 ) * fe_v.JxW(q);                   // dx

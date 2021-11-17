@@ -43,14 +43,15 @@ namespace utils::problems {
                   const int element_order,
                   const bool write_output,
                   LevelSet<dim> &levelset_func,
-                  const bool stabilized)
+                  const bool stabilized,
+                  const bool stationary)
             : n_refines(n_refines), element_order(element_order),
               write_output(write_output),
               fe_levelset(element_order),
               levelset_dof_handler(triangulation),
               cut_mesh_classifier(triangulation, levelset_dof_handler,
                                   levelset),
-              stabilized(stabilized) {
+              stabilized(stabilized), stationary(stationary) {
         // Use no constraints when projecting.
         this->constraints.close();
 
@@ -69,6 +70,8 @@ namespace utils::problems {
         setup_fe_collection();
         distribute_dofs(dof_handlers.front());
         initialize_matrices();
+        set_bdf_coefficients(1);
+        set_extrapolation_coefficients(1);
         int n_dofs = dof_handlers.front()->n_dofs();
         solutions.emplace_front(n_dofs);
         pre_matrix_assembly();
@@ -79,6 +82,67 @@ namespace utils::problems {
                            this->solutions.front());
         }
         return compute_error(dof_handlers.front(), solutions.front());
+    }
+
+
+    template<int dim>
+    ErrorBase *CutFEMProblem<dim>::
+    run_step_non_linear(double tol) {
+        std::cout << "\nFixed point iteration" << std::endl;
+        std::cout << "-------------------------" << std::endl;
+
+        make_grid(triangulation);
+        setup_quadrature();
+        setup_level_set();
+        cut_mesh_classifier.reclassify(); // TODO move this into distribute_dofs method
+        dof_handlers.emplace_front(new hp::DoFHandler<dim>(triangulation));
+        setup_fe_collection();
+        distribute_dofs(dof_handlers.front());
+
+        // initialize_matrices();
+        set_bdf_coefficients(1);
+        set_extrapolation_coefficients(1);
+        int n_dofs = dof_handlers.front()->n_dofs();
+
+        double prev_error;
+        double this_error = 1; // Set to 1 to enforce at least two steps.
+        ErrorBase *error;
+        double error_diff = 2 * tol;
+        int k = 0;
+
+        solutions.emplace_front(n_dofs);
+
+        while (error_diff > tol) {
+            k++;
+            std::cout << "\nFixed point iteration: step " << k << std::endl;
+            std::cout << "-----------------------------------" << std::endl;
+
+            solutions.emplace_front(n_dofs);
+            if (k == 1) {
+                initialize_matrices();
+                pre_matrix_assembly();
+                assemble_system();
+            }
+            if (!stationary_stiffness_matrix) {
+                timedep_stiffness_matrix.reinit(sparsity_pattern);
+                assemble_timedep_matrix();
+            }
+            solve();
+            error = compute_error(dof_handlers.front(), solutions.front());
+            prev_error = this_error;
+            this_error = error->repr_error();
+            error->output();
+            error_diff = abs(this_error - prev_error);
+            std::cout << "  Error diff = " << error_diff << std::endl;
+
+            if (write_output) {
+                output_results(this->dof_handlers.front(),
+                               this->solutions.front());
+            }
+            solutions.pop_back();
+        }
+        return compute_error(dof_handlers.front(), solutions.front());
+
     }
 
 
@@ -664,7 +728,12 @@ namespace utils::problems {
     template<int dim>
     void CutFEMProblem<dim>::
     assemble_system() {
-        throw std::logic_error("Not implemented: assemble_system");
+        std::cout << "Assemble system: matrix and rhs" << std::endl;
+        assemble_matrix();
+        assemble_rhs(1);
+        if (stationary_stiffness_matrix) {
+            assemble_timedep_matrix();
+        }
     }
 
     template<int dim>
@@ -700,7 +769,8 @@ namespace utils::problems {
     void CutFEMProblem<dim>::
     assemble_matrix_local_over_cell(const FEValues<dim> &fe_values,
                                     const std::vector<types::global_dof_index> &loc2glb) {
-        throw std::logic_error("Not implemented: assemble_matrix_local_over_cell");
+        throw std::logic_error(
+                "Not implemented: assemble_matrix_local_over_cell");
     }
 
     template<int dim>
@@ -708,7 +778,8 @@ namespace utils::problems {
     assemble_matrix_local_over_surface(
             const FEValuesBase<dim> &fe_values,
             const std::vector<types::global_dof_index> &loc2glb) {
-        throw std::logic_error("Not implemented: assemble_matrix_local_over_surface");
+        throw std::logic_error(
+                "Not implemented: assemble_matrix_local_over_surface");
     }
 
     template<int dim>
@@ -729,7 +800,8 @@ namespace utils::problems {
     assemble_rhs_local_over_cell_cn(const FEValues<dim> &fe_values,
                                     const std::vector<types::global_dof_index> &loc2glb,
                                     const int time_step) {
-        throw std::logic_error("Not implemented: assemble_rhs_local_over_cell_cn");
+        throw std::logic_error(
+                "Not implemented: assemble_rhs_local_over_cell_cn");
     }
 
     template<int dim>
@@ -737,7 +809,8 @@ namespace utils::problems {
     assemble_rhs_local_over_surface(
             const FEValuesBase<dim> &fe_values,
             const std::vector<types::global_dof_index> &loc2glob) {
-        throw std::logic_error("Not implemented: assemble_rhs_local_over_surface");
+        throw std::logic_error(
+                "Not implemented: assemble_rhs_local_over_surface");
     }
 
     template<int dim>
@@ -746,7 +819,8 @@ namespace utils::problems {
             const FEValuesBase<dim> &fe_values,
             const std::vector<types::global_dof_index> &loc2glob,
             const int time_step) {
-        throw std::logic_error("Not implemented: assemble_rhs_local_over_surface_cn");
+        throw std::logic_error(
+                "Not implemented: assemble_rhs_local_over_surface_cn");
     }
 
 

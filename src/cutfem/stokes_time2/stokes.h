@@ -61,6 +61,7 @@ namespace examples::cut::StokesEquation {
                   LevelSet<dim> &levelset_func,
                   int do_nothing_id = 10,
                   bool stabilized = true,
+                  bool stationary = false,
                   bool crank_nicholson = false);
 
         static void

@@ -60,6 +60,10 @@ namespace utils::problems::scalar {
                       << ", || u - u_h ||_H1 = " << h1_error
                       << std::endl;
         }
+
+        double repr_error() override {
+            return l2_error;
+        }
     };
 
 

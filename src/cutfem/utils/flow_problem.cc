@@ -44,9 +44,10 @@ namespace utils::problems::flow {
                 LevelSet<dim> &levelset_func,
                 TensorFunction<1, dim> &analytic_v,
                 Function<dim> &analytic_p,
-                const bool stabilized)
-            : CutFEMProblem<dim>(n_refines, element_order,
-                                 write_output, levelset_func, stabilized),
+                const bool stabilized,
+                const bool stationary)
+            : CutFEMProblem<dim>(n_refines, element_order, write_output,
+                                 levelset_func, stabilized, stationary),
               mixed_fe(FESystem<dim>(FE_Q<dim>(element_order + 1), dim), 1,
                        FE_Q<dim>(element_order), 1) {
         analytical_velocity = &analytic_v;
@@ -98,14 +99,6 @@ namespace utils::problems::flow {
 
     template<int dim>
     void FlowProblem<dim>::
-    assemble_system() {
-        // TODO
-        assert(false);
-    }
-
-
-    template<int dim>
-    void FlowProblem<dim>::
     assemble_rhs_and_bdf_terms_local_over_cell(
             const FEValues<dim> &fe_v,
             const std::vector<types::global_dof_index> &loc2glb) {
@@ -134,6 +127,8 @@ namespace utils::problems::flow {
         Tensor<1, dim> phi_u;
         Tensor<1, dim> prev_values;
 
+        const int time_switch = this->stationary ? 0 : 1;
+
         for (unsigned int q = 0; q < fe_v.n_quadrature_points; ++q) {
             // RHS
             prev_values = Tensor<1, dim>();
@@ -146,7 +141,7 @@ namespace utils::problems::flow {
 
                 phi_u = fe_v[v].value(i, q);
                 local_rhs(i) += (this->tau * rhs_values[q] * phi_u    // τ(f, v)
-                                 - prev_values * phi_u
+                                 - prev_values * phi_u * time_switch
                                 ) * fe_v.JxW(q);      // dx
             }
         }
@@ -220,6 +215,8 @@ namespace utils::problems::flow {
         }
         Tensor<1, dim> phi_u;
         Tensor<1, dim> prev_values;
+        const int time_switch = this->stationary ? 0 : 1;
+
         for (unsigned int q = 0; q < fe_v.n_quadrature_points; ++q) {
             prev_values = 0;
             for (unsigned long k = 1; k < this->solutions.size(); ++k) {
@@ -228,8 +225,8 @@ namespace utils::problems::flow {
             }
             for (const unsigned int i : fe_v.dof_indices()) {
                 phi_u = fe_v[v].value(i, q);
-                local_rhs(i) += (this->tau * rhs_values[q] * phi_u // (f, v)
-                                 - prev_values * phi_u       // (u_n, v)
+                local_rhs(i) += (this->tau * rhs_values[q] * phi_u   // (f, v)
+                                 - prev_values * phi_u * time_switch // (u_n, v)
                                 ) * fe_v.JxW(q);         // dx
             }
         }
