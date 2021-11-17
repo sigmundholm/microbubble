@@ -68,6 +68,23 @@ namespace examples::cut::NavierStokes {
 
     template<int dim>
     void NavierStokesEqn<dim>::
+    set_function_times(double time) {
+        this->rhs_function->set_time(time);
+        this->boundary_values->set_time(time);
+        this->analytical_velocity->set_time(time);
+        this->analytical_pressure->set_time(time);
+        this->convection_field->set_time(time);
+
+        if (this->moving_domain) {
+            this->levelset_function->set_time(time);
+        } else {
+            this->levelset_function->set_time(0);
+        }
+    }
+
+
+    template<int dim>
+    void NavierStokesEqn<dim>::
     make_grid(Triangulation<dim> &tria) {
         std::cout << "Creating triangulation" << std::endl;
 

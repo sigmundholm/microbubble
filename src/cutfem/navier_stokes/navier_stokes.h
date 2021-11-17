@@ -66,6 +66,9 @@ namespace examples::cut::NavierStokes {
 
     protected:
         void
+        set_function_times(double time) override;
+
+        void
         make_grid(Triangulation<dim> &tria) override;
 
         void
