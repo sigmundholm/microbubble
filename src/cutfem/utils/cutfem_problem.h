@@ -331,6 +331,15 @@ namespace utils::problems {
 
         const bool stabilized;
 
+        // When this flag is set to false, the stiffness matrix is assembled
+        // again in every time step in the run_time method, created for
+        // stationary domains. This is necessary for e.g. Navier-Stokes
+        // with semi-implicit convection term.
+        // TODO create a new assemble method that assembles in every step for
+        //  this case, and then the two matrices A and C(u_e) are added to solve
+        //  the system (A+C(u_e))u = f.
+        bool stationary_stiffness_matrix = true;
+
     };
 }
 

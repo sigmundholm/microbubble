@@ -63,6 +63,10 @@ namespace examples::cut::NavierStokes {
                                              false),
               semi_implicit(semi_implicit) {
         convection_field = &conv_field;
+
+        if (semi_implicit) {
+            this->stationary_stiffness_matrix = false;
+        }
     }
 
 

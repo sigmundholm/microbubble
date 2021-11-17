@@ -108,13 +108,13 @@ namespace utils::problems {
 
         make_grid(triangulation);
         setup_quadrature();
+        set_function_times(0);
         setup_level_set();
         cut_mesh_classifier.reclassify();
         setup_fe_collection();
         // Initialize the first dof_handler.
         dof_handlers.emplace_front(new hp::DoFHandler<dim>());
         distribute_dofs(dof_handlers.front());
-        initialize_matrices();
 
         // Vector for the computed error for each time step.
         std::vector<ErrorBase *> errors(steps + 1);
@@ -153,10 +153,13 @@ namespace utils::problems {
             int n_dofs = this->dof_handlers.front()->n_dofs();
             this->solutions.emplace_front(n_dofs);
 
-            if (k == bdf_type) {
+            if (k == bdf_type || !stationary_stiffness_matrix) {
                 // Assemble the matrix after the new solution vector is created.
                 // This is to omit index problems when assembling a stiffness
                 // matrix that is dependent on previous solutions.
+
+                // Assemble the stiffness matrix
+                initialize_matrices();
                 pre_matrix_assembly();
                 assemble_matrix();
             }
