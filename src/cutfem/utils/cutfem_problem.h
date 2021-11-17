@@ -198,6 +198,9 @@ namespace utils::problems {
         assemble_matrix();
 
         virtual void
+        assemble_timedep_matrix();
+
+        virtual void
         assemble_matrix_local_over_cell(const FEValues<dim> &fe_values,
                                         const std::vector<types::global_dof_index> &loc2glb);
 
@@ -308,6 +311,7 @@ namespace utils::problems {
         SparsityPattern sparsity_pattern;
 
         SparseMatrix<double> stiffness_matrix;
+        SparseMatrix<double> timedep_stiffness_matrix;
         Vector<double> rhs;
 
         AffineConstraints<double> constraints;

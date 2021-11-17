@@ -25,6 +25,8 @@
 #include "cutfem/geometry/SignedDistanceSphere.h"
 #include "cutfem/nla/sparsity_pattern.h"
 
+#include "../utils/utils.h"
+
 #include "navier_stokes.h"
 
 
@@ -136,6 +138,113 @@ namespace examples::cut::NavierStokes {
 
     template<int dim>
     void NavierStokesEqn<dim>::
+    assemble_timedep_matrix() {
+        std::cout << "Assembling: Navier-Stokes convection term" << std::endl;
+
+        // When the domain is moving, the whole stiffness matrix needs to be
+        // assembled in each time step.
+        assert(!this->moving_domain);
+        // When the convection term is assembled explicitly, the convection
+        // is handled in the rhs assembly method, and is done in each time step.
+        assert(this->semi_implicit);
+        assert(!this->stationary_stiffness_matrix);
+
+        // Object deciding what faces should be stabilized.
+        std::shared_ptr<Selector<dim>> face_selector(
+                new Selector<dim>(this->cut_mesh_classifier));
+
+        // Use a helper object to compute the stabilisation for both the velocity
+        // and the pressure component.
+        const FEValuesExtractors::Vector velocities(0);
+        stabilization::JumpStabilization<dim, FEValuesExtractors::Vector>
+                velocity_stab(*this->dof_handlers.front(),
+                              this->mapping_collection,
+                              this->cut_mesh_classifier,
+                              this->constraints);
+        velocity_stab.set_faces_to_stabilize(face_selector);
+        velocity_stab.set_weight_function(stabilization::taylor_weights);
+        velocity_stab.set_extractor(velocities);
+
+        const FEValuesExtractors::Scalar pressure(dim);
+        stabilization::JumpStabilization<dim, FEValuesExtractors::Scalar>
+                pressure_stab(*this->dof_handlers.front(),
+                              this->mapping_collection,
+                              this->cut_mesh_classifier,
+                              this->constraints);
+        pressure_stab.set_faces_to_stabilize(face_selector);
+        pressure_stab.set_weight_function(stabilization::taylor_weights);
+        pressure_stab.set_extractor(pressure);
+
+        assert(this->velocity_stab_scaling != 0);
+        assert(this->pressure_stab_scaling != 0);
+
+        NonMatching::RegionUpdateFlags region_update_flags;
+        region_update_flags.inside = update_values | update_JxW_values |
+                                     update_gradients |
+                                     update_quadrature_points;
+        region_update_flags.surface = update_values | update_JxW_values |
+                                      update_gradients |
+                                      update_quadrature_points |
+                                      update_normal_vectors;
+
+        NonMatching::FEValues<dim> cut_fe_values(this->mapping_collection,
+                                                 this->fe_collection,
+                                                 this->q_collection,
+                                                 this->q_collection1D,
+                                                 region_update_flags,
+                                                 this->cut_mesh_classifier,
+                                                 this->levelset_dof_handler,
+                                                 this->levelset);
+
+        // Quadrature for the faces of the cells on the outer boundary
+        QGauss<dim - 1> face_quadrature_formula(this->mixed_fe.degree + 1);
+        FEFaceValues<dim> fe_face_values(this->mixed_fe,
+                                         face_quadrature_formula,
+                                         update_values | update_gradients |
+                                         update_quadrature_points |
+                                         update_normal_vectors |
+                                         update_JxW_values);
+
+        for (const auto &cell : this->dof_handlers.front()->active_cell_iterators()) {
+            const unsigned int n_dofs = cell->get_fe().dofs_per_cell;
+            const LocationToLevelSet location =
+                    this->cut_mesh_classifier.location_to_level_set(cell);
+            std::vector<types::global_dof_index> loc2glb(n_dofs);
+            cell->get_dof_indices(loc2glb);
+
+            // This call will compute quadrature rules relevant for this cell
+            // in the background.
+            cut_fe_values.reinit(cell);
+
+            if (location != LocationToLevelSet::OUTSIDE) {
+                // Retrieve an FEValues object with quadrature points
+                // over the full cell.
+                const boost::optional<const FEValues<dim> &> fe_values_bulk =
+                        cut_fe_values.get_inside_fe_values();
+
+                if (fe_values_bulk) {
+                    assemble_convection_over_cell(*fe_values_bulk, loc2glb);
+                }
+            }
+
+            if (this->stabilized) {
+                // Compute and add the velocity stabilization.
+                velocity_stab.compute_stabilization(cell);
+                velocity_stab.add_stabilization_to_matrix(
+                        this->velocity_stab_scaling,
+                        this->timedep_stiffness_matrix);
+                // Compute and add the pressure stabilisation.
+                pressure_stab.compute_stabilization(cell);
+                pressure_stab.add_stabilization_to_matrix(
+                        this->pressure_stab_scaling,
+                        this->timedep_stiffness_matrix);
+            }
+        }
+    }
+
+
+    template<int dim>
+    void NavierStokesEqn<dim>::
     assemble_matrix_local_over_cell(
             const FEValues<dim> &fe_values,
             const std::vector<types::global_dof_index> &loc2glb) {
@@ -144,7 +253,7 @@ namespace examples::cut::NavierStokes {
             if (this->moving_domain) {
                 assemble_convection_over_cell_moving_domain(fe_values, loc2glb);
             } else {
-                assemble_convection_over_cell(fe_values, loc2glb);
+                // assemble_convection_over_cell(fe_values, loc2glb);
             }
         }
         // The following is identical to the method in the solver for the
@@ -207,11 +316,13 @@ namespace examples::cut::NavierStokes {
         const unsigned int dofs_per_cell = fe_v.get_fe().dofs_per_cell;
         FullMatrix<double> local_matrix(dofs_per_cell, dofs_per_cell);
 
+        assert(!this->stationary_stiffness_matrix);
+
         // Create vector of the previous solutions values
-        std::vector<Tensor<1, dim>> val(fe_v.n_quadrature_points,
-                                        Tensor<1, dim>());
+        std::vector <Tensor<1, dim>> val(fe_v.n_quadrature_points,
+                                         Tensor<1, dim>());
         // This vector contains (-, u^n, u^(n-1)) for BDF-2.
-        std::vector<std::vector<Tensor<1, dim>>> prev_solution_values(
+        std::vector < std::vector < Tensor < 1, dim >> > prev_solution_values(
                 this->solutions.size(), val);
 
         const FEValuesExtractors::Vector v(0);
@@ -224,8 +335,8 @@ namespace examples::cut::NavierStokes {
         }
 
         Tensor<1, dim> extrapolation;
-        std::vector<Tensor<2, dim>> grad_phi_u(dofs_per_cell);
-        std::vector<Tensor<1, dim>> phi_u(dofs_per_cell);
+        std::vector <Tensor<2, dim>> grad_phi_u(dofs_per_cell);
+        std::vector <Tensor<1, dim>> phi_u(dofs_per_cell);
         for (unsigned int q = 0; q < fe_v.n_quadrature_points; ++q) {
             // Compute the extrapolated value by using the previous steps.
             extrapolation = Tensor<1, dim>();
@@ -252,7 +363,7 @@ namespace examples::cut::NavierStokes {
                 }
             }
         }
-        this->stiffness_matrix.add(loc2glb, local_matrix);
+        this->timedep_stiffness_matrix.add(loc2glb, local_matrix);
     }
 
 

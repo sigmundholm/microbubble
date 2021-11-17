@@ -153,7 +153,7 @@ namespace utils::problems {
             int n_dofs = this->dof_handlers.front()->n_dofs();
             this->solutions.emplace_front(n_dofs);
 
-            if (k == bdf_type || !stationary_stiffness_matrix) {
+            if (k == bdf_type) {
                 // Assemble the matrix after the new solution vector is created.
                 // This is to omit index problems when assembling a stiffness
                 // matrix that is dependent on previous solutions.
@@ -162,6 +162,10 @@ namespace utils::problems {
                 initialize_matrices();
                 pre_matrix_assembly();
                 assemble_matrix();
+            }
+            if (!stationary_stiffness_matrix) {
+                timedep_stiffness_matrix.reinit(sparsity_pattern);
+                assemble_timedep_matrix();
             }
 
             // TODO nødvendig??
@@ -660,14 +664,14 @@ namespace utils::problems {
     template<int dim>
     void CutFEMProblem<dim>::
     assemble_system() {
-        throw std::logic_error("Not implemented.");
+        throw std::logic_error("Not implemented: assemble_system");
     }
 
     template<int dim>
     void CutFEMProblem<dim>::
     assemble_local_over_cell(const FEValues<dim> &fe_values,
                              const std::vector<types::global_dof_index> &loc2glb) {
-        throw std::logic_error("Not implemented.");
+        throw std::logic_error("Not implemented: assemble_local_over_cell");
     }
 
     template<int dim>
@@ -675,21 +679,28 @@ namespace utils::problems {
     assemble_local_over_surface(
             const FEValuesBase<dim> &fe_values,
             const std::vector<types::global_dof_index> &loc2glb) {
-        throw std::logic_error("Not implemented.");
+        throw std::logic_error("Not implemented: asssemble_local_over_surface");
     }
 
 
     template<int dim>
     void CutFEMProblem<dim>::
     assemble_matrix() {
-        throw std::logic_error("Not implemented.");
+        throw std::logic_error("Not implemented: assemble_matrix");
     }
+
+    template<int dim>
+    void CutFEMProblem<dim>::
+    assemble_timedep_matrix() {
+        throw std::logic_error("Not implemented: assemble_timedep_matrix");
+    }
+
 
     template<int dim>
     void CutFEMProblem<dim>::
     assemble_matrix_local_over_cell(const FEValues<dim> &fe_values,
                                     const std::vector<types::global_dof_index> &loc2glb) {
-        throw std::logic_error("Not implemented.");
+        throw std::logic_error("Not implemented: assemble_matrix_local_over_cell");
     }
 
     template<int dim>
@@ -697,20 +708,20 @@ namespace utils::problems {
     assemble_matrix_local_over_surface(
             const FEValuesBase<dim> &fe_values,
             const std::vector<types::global_dof_index> &loc2glb) {
-        throw std::logic_error("Not implemented.");
+        throw std::logic_error("Not implemented: assemble_matrix_local_over_surface");
     }
 
     template<int dim>
     void CutFEMProblem<dim>::
     assemble_rhs(int time_step) {
-        throw std::logic_error("Not implemented.");
+        throw std::logic_error("Not implemented: assemble_rhs");
     }
 
     template<int dim>
     void CutFEMProblem<dim>::
     assemble_rhs_local_over_cell(const FEValues<dim> &fe_values,
                                  const std::vector<types::global_dof_index> &loc2glb) {
-        throw std::logic_error("Not implemented.");
+        throw std::logic_error("Not implemented: assemble_rhs_local_over_cell");
     }
 
     template<int dim>
@@ -718,7 +729,7 @@ namespace utils::problems {
     assemble_rhs_local_over_cell_cn(const FEValues<dim> &fe_values,
                                     const std::vector<types::global_dof_index> &loc2glb,
                                     const int time_step) {
-        throw std::logic_error("Not implemented.");
+        throw std::logic_error("Not implemented: assemble_rhs_local_over_cell_cn");
     }
 
     template<int dim>
@@ -726,7 +737,7 @@ namespace utils::problems {
     assemble_rhs_local_over_surface(
             const FEValuesBase<dim> &fe_values,
             const std::vector<types::global_dof_index> &loc2glob) {
-        throw std::logic_error("Not implemented.");
+        throw std::logic_error("Not implemented: assemble_rhs_local_over_surface");
     }
 
     template<int dim>
@@ -735,7 +746,7 @@ namespace utils::problems {
             const FEValuesBase<dim> &fe_values,
             const std::vector<types::global_dof_index> &loc2glob,
             const int time_step) {
-        throw std::logic_error("Not implemented.");
+        throw std::logic_error("Not implemented: assemble_rhs_local_over_surface_cn");
     }
 
 
@@ -743,9 +754,19 @@ namespace utils::problems {
     void CutFEMProblem<dim>::
     solve() {
         std::cout << "Solving system" << std::endl;
-        SparseDirectUMFPACK inverse;
-        inverse.initialize(stiffness_matrix);
-        inverse.vmult(solutions.front(), rhs);
+        if (stationary_stiffness_matrix) {
+            SparseDirectUMFPACK inverse;
+            inverse.initialize(stiffness_matrix);
+            inverse.vmult(solutions.front(), rhs);
+        } else {
+            SparseDirectUMFPACK inverse;
+            SparseMatrix<double> timedep;
+            timedep.reinit(sparsity_pattern);
+            timedep.copy_from(stiffness_matrix);
+            timedep.add(1, timedep_stiffness_matrix);
+            inverse.initialize(timedep);
+            inverse.vmult(solutions.front(), rhs);
+        }
     }
 
 

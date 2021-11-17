@@ -75,6 +75,9 @@ namespace examples::cut::NavierStokes {
         pre_matrix_assembly() override;
 
         void
+        assemble_timedep_matrix() override;
+
+        void
         assemble_matrix_local_over_cell(
                 const FEValues<dim> &fe_v,
                 const std::vector<types::global_dof_index> &loc2glb) override;
