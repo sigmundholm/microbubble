@@ -4,8 +4,9 @@ build
 cmake-build-debug
 
 
-# CLion
+# IDE
 .idea
+.vscode
 venv
 
 
