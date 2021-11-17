@@ -99,7 +99,8 @@ namespace examples::cut::NavierStokes {
                     gamma_u * (1 + this->tau / this->h +
                                this->tau * this->nu / pow(this->h, 2));
             this->pressure_stab_scaling =
-                    -gamma_p * this->tau / this->h;
+                    -gamma_p * this->tau /
+                    (this->nu + this->h + pow(this->h, 2) / this->tau);
         } else {
             std::cout << "Stabilization constants set for Navier-Stokes "
                          "(explicit convection term)." << std::endl;

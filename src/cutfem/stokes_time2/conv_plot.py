@@ -27,7 +27,7 @@ def time_error_plot():
 
 # Plot settings
 folder = ""
-radius = 0.005
+radius = 0.05
 end_time = radius
 domain_length = radius
 xlabel = "M"

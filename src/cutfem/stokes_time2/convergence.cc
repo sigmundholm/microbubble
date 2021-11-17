@@ -15,8 +15,8 @@ void solve_for_element_order(int element_order, int max_refinement,
     using namespace examples::cut::StokesEquation;
     using namespace examples::cut;
 
-    double nu = 10;
-    double radius = 0.05 / nu;
+    double nu = 0.1;
+    double radius = 0.05;
     double half_length = radius;
 
     double end_time = radius;

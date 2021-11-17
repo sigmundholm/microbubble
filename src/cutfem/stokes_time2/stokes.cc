@@ -227,14 +227,16 @@ namespace examples::cut::StokesEquation {
                                                              loc2glb);
             }
 
-            // Compute and add the velocity stabilization.
-            velocity_stab.compute_stabilization(cell);
-            velocity_stab.add_stabilization_to_matrix(
-                    this->velocity_stab_scaling, this->stiffness_matrix);
-            // Compute and add the pressure stabilisation.
-            pressure_stab.compute_stabilization(cell);
-            pressure_stab.add_stabilization_to_matrix(
-                    this->pressure_stab_scaling, this->stiffness_matrix);
+            if (this->stabilized) {
+                // Compute and add the velocity stabilization.
+                velocity_stab.compute_stabilization(cell);
+                velocity_stab.add_stabilization_to_matrix(
+                        this->velocity_stab_scaling, this->stiffness_matrix);
+                // Compute and add the pressure stabilisation.
+                pressure_stab.compute_stabilization(cell);
+                pressure_stab.add_stabilization_to_matrix(
+                        this->pressure_stab_scaling, this->stiffness_matrix);
+            }
         }
     }
 

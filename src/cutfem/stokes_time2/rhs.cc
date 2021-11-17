@@ -133,6 +133,7 @@ namespace examples::cut::StokesEquation {
         double t = this->get_time();
         // Here it is assumed that T = 0.05, since for T = 1, the analytical
         // solution used is very small at the end time.
+        // TODO fix this: dont hardcode the end time
         double x0 = 0.9 * (half_length - sphere_radius) *
                     (2 * t/0.05 - 1); // sin(2 * pi * t);
         double y0 = 0.9 * (radius - sphere_radius) * (2 * t/0.05 - 1);

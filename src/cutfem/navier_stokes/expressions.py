@@ -43,9 +43,9 @@ def get_p2(t=0):
     return -(sp.cos(2 * sp.pi * x) + sp.cos(2 * sp.pi * y)) / 4 * time
 
 
-u = get_u2(t)
+u = get_u(t)
 u1, u2 = u
-p = get_p2(t)
+p = get_p(t)
 conv_field = get_conv_field()
 
 f1, f2 = get_conv_f(u, p, u)
