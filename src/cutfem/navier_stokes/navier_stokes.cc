@@ -156,32 +156,6 @@ namespace examples::cut::NavierStokes {
         assert(this->semi_implicit);
         assert(!this->stationary_stiffness_matrix);
 
-        // Object deciding what faces should be stabilized.
-        std::shared_ptr<Selector<dim>> face_selector(
-                new Selector<dim>(this->cut_mesh_classifier));
-
-        // Use a helper object to compute the stabilisation for both the velocity
-        // and the pressure component.
-        const FEValuesExtractors::Vector velocities(0);
-        stabilization::JumpStabilization<dim, FEValuesExtractors::Vector>
-                velocity_stab(*this->dof_handlers.front(),
-                              this->mapping_collection,
-                              this->cut_mesh_classifier,
-                              this->constraints);
-        velocity_stab.set_faces_to_stabilize(face_selector);
-        velocity_stab.set_weight_function(stabilization::taylor_weights);
-        velocity_stab.set_extractor(velocities);
-
-        const FEValuesExtractors::Scalar pressure(dim);
-        stabilization::JumpStabilization<dim, FEValuesExtractors::Scalar>
-                pressure_stab(*this->dof_handlers.front(),
-                              this->mapping_collection,
-                              this->cut_mesh_classifier,
-                              this->constraints);
-        pressure_stab.set_faces_to_stabilize(face_selector);
-        pressure_stab.set_weight_function(stabilization::taylor_weights);
-        pressure_stab.set_extractor(pressure);
-
         assert(this->velocity_stab_scaling != 0);
         assert(this->pressure_stab_scaling != 0);
 
@@ -189,10 +163,6 @@ namespace examples::cut::NavierStokes {
         region_update_flags.inside = update_values | update_JxW_values |
                                      update_gradients |
                                      update_quadrature_points;
-        region_update_flags.surface = update_values | update_JxW_values |
-                                      update_gradients |
-                                      update_quadrature_points |
-                                      update_normal_vectors;
 
         NonMatching::FEValues<dim> cut_fe_values(this->mapping_collection,
                                                  this->fe_collection,
@@ -202,15 +172,6 @@ namespace examples::cut::NavierStokes {
                                                  this->cut_mesh_classifier,
                                                  this->levelset_dof_handler,
                                                  this->levelset);
-
-        // Quadrature for the faces of the cells on the outer boundary
-        QGauss<dim - 1> face_quadrature_formula(this->mixed_fe.degree + 1);
-        FEFaceValues<dim> fe_face_values(this->mixed_fe,
-                                         face_quadrature_formula,
-                                         update_values | update_gradients |
-                                         update_quadrature_points |
-                                         update_normal_vectors |
-                                         update_JxW_values);
 
         for (const auto &cell : this->dof_handlers.front()->active_cell_iterators()) {
             const unsigned int n_dofs = cell->get_fe().dofs_per_cell;
@@ -233,19 +194,9 @@ namespace examples::cut::NavierStokes {
                     assemble_convection_over_cell(*fe_values_bulk, loc2glb);
                 }
             }
-
-            if (this->stabilized) {
-                // Compute and add the velocity stabilization.
-                velocity_stab.compute_stabilization(cell);
-                velocity_stab.add_stabilization_to_matrix(
-                        this->velocity_stab_scaling,
-                        this->timedep_stiffness_matrix);
-                // Compute and add the pressure stabilisation.
-                pressure_stab.compute_stabilization(cell);
-                pressure_stab.add_stabilization_to_matrix(
-                        this->pressure_stab_scaling,
-                        this->timedep_stiffness_matrix);
-            }
+            // TODO might need to add stabilizations that are dependent on the
+            //  solution in the previous time step.
+            //  - ex when we have moving domains?
         }
     }
 
