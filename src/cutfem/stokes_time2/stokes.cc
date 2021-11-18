@@ -57,17 +57,13 @@ namespace examples::cut::StokesEquation {
               const int do_nothing_id,
               const bool stabilized,
               const bool stationary,
-              const bool crank_nicholson)
+              const bool compute_error)
             : FlowProblem<dim>(n_refines, element_order, write_output,
                                levelset_func, analytic_vel, analytic_pressure,
-                               stabilized, stationary),
+                               stabilized, stationary, compute_error),
               nu(nu), radius(radius), half_length(half_length),
               do_nothing_id(do_nothing_id) {
         this->tau = tau;
-        this->crank_nicholson = crank_nicholson;
-
-        // The Crank-Nicholson method is not implemented for the Stokes solver.
-        assert(!crank_nicholson);
 
         // Use Dirichlet boundary conditions everywhere, this is done by
         // default by constructor definition.

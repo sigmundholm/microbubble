@@ -75,15 +75,9 @@ namespace utils::problems::scalar {
                       const bool write_output,
                       LevelSet<dim> &levelset_func,
                       Function<dim> &analytical_soln,
-                      const bool stabilized = true);
-
-        ScalarProblem(const unsigned int n_refines,
-                      const int element_order,
-                      const bool write_output,
-                      Triangulation<dim> &tria,
-                      Function<dim> &levelset_func,
-                      Function<dim> &analytical_soln,
-                      const bool stabilized = true);
+                      const bool stabilized = true,
+                      const bool stationary = false,
+                      const bool compute_error = true);
 
         static void
         write_header_to_file(std::ofstream &file);

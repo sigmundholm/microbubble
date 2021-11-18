@@ -63,7 +63,8 @@ namespace examples::cut::NavierStokes {
                         bool semi_implicit,
                         int do_nothing_id = 10,
                         bool stabilized = true,
-                        bool stationary = false);
+                        bool stationary = false,
+                        bool compute_error = true);
 
     protected:
         void

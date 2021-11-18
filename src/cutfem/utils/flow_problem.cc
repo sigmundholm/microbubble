@@ -45,9 +45,11 @@ namespace utils::problems::flow {
                 TensorFunction<1, dim> &analytic_v,
                 Function<dim> &analytic_p,
                 const bool stabilized,
-                const bool stationary)
+                const bool stationary,
+                const bool compute_error)
             : CutFEMProblem<dim>(n_refines, element_order, write_output,
-                                 levelset_func, stabilized, stationary),
+                                 levelset_func, stabilized, stationary,
+                                 compute_error),
               mixed_fe(FESystem<dim>(FE_Q<dim>(element_order + 1), dim), 1,
                        FE_Q<dim>(element_order), 1) {
         analytical_velocity = &analytic_v;

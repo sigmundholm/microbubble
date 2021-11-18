@@ -44,14 +44,16 @@ namespace utils::problems {
                   const bool write_output,
                   LevelSet<dim> &levelset_func,
                   const bool stabilized,
-                  const bool stationary)
+                  const bool stationary,
+                  const bool compute_error)
             : n_refines(n_refines), element_order(element_order),
               write_output(write_output),
               fe_levelset(element_order),
               levelset_dof_handler(triangulation),
               cut_mesh_classifier(triangulation, levelset_dof_handler,
                                   levelset),
-              stabilized(stabilized), stationary(stationary) {
+              stabilized(stabilized), stationary(stationary),
+              do_compute_error(compute_error) {
         // Use no constraints when projecting.
         this->constraints.close();
 
@@ -82,7 +84,11 @@ namespace utils::problems {
             output_results(this->dof_handlers.front(),
                            this->solutions.front());
         }
-        return compute_error(dof_handlers.front(), solutions.front());
+        if (do_compute_error) {
+            return compute_error(dof_handlers.front(), solutions.front());
+        } else {
+            return nullptr;
+        }
     }
 
 
@@ -143,11 +149,15 @@ namespace utils::problems {
 
             if (write_output) {
                 output_results(this->dof_handlers.front(),
-                               this->solutions.front());
+                               this->solutions.front(), k, false);
             }
             solutions.pop_back();
         }
-        return compute_error(dof_handlers.front(), solutions.front());
+        if (do_compute_error) {
+            return compute_error(dof_handlers.front(), solutions.front());
+        } else {
+            return nullptr;
+        }
     }
 
 
@@ -242,11 +252,13 @@ namespace utils::problems {
             assemble_rhs(k);
 
             this->solve();
-            errors[k] = this->compute_error(dof_handlers.front(),
-                                            solutions.front());
-            errors[k]->time_step = k;
-            write_time_error_to_file(errors[k], file);
-            errors[k]->output();
+            if (do_compute_error) {
+                errors[k] = this->compute_error(dof_handlers.front(),
+                                                solutions.front());
+                errors[k]->time_step = k;
+                write_time_error_to_file(errors[k], file);
+                errors[k]->output();
+            }
 
             if (this->write_output) {
                 this->output_results(this->dof_handlers.front(),
@@ -261,8 +273,11 @@ namespace utils::problems {
         for (ErrorBase *error : errors) {
             error->output();
         }
-
-        return compute_time_error(errors);
+        if (do_compute_error) {
+            return compute_time_error(errors);
+        } else {
+            return nullptr;
+        }
     }
 
 
@@ -376,10 +391,14 @@ namespace utils::problems {
             assemble_rhs(k);
 
             solve();
-            errors[k] = compute_error(dof_handlers.front(), solutions.front());
-            errors[k]->time_step = k;
-            write_time_error_to_file(errors[k], file);
-            errors[k]->output();
+
+            if (do_compute_error) {
+                errors[k] = compute_error(dof_handlers.front(),
+                                          solutions.front());
+                errors[k]->time_step = k;
+                write_time_error_to_file(errors[k], file);
+                errors[k]->output();
+            }
 
             if (write_output) {
                 output_results(this->dof_handlers.front(),
@@ -396,7 +415,11 @@ namespace utils::problems {
         for (ErrorBase *error : errors) {
             error->output();
         }
-        return compute_time_error(errors);
+        if (do_compute_error) {
+            return compute_time_error(errors);
+        } else {
+            return nullptr;
+        }
     }
 
 

@@ -76,7 +76,8 @@ namespace utils::problems::flow {
                     TensorFunction<1, dim> &analytic_v,
                     Function<dim> &analytic_p,
                     const bool stabilized = true,
-                    const bool stationary = false);
+                    const bool stationary = false,
+                    const bool compute_error = true);
 
         static void
         write_header_to_file(std::ofstream &file);

@@ -84,7 +84,8 @@ namespace utils::problems {
                       bool write_output,
                       LevelSet<dim> &levelset_func,
                       bool stabilized = true,
-                      bool stationary = false);
+                      bool stationary = false,
+                      bool compute_error = true);
 
         ErrorBase *
         run_step();
@@ -348,15 +349,22 @@ namespace utils::problems {
 
         const bool stabilized;
 
+        // Set to true to solve the time dependent problem.
         const bool stationary;
 
-        // When this flag is set to false, the stiffness matrix is assembled
-        // again in every time step in the run_time method, created for
-        // stationary domains. This is necessary for e.g. Navier-Stokes
-        // with semi-implicit convection term.
-        // TODO create a new assemble method that assembles in every step for
-        //  this case, and then the two matrices A and C(u_e) are added to solve
-        //  the system (A+C(u_e))u = f.
+        // Set to false to skip the error computations.
+        const bool do_compute_error;
+
+        // When this flag is set to false, it is assumed we are solving a
+        // non linear problem, so the non-linear part of the stiffness matrix
+        // has to be assembled again in each time step, even if the domain is
+        // stationary. The stationary part of the stiffness matrix is denoted
+        // by A, and is assembled by assemble_matrix(), while the non linearized
+        // part C(u_e) is assembled by assemble_timedep_matrix(), where u_e
+        // is e.g. the extrapolated solution. The solve() method then solves
+        // the system (A + C(u_e))u = f instead. This is done when the
+        // Navier-Stokes equations are solved with a semi-implicit convection
+        // term.
         bool stationary_stiffness_matrix = true;
 
     };

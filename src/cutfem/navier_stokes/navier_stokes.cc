@@ -55,7 +55,8 @@ namespace examples::cut::NavierStokes {
                     const bool semi_implicit,
                     const int do_nothing_id,
                     const bool stabilized,
-                    const bool stationary)
+                    const bool stationary,
+                    const bool compute_error)
             : StokesEquation::StokesEqn<dim>(nu, tau, radius, half_length,
                                              n_refines,
                                              element_order, write_output,
@@ -63,7 +64,7 @@ namespace examples::cut::NavierStokes {
                                              analytic_vel, analytic_pressure,
                                              levelset_func,
                                              do_nothing_id, stabilized,
-                                             stationary, false),
+                                             stationary, compute_error),
               semi_implicit(semi_implicit) {
         convection_field = &conv_field;
 
