@@ -28,13 +28,14 @@ def time_error_plot():
 
 # Plot settings
 folder = ""
-file = "stat-"
 stationary = True
 radius = 0.05
 end_time = radius
 domain_length = radius
 xlabel = "M"
 element_order = [1, 2]
+
+file = "stat-" if stationary else ""
 
 if __name__ == '__main__':
     base = split(split(split(os.getcwd())[0])[0])[0]
@@ -64,7 +65,8 @@ if __name__ == '__main__':
         eoc_plot(data, head,
                  title=r"\textrm{Navier-Stokes EOC, element order: (" + str(poly_order + 1) + ", " + str(
                      poly_order) + ")}",
-                 domain_lenght=domain_length, lines_at=np.array([1, 2, 3]), xlabel=xlabel, max_contrast=True)
+                 domain_lenght=domain_length, lines_at=np.array([0, 1, 2]) + poly_order, xlabel=xlabel,
+                 max_contrast=True)
         plt.savefig(f"bdf2-eoc-o{poly_order}.pdf")
 
     plt.show()

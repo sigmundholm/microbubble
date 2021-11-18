@@ -326,6 +326,8 @@ namespace examples::cut::NavierStokes {
         FullMatrix<double> local_matrix(dofs_per_cell, dofs_per_cell);
 
         assert(!this->stationary_stiffness_matrix);
+        assert(semi_implicit);
+        assert(!this->moving_domain);
 
         // Create vector of the previous solutions values
         std::vector<Tensor<1, dim>> val(fe_v.n_quadrature_points,
@@ -381,6 +383,10 @@ namespace examples::cut::NavierStokes {
     assemble_convection_over_cell_moving_domain(
             const FEValues<dim> &fe_v,
             const std::vector<types::global_dof_index> &loc2glb) {
+
+        assert(this->moving_domain);
+        assert(semi_implicit);
+        assert(!this->stationary);
 
         // TODO needed?
         const hp::FECollection<dim> &fe_collection = this->dof_handlers.front()->get_fe_collection();

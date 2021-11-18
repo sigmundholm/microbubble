@@ -64,6 +64,7 @@ namespace utils::problems {
     run_step() {
         make_grid(triangulation);
         setup_quadrature();
+        set_function_times(0);
         setup_level_set();
         cut_mesh_classifier.reclassify(); // TODO move this into distribute_dofs method
         dof_handlers.emplace_front(new hp::DoFHandler<dim>(triangulation));
@@ -93,6 +94,7 @@ namespace utils::problems {
 
         make_grid(triangulation);
         setup_quadrature();
+        set_function_times(0);
         setup_level_set();
         cut_mesh_classifier.reclassify(); // TODO move this into distribute_dofs method
         dof_handlers.emplace_front(new hp::DoFHandler<dim>(triangulation));
@@ -121,12 +123,16 @@ namespace utils::problems {
             if (k == 1) {
                 initialize_matrices();
                 pre_matrix_assembly();
-                assemble_system();
+                assemble_matrix();
             }
             if (!stationary_stiffness_matrix) {
                 timedep_stiffness_matrix.reinit(sparsity_pattern);
                 assemble_timedep_matrix();
             }
+
+            this->rhs = 0;
+            assemble_rhs(0);
+
             solve();
             error = compute_error(dof_handlers.front(), solutions.front());
             prev_error = this_error;
@@ -142,7 +148,6 @@ namespace utils::problems {
             solutions.pop_back();
         }
         return compute_error(dof_handlers.front(), solutions.front());
-
     }
 
 
@@ -234,8 +239,8 @@ namespace utils::problems {
 
             // TODO nødvendig??
             this->rhs.reinit(this->solutions.front().size());
-
             assemble_rhs(k);
+
             this->solve();
             errors[k] = this->compute_error(dof_handlers.front(),
                                             solutions.front());
@@ -717,6 +722,9 @@ namespace utils::problems {
         cutfem::nla::make_sparsity_pattern_for_stabilized(*dof_handlers.front(),
                                                           sparsity_pattern);
         stiffness_matrix.reinit(sparsity_pattern);
+        if (!stationary_stiffness_matrix) {
+            timedep_stiffness_matrix.reinit(sparsity_pattern);
+        }
     }
 
 
@@ -730,8 +738,8 @@ namespace utils::problems {
     assemble_system() {
         std::cout << "Assemble system: matrix and rhs" << std::endl;
         assemble_matrix();
-        assemble_rhs(1);
-        if (stationary_stiffness_matrix) {
+        assemble_rhs(0);
+        if (!stationary_stiffness_matrix) {
             assemble_timedep_matrix();
         }
     }

@@ -24,7 +24,7 @@ void solve_for_element_order(int element_order, int max_refinement,
     double sphere_radius = 0.75 * radius;
     double sphere_x_coord = 0;
 
-    const bool semi_implicit = true;
+    const bool semi_implicit = false;
     const int bdf_type = 2;
 
     std::ofstream file("errors-stat-d" + std::to_string(dim)
@@ -32,7 +32,7 @@ void solve_for_element_order(int element_order, int max_refinement,
     std::ofstream meta("errors-stat-meta-d" + std::to_string(dim)
                        + "o" + std::to_string(element_order) + ".txt");
     meta << "Stationary Navier-Stokes convergence test" << std::endl
-         << "==============================" << std::endl
+         << "=========================================" << std::endl
          << "radius = " << radius << std::endl
          << "half_length = " << half_length << std::endl
          << "end_time = " << end_time << std::endl
@@ -67,7 +67,7 @@ void solve_for_element_order(int element_order, int max_refinement,
                                 domain, semi_implicit, 10, true,
                                 true);
 
-        ErrorBase *err = ns.run_step_non_linear(1e-10);
+        ErrorBase *err = ns.run_step_non_linear(1e-11);
         auto *error = dynamic_cast<ErrorFlow *>(err);
 
         std::cout << std::endl;
