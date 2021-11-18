@@ -72,11 +72,13 @@ namespace utils::problems {
         dof_handlers.emplace_front(new hp::DoFHandler<dim>(triangulation));
         setup_fe_collection();
         distribute_dofs(dof_handlers.front());
-        initialize_matrices();
+
         set_bdf_coefficients(1);
         set_extrapolation_coefficients(1);
         int n_dofs = dof_handlers.front()->n_dofs();
         solutions.emplace_front(n_dofs);
+
+        initialize_matrices();
         pre_matrix_assembly();
         this->assemble_system();
         solve();

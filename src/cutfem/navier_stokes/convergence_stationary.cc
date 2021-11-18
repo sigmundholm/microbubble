@@ -6,6 +6,7 @@
 #include "../navier_stokes/navier_stokes.h"
 #include "../navier_stokes/rhs_stat.h"
 
+
 template<int dim>
 void solve_for_element_order(int element_order, int max_refinement,
                              bool write_output) {

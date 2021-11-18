@@ -71,23 +71,31 @@ namespace examples::cut::NavierStokes {
     ParabolicFlow<dim>::ParabolicFlow(const double radius,
                                       const double half_length,
                                       const double max_speed,
-                                      const double boundary_layer)
+                                      const bool stationary)
             : TensorFunction<1, dim>(), radius(radius),
               half_length(half_length), max_speed(max_speed),
-              boundary_layer(boundary_layer) {}
+              stationary(stationary) {}
 
     template<int dim>
     Tensor<1, dim> ParabolicFlow<dim>::
     value(const Point<dim> &p) const {
         double x = p[0];
         double y = p[1];
-        double t = this->get_time();
         Tensor<1, dim> val;
+
+        double t;
+        if (stationary) {
+            // This time asserts that the time dependent velocity profile
+            // is at its maximum.
+            t = 4;
+        } else {
+            t = this->get_time();
+        }
 
         if (x == -half_length) {
             // No-slip boundary conditions.
             val[0] = max_speed * (1 - pow(y / radius, 2))
-                     * (1 - exp(-t / boundary_layer));
+                     * sin(pi * t / 8);
             val[1] = 0;
         }
         return val;
@@ -200,12 +208,10 @@ namespace examples::cut::NavierStokes {
 
     template<int dim>
     Sphere<dim>::Sphere(const double sphere_radius,
-                        const double half_length,
-                        const double radius,
                         const double center_x,
                         const double center_y)
-            : sphere_radius(sphere_radius), half_length(half_length),
-              radius(radius), center_x(center_x), center_y(center_y) {}
+            : sphere_radius(sphere_radius), center_x(center_x),
+              center_y(center_y) {}
 
     template<int dim>
     double Sphere<dim>::

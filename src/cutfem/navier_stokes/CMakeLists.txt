@@ -14,3 +14,7 @@ target_link_libraries(convergence-ns navier-stokes stokes-time2 flow base cutfem
 add_executable(stat-conv-ns convergence_stationary.cc rhs_stat.cc)
 deal_ii_setup_target(stat-conv-ns)
 target_link_libraries(stat-conv-ns navier-stokes stokes-time2 flow base cutfem)
+
+add_executable(bm-2d-1 benchmarks/stationary_2D-1.cc rhs_stat.cc)
+deal_ii_setup_target(bm-2d-1)
+target_link_libraries(bm-2d-1 navier-stokes stokes-time2 flow base cutfem)

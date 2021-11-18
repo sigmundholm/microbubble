@@ -250,13 +250,6 @@ namespace examples::cut::StokesEquation {
         // Matrix and vector for the contribution of each cell
         const unsigned int dofs_per_cell = fe_values.get_fe().dofs_per_cell;
         FullMatrix<double> local_matrix(dofs_per_cell, dofs_per_cell);
-        Vector<double> local_rhs(dofs_per_cell);
-
-        // Vector for values of the RightHandSide for all quadrature points on a cell.
-        std::vector<Tensor<1, dim>> rhs_values(fe_values.n_quadrature_points,
-                                               Tensor<1, dim>());
-        this->rhs_function->value_list(fe_values.get_quadrature_points(),
-                                       rhs_values);
 
         const FEValuesExtractors::Vector velocities(0);
         const FEValuesExtractors::Scalar pressure(dim);
@@ -307,13 +300,6 @@ namespace examples::cut::StokesEquation {
         // Matrix and vector for the contribution of each cell
         const unsigned int dofs_per_cell = fe_values.get_fe().dofs_per_cell;
         FullMatrix<double> local_matrix(dofs_per_cell, dofs_per_cell);
-        Vector<double> local_rhs(dofs_per_cell);
-
-        // Evaluate the boundary function for all quadrature points on this face.
-        std::vector<Tensor<1, dim>> bdd_values(fe_values.n_quadrature_points,
-                                               Tensor<1, dim>());
-        this->boundary_values->value_list(fe_values.get_quadrature_points(),
-                                          bdd_values);
 
         const FEValuesExtractors::Vector velocities(0);
         const FEValuesExtractors::Scalar pressure(dim);

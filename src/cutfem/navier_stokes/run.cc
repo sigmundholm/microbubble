@@ -36,8 +36,7 @@ int main() {
     AnalyticalPressure<dim> analytical_pressure(nu);
 
     // MovingDomain<dim> domain(sphere_radius, half_length, radius);
-    Sphere<dim> domain(sphere_radius, half_length, radius,
-                       -half_length / 3, radius / 3);
+    Sphere<dim> domain(sphere_radius, -half_length / 3, radius / 3);
 
     NavierStokesEqn<dim> ns(nu, tau, radius, half_length, n_refines,
                             elementOrder, write_vtk, rhs, conv_field, boundary,

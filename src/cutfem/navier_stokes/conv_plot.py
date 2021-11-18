@@ -32,7 +32,7 @@ stationary = True
 radius = 0.05
 end_time = radius
 domain_length = radius
-xlabel = "M"
+xlabel = "N" if stationary else "M"
 element_order = [1, 2]
 
 file = "stat-" if stationary else ""
@@ -44,7 +44,7 @@ if __name__ == '__main__':
         time_error_plot()
     # convergence_plot_report()
 
-    skip = 1
+    skip = 0
     for poly_order in element_order:
         full_path = os.path.join(base, "build/src/cutfem/navier_stokes", folder, f"errors-{file}d2o{poly_order}.csv")
 
