@@ -66,6 +66,9 @@ namespace examples::cut::StokesEquation {
         this->tau = tau;
         this->crank_nicholson = crank_nicholson;
 
+        // The Crank-Nicholson method is not implemented for the Stokes solver.
+        assert(!crank_nicholson);
+
         // Use Dirichlet boundary conditions everywhere, this is done by
         // default by constructor definition.
         // this->do_nothing_id = 10;

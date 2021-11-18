@@ -24,7 +24,7 @@ void solve_for_element_order(int element_order, int max_refinement,
     double sphere_radius = 0.75 * radius;
     double sphere_x_coord = 0;
 
-    const bool semi_implicit = false;
+    const bool semi_implicit = true;
     const int bdf_type = 2;
 
     std::ofstream file("errors-stat-d" + std::to_string(dim)
