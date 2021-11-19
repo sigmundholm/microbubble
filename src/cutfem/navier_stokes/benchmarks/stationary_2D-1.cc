@@ -42,7 +42,7 @@ int main() {
     benchmarks::BenchmarkNS<dim> ns(
             nu, 0.1, radius, half_length, n_refines, elementOrder, write_vtk,
             zero_tensor, boundary, zero_tensor, zero_scalar,
-            domain, semi_implicit, 2, true, stationary, false);
+            domain, semi_implicit, 2, stationary, false);
 
     // Solve the equation using fixed point iteration, with a
     // semi-implicit convection term.

@@ -37,8 +37,7 @@ namespace examples::cut::NavierStokes::benchmarks {
                     Function<dim> &analytic_pressure,
                     Sphere<dim> &levelset_func,
                     bool semi_implicit, int do_nothing_id = 10,
-                    bool stabilized = true, bool stationary = false,
-                    bool compute_error = true);
+                    bool stationary = false, bool compute_error = true);
 
     protected:
         /**
