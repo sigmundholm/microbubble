@@ -150,8 +150,7 @@ namespace utils::problems {
         set_supplied_solutions(unsigned int bdf_type,
                                std::vector<Vector<double>> &supplied_solutions,
                                std::vector<std::shared_ptr<hp::DoFHandler<dim>>> &supplied_dof_handlers,
-                               std::vector<ErrorBase *> &errors,
-                               bool moving_domain = false);
+                               std::vector<ErrorBase *> &errors);
 
         virtual void
         set_function_times(double time);
