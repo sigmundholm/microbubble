@@ -60,6 +60,9 @@ namespace examples::cut::NavierStokes {
         Tensor<1, dim>
         value(const Point<dim> &p) const override;
 
+        double
+        get_current_max_speed();
+
         const double radius;
         const double half_length;
         const double max_speed;
@@ -127,6 +130,8 @@ namespace examples::cut::NavierStokes {
 
         double
         value(const Point<dim> &p, unsigned int component) const override;
+
+        double get_radius();
 
     private:
         const double sphere_radius;

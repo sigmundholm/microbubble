@@ -1,4 +1,4 @@
-#include "../navier_stokes.h"
+#include "ns_benchmark.h"
 #include "../rhs_stat.h"
 
 /**
@@ -37,12 +37,12 @@ int main() {
     Functions::ZeroFunction<dim> zero_scalar;
 
     const double sphere_radius = 0.05;
-    Sphere<dim> domain(sphere_radius, -(half_length - 0.2), -0.01);
+    Sphere<dim> domain(sphere_radius, -(half_length - 0.2), -0.005);
 
-    NavierStokesEqn<dim> ns(nu, 0.1, radius, half_length, n_refines,
-                            elementOrder, write_vtk, zero_tensor, zero_tensor,
-                            boundary, zero_tensor, zero_scalar,
-                            domain, semi_implicit, 2, true, stationary, false);
+    benchmarks::BenchmarkNS<dim> ns(
+            nu, 0.1, radius, half_length, n_refines, elementOrder, write_vtk,
+            zero_tensor, boundary, zero_tensor, zero_scalar,
+            domain, semi_implicit, 2, true, stationary, false);
 
     // Solve the equation using fixed point iteration, with a
     // semi-implicit convection term.

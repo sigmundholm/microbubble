@@ -295,6 +295,9 @@ namespace utils::problems {
                        Vector<double> &solution,
                        bool minimal_output = false) const;
 
+        virtual void
+        post_processing();
+
         const unsigned int n_refines;
         const unsigned int element_order;
         bool write_output;

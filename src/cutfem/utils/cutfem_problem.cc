@@ -80,8 +80,11 @@ namespace utils::problems {
 
         initialize_matrices();
         pre_matrix_assembly();
-        this->assemble_system();
+        assemble_system();
+
         solve();
+        post_processing();
+
         if (write_output) {
             output_results(this->dof_handlers.front(),
                            this->solutions.front());
@@ -155,6 +158,8 @@ namespace utils::problems {
             }
             solutions.pop_back();
         }
+        post_processing();
+
         if (do_compute_error) {
             return compute_error(dof_handlers.front(), solutions.front());
         } else {
@@ -253,7 +258,9 @@ namespace utils::problems {
             this->rhs.reinit(this->solutions.front().size());
             assemble_rhs(k);
 
-            this->solve();
+            solve();
+            post_processing();
+
             if (do_compute_error) {
                 errors[k] = this->compute_error(dof_handlers.front(),
                                                 solutions.front());
@@ -393,6 +400,7 @@ namespace utils::problems {
             assemble_rhs(k);
 
             solve();
+            post_processing();
 
             if (do_compute_error) {
                 errors[k] = compute_error(dof_handlers.front(),
@@ -918,6 +926,10 @@ namespace utils::problems {
         output_results(dof_handler, solution, k, minimal_output);
     }
 
+
+    template<int dim>
+    void CutFEMProblem<dim>::
+    post_processing() {}
 
     template
     class LevelSet<2>;
