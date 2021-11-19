@@ -15,11 +15,4 @@ add_executable(stat-conv-ns convergence_stationary.cc rhs_stat.cc)
 deal_ii_setup_target(stat-conv-ns)
 target_link_libraries(stat-conv-ns navier-stokes)
 
-# Benchmark tests
-add_library(bm-ns benchmarks/ns_benchmark.cc)
-deal_ii_setup_target(bm-ns)
-target_link_libraries(bm-ns navier-stokes)
-
-add_executable(bm-2d-1 benchmarks/stationary_2D-1.cc rhs_stat.cc)
-deal_ii_setup_target(bm-2d-1)
-target_link_libraries(bm-2d-1 bm-ns)
+add_subdirectory(benchmarks)

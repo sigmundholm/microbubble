@@ -11,7 +11,7 @@ int main() {
     using namespace examples::cut::NavierStokes;
     using namespace utils::problems::flow;
 
-    const unsigned int n_refines = 6;
+    const unsigned int n_refines = 4;
     const unsigned int elementOrder = 1;
 
     printf("numRefines=%d\n", n_refines);
@@ -22,13 +22,16 @@ int main() {
     const double radius = 0.205;
     const double half_length = 1.1;
 
+    const double end_time = 8.0;
+    const double tau = 0.05;
+    const unsigned int time_steps = end_time / tau;
+
     const double nu = 0.001;
 
     const bool semi_implicit = true;
-    const bool stationary = true;
 
-    const double max_speed = 0.3;
-    ParabolicFlow<dim> boundary(radius, half_length, max_speed, stationary);
+    const double max_speed = 1.5;
+    ParabolicFlow<dim> boundary(radius, half_length, max_speed, false);
 
     ZeroTensorFunction<1, dim> zero_tensor;
     Functions::ZeroFunction<dim> zero_scalar;
@@ -37,11 +40,15 @@ int main() {
     Sphere<dim> domain(sphere_radius, -(half_length - 0.2), -0.005);
 
     benchmarks::BenchmarkNS<dim> ns(
-            nu, 1, radius, half_length, n_refines, elementOrder, write_vtk,
+            nu, tau, radius, half_length, n_refines, elementOrder, write_vtk,
             zero_tensor, boundary, zero_tensor, zero_scalar,
-            domain, semi_implicit, 2, stationary, false);
+            domain, semi_implicit, 2, false, true);
 
-    // Solve the equation using fixed point iteration, with a
-    // semi-implicit convection term.
-    ns.run_step_non_linear(1e-10);
+    // BDF-1
+    ns.run_time(1, 1);
+    Vector<double> u1 = ns.get_solution();
+    std::vector<Vector<double>> initial = {u1};
+
+    // BDF-2
+    ns.run_time(2, time_steps, initial);
 }
