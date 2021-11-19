@@ -11,7 +11,7 @@ int main() {
     using namespace examples::cut::NavierStokes;
     using namespace utils::problems::flow;
 
-    const unsigned int n_refines = 4;
+    const unsigned int n_refines = 6;
     const unsigned int elementOrder = 1;
 
     printf("numRefines=%d\n", n_refines);
@@ -46,5 +46,5 @@ int main() {
 
     // Solve the equation using fixed point iteration, with a
     // semi-implicit convection term.
-    ns.run_step_non_linear(1e-11);
+    ns.run_step_non_linear(1e-10);
 }

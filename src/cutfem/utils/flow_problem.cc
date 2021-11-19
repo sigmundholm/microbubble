@@ -479,24 +479,23 @@ namespace utils::problems::flow {
                              + "-" + suffix + ".vtk");
         Utils::writeNumericalSolution(*dof_handler, solution, output);
 
-
-        std::ofstream output_ex("analytical-d" + std::to_string(dim)
-                                + "o" + std::to_string(this->element_order)
-                                + "r" + std::to_string(this->n_refines)
-                                + "-" + suffix + ".vtk");
-        std::ofstream file_diff("diff-d" + std::to_string(dim)
-                                + "o" + std::to_string(this->element_order)
-                                + "r" + std::to_string(this->n_refines)
-                                + "-" + suffix + ".vtk");
-        Utils::writeAnalyticalSolutionAndDiff(*dof_handler,
-                                              this->fe_collection,
-                                              solution,
-                                              *analytical_velocity,
-                                              *analytical_pressure,
-                                              output_ex,
-                                              file_diff);
-
         if (!minimal_output) {
+            std::ofstream output_ex("analytical-d" + std::to_string(dim)
+                                    + "o" + std::to_string(this->element_order)
+                                    + "r" + std::to_string(this->n_refines)
+                                    + "-" + suffix + ".vtk");
+            std::ofstream file_diff("diff-d" + std::to_string(dim)
+                                    + "o" + std::to_string(this->element_order)
+                                    + "r" + std::to_string(this->n_refines)
+                                    + "-" + suffix + ".vtk");
+            Utils::writeAnalyticalSolutionAndDiff(*dof_handler,
+                                                  this->fe_collection,
+                                                  solution,
+                                                  *analytical_velocity,
+                                                  *analytical_pressure,
+                                                  output_ex,
+                                                  file_diff);
+
             // Output levelset function.
             DataOut<dim, DoFHandler<dim>> data_out_levelset;
             data_out_levelset.attach_dof_handler(

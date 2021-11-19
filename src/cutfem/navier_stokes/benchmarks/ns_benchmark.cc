@@ -33,9 +33,6 @@ namespace examples::cut::NavierStokes::benchmarks {
     post_processing() {
         std::cout << "Post-processing:" << std::endl;
 
-        double pressure_diff = compute_pressure_difference();
-        std::cout << " * Δp = " << pressure_diff << std::endl;
-
         // Compute the surface forces. Which are the drag and lift forces
         // respectively. Then these are used for computing the drag and lift
         // coefficients.
@@ -55,6 +52,9 @@ namespace examples::cut::NavierStokes::benchmarks {
 
         std::cout << " * Drag: C_D = " << drag_coefficient << std::endl;
         std::cout << " * Lift: C_L = " << lift_coefficient << std::endl;
+
+        double pressure_diff = compute_pressure_difference();
+        std::cout << " * Δp = " << pressure_diff << std::endl;
     }
 
     template<int dim>
@@ -72,7 +72,7 @@ namespace examples::cut::NavierStokes::benchmarks {
         Vector<double> value_a2(dim + 1);
         VectorTools::point_value(*this->dof_handlers.front(),
                                  this->solutions.front(), a2, value_a2);
-        return value_a1[0] - value_a2[0];
+        return value_a1[dim] - value_a2[dim];
     }
 
     template

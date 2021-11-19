@@ -141,7 +141,7 @@ namespace utils::problems {
                 assemble_timedep_matrix();
             }
 
-            this->rhs = 0;
+            rhs = 0;
             assemble_rhs(0);
 
             solve();
@@ -153,8 +153,8 @@ namespace utils::problems {
             std::cout << "  Error diff = " << error_diff << std::endl;
 
             if (write_output) {
-                output_results(this->dof_handlers.front(),
-                               this->solutions.front(), k, false);
+                output_results(dof_handlers.front(), solutions.front(),
+                               k, k > 1);
             }
             solutions.pop_back();
         }
