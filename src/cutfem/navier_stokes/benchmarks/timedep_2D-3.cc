@@ -11,7 +11,7 @@ int main() {
     using namespace examples::cut::NavierStokes;
     using namespace utils::problems::flow;
 
-    const unsigned int n_refines = 4;
+    const unsigned int n_refines = 5;
     const unsigned int elementOrder = 1;
 
     printf("numRefines=%d\n", n_refines);
