@@ -4,6 +4,8 @@
 #include "cutfem/geometry/SignedDistanceSphere.h"
 
 #include "../navier_stokes/navier_stokes.h"
+#include "../navier_stokes/rhs_stat.h"
+
 
 template<int dim>
 void solve_for_element_order(int element_order, int max_refinement,
@@ -17,6 +19,7 @@ void solve_for_element_order(int element_order, int max_refinement,
 
     double nu = 0.1;
 
+    double tau = 0;
     double end_time = radius;
 
     double sphere_radius = 0.75 * radius;
@@ -25,12 +28,12 @@ void solve_for_element_order(int element_order, int max_refinement,
     const bool semi_implicit = true;
     const int bdf_type = 2;
 
-    std::ofstream file("errors-d" + std::to_string(dim)
+    std::ofstream file("errors-stat-d" + std::to_string(dim)
                        + "o" + std::to_string(element_order) + ".csv");
-    std::ofstream meta("e-meta-d" + std::to_string(dim)
+    std::ofstream meta("errors-stat-meta-d" + std::to_string(dim)
                        + "o" + std::to_string(element_order) + ".txt");
-    meta << "Navier-Stokes convergence test" << std::endl
-         << "==============================" << std::endl
+    meta << "Stationary Navier-Stokes convergence test" << std::endl
+         << "=========================================" << std::endl
          << "radius = " << radius << std::endl
          << "half_length = " << half_length << std::endl
          << "end_time = " << end_time << std::endl
@@ -41,11 +44,11 @@ void solve_for_element_order(int element_order, int max_refinement,
 
     NavierStokesEqn<dim>::write_header_to_file(file);
 
-    RightHandSide <dim> rhs(nu);
-    BoundaryValues <dim> boundary_values(nu);
-    AnalyticalVelocity <dim> analytical_velocity(nu);
-    AnalyticalPressure <dim> analytical_pressure(nu);
-    MovingDomain <dim> domain(sphere_radius, half_length, radius);
+    stationary::RightHandSide<dim> rhs(nu);
+    stationary::AnalyticalVelocity<dim> analytical_velocity(nu);
+    stationary::AnalyticalVelocity<dim> boundary_values(nu);
+    stationary::AnalyticalPressure<dim> analytical_pressure(nu);
+    MovingDomain<dim> domain(sphere_radius, half_length, radius);
 
     for (int n_refines = 3; n_refines < max_refinement + 1; ++n_refines) {
         std::cout << "\nn_refines=" << n_refines << std::endl
@@ -53,18 +56,18 @@ void solve_for_element_order(int element_order, int max_refinement,
         meta << " - n_refines = " << n_refines << std::endl;
 
         double time_steps = pow(2, n_refines - 1);
-        double tau = end_time / time_steps;
 
         std::cout << "T = " << end_time << ", tau = " << tau
                   << ", steps = " << time_steps << std::endl << std::endl;
 
-        NavierStokesEqn <dim> ns(nu, tau, radius, half_length, n_refines,
-                                 element_order, write_output, rhs,
-                                 boundary_values,
-                                 analytical_velocity, analytical_pressure,
-                                 domain, semi_implicit, 10, true);
+        NavierStokesEqn<dim> ns(nu, tau, radius, half_length, n_refines,
+                                element_order, write_output, rhs,
+                                boundary_values,
+                                analytical_velocity, analytical_pressure,
+                                domain, semi_implicit, 10, true,
+                                true);
 
-        ErrorBase *err = ns.run_time(bdf_type, time_steps);
+        ErrorBase *err = ns.run_step_non_linear(1e-11);
         auto *error = dynamic_cast<ErrorFlow *>(err);
 
         std::cout << std::endl;

@@ -53,9 +53,11 @@ namespace examples::cut::HeatEquation {
                           Function<dim> &analytical_soln,
                           LevelSet<dim> &levelset_func,
                           const bool stabilized,
-                          const bool crank_nicholson)
+                          const bool crank_nicholson,
+                          const bool compute_error)
             : ScalarProblem<dim>(n_refines, element_order, write_output,
-                                 levelset_func, analytical_soln, stabilized),
+                                 levelset_func, analytical_soln, stabilized,
+                                 false, compute_error),
               nu(nu), radius(radius), half_length(half_length) {
         this->tau = tau;
         this->crank_nicholson = crank_nicholson;

@@ -9,15 +9,25 @@ The goal of my thesis is to simulate the movement of a microbubble in a capillar
 The following solvers all use CutFEM, and hence solve the problems on an unfitted mesh.
 
 #### Stationary problems
-- The Poisson Problem: `poisson`
-- Stokes Equation: `stokes`
-- Generalized Stokes Equation: `stokes_gen`
+- Poisson's equation: `poisson`
+- Stokes equation: `stokes`
+- Generalized Stokes equation: `stokes_gen`
+- Stationary Navier-Stokes equations: `navier_stokes`
 
 #### Time dependent problems
-- The Heat Equation: `heat_eqn`
-- Time Dependent Stokes (Implicit Euler): `stokes_time`
-- Time Dependent Stokes (BDF-2): `stokes_time2`
+- Heat equation: `heat_eqn`
+- Time dependent Stokes (implicit Euler only): `stokes_time`
+- Time dependent Stokes: `stokes_time2`
+- Navier-Stokes equations: `navier_stokes`
 
+#### Moving domains
+- Heat equation
+- Stokes equation
+- Navier-Stokes
+
+#### Time solvers
+- BDF-1, BDF-2, BDF-3.
+- For the BDF-methods of higher order, the solutions in earlier steps are interpolated if not supplied.
 
 In addition, solvers for the Poisson problem and the Stokes Equations are also implemented on a fitted mesh, using Nitsches method for the Dirichlet boundary conditions.
 

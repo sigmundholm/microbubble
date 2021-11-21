@@ -40,9 +40,12 @@ namespace utils::problems::scalar {
                                       const bool write_output,
                                       LevelSet<dim> &levelset_func,
                                       Function<dim> &analytical_soln,
-                                      const bool stabilized)
+                                      const bool stabilized,
+                                      const bool stationary,
+                                      const bool compute_error)
             : CutFEMProblem<dim>(n_refines, element_order, write_output,
-                                 levelset_func, stabilized), fe(element_order) {
+                                 levelset_func, stabilized, stationary,
+                                 compute_error), fe(element_order) {
         analytical_solution = &analytical_soln;
     }
 

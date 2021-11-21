@@ -56,7 +56,8 @@ namespace examples::cut::HeatEquation {
                 Function<dim> &analytical_soln,
                 LevelSet<dim> &levelset_func,
                 const bool stabilized = true,
-                const bool crank_nicholson = false);
+                const bool crank_nicholson = false,
+                const bool compute_error = true);
 
         static void
         write_header_to_file(std::ofstream &file);

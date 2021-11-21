@@ -59,6 +59,10 @@ namespace utils::problems::flow {
                       << ", || p - p_h ||_H1 = " << h1_error_p
                       << std::endl;
         }
+
+        double repr_error() override {
+            return l2_error_u;
+        }
     };
 
 
@@ -71,7 +75,9 @@ namespace utils::problems::flow {
                     LevelSet<dim> &levelset_func,
                     TensorFunction<1, dim> &analytic_v,
                     Function<dim> &analytic_p,
-                    const bool stabilized = true);
+                    const bool stabilized = true,
+                    const bool stationary = false,
+                    const bool compute_error = true);
 
         static void
         write_header_to_file(std::ofstream &file);
@@ -89,10 +95,6 @@ namespace utils::problems::flow {
 
         void
         setup_fe_collection() override;
-
-        void
-        assemble_system() override;
-
 
         void
         assemble_rhs_and_bdf_terms_local_over_cell(

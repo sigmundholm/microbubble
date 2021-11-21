@@ -61,7 +61,8 @@ namespace examples::cut::StokesEquation {
                   LevelSet<dim> &levelset_func,
                   int do_nothing_id = 10,
                   bool stabilized = true,
-                  bool crank_nicholson = false);
+                  bool stationary = false,
+                  bool compute_error = true);
 
         static void
         write_header_to_file(std::ofstream &file);

@@ -47,14 +47,15 @@ namespace examples::cut::NavierStokes {
                     const int element_order,
                     const bool write_output,
                     TensorFunction<1, dim> &rhs,
-                    TensorFunction<1, dim> &conv_field,
                     TensorFunction<1, dim> &bdd_values,
                     TensorFunction<1, dim> &analytic_vel,
                     Function<dim> &analytic_pressure,
                     LevelSet<dim> &levelset_func,
                     const bool semi_implicit,
                     const int do_nothing_id,
-                    const bool stabilized)
+                    const bool stabilized,
+                    const bool stationary,
+                    const bool compute_error)
             : StokesEquation::StokesEqn<dim>(nu, tau, radius, half_length,
                                              n_refines,
                                              element_order, write_output,
@@ -62,9 +63,8 @@ namespace examples::cut::NavierStokes {
                                              analytic_vel, analytic_pressure,
                                              levelset_func,
                                              do_nothing_id, stabilized,
-                                             false),
+                                             stationary, compute_error),
               semi_implicit(semi_implicit) {
-        convection_field = &conv_field;
 
         if (semi_implicit) {
             this->stationary_stiffness_matrix = false;
@@ -79,7 +79,6 @@ namespace examples::cut::NavierStokes {
         this->boundary_values->set_time(time);
         this->analytical_velocity->set_time(time);
         this->analytical_pressure->set_time(time);
-        this->convection_field->set_time(time);
 
         if (this->moving_domain) {
             this->levelset_function->set_time(time);
@@ -115,6 +114,12 @@ namespace examples::cut::NavierStokes {
         double gamma_u = 0.5;
         double gamma_p = 0.5;
 
+        // If we are solving a stationary problem, set tau to 1, to keep
+        // the stabilization scalings correct.
+        if (this->stationary) {
+            this->tau = 1;
+        }
+
         if (semi_implicit) {
             std::cout << "Stabilization constants set for Navier-Stokes "
                          "(semi-implicit convection term)." << std::endl;
@@ -149,32 +154,6 @@ namespace examples::cut::NavierStokes {
         assert(this->semi_implicit);
         assert(!this->stationary_stiffness_matrix);
 
-        // Object deciding what faces should be stabilized.
-        std::shared_ptr<Selector<dim>> face_selector(
-                new Selector<dim>(this->cut_mesh_classifier));
-
-        // Use a helper object to compute the stabilisation for both the velocity
-        // and the pressure component.
-        const FEValuesExtractors::Vector velocities(0);
-        stabilization::JumpStabilization<dim, FEValuesExtractors::Vector>
-                velocity_stab(*this->dof_handlers.front(),
-                              this->mapping_collection,
-                              this->cut_mesh_classifier,
-                              this->constraints);
-        velocity_stab.set_faces_to_stabilize(face_selector);
-        velocity_stab.set_weight_function(stabilization::taylor_weights);
-        velocity_stab.set_extractor(velocities);
-
-        const FEValuesExtractors::Scalar pressure(dim);
-        stabilization::JumpStabilization<dim, FEValuesExtractors::Scalar>
-                pressure_stab(*this->dof_handlers.front(),
-                              this->mapping_collection,
-                              this->cut_mesh_classifier,
-                              this->constraints);
-        pressure_stab.set_faces_to_stabilize(face_selector);
-        pressure_stab.set_weight_function(stabilization::taylor_weights);
-        pressure_stab.set_extractor(pressure);
-
         assert(this->velocity_stab_scaling != 0);
         assert(this->pressure_stab_scaling != 0);
 
@@ -182,10 +161,6 @@ namespace examples::cut::NavierStokes {
         region_update_flags.inside = update_values | update_JxW_values |
                                      update_gradients |
                                      update_quadrature_points;
-        region_update_flags.surface = update_values | update_JxW_values |
-                                      update_gradients |
-                                      update_quadrature_points |
-                                      update_normal_vectors;
 
         NonMatching::FEValues<dim> cut_fe_values(this->mapping_collection,
                                                  this->fe_collection,
@@ -195,15 +170,6 @@ namespace examples::cut::NavierStokes {
                                                  this->cut_mesh_classifier,
                                                  this->levelset_dof_handler,
                                                  this->levelset);
-
-        // Quadrature for the faces of the cells on the outer boundary
-        QGauss<dim - 1> face_quadrature_formula(this->mixed_fe.degree + 1);
-        FEFaceValues<dim> fe_face_values(this->mixed_fe,
-                                         face_quadrature_formula,
-                                         update_values | update_gradients |
-                                         update_quadrature_points |
-                                         update_normal_vectors |
-                                         update_JxW_values);
 
         for (const auto &cell : this->dof_handlers.front()->active_cell_iterators()) {
             const unsigned int n_dofs = cell->get_fe().dofs_per_cell;
@@ -226,19 +192,9 @@ namespace examples::cut::NavierStokes {
                     assemble_convection_over_cell(*fe_values_bulk, loc2glb);
                 }
             }
-
-            if (this->stabilized) {
-                // Compute and add the velocity stabilization.
-                velocity_stab.compute_stabilization(cell);
-                velocity_stab.add_stabilization_to_matrix(
-                        this->velocity_stab_scaling,
-                        this->timedep_stiffness_matrix);
-                // Compute and add the pressure stabilisation.
-                pressure_stab.compute_stabilization(cell);
-                pressure_stab.add_stabilization_to_matrix(
-                        this->pressure_stab_scaling,
-                        this->timedep_stiffness_matrix);
-            }
+            // TODO might need to add stabilizations that are dependent on the
+            //  solution in the previous time step.
+            //  - ex when we have moving domains?
         }
     }
 
@@ -279,6 +235,8 @@ namespace examples::cut::NavierStokes {
         std::vector<Tensor<1, dim>> phi_u(dofs_per_cell, Tensor<1, dim>());
         std::vector<double> phi_p(dofs_per_cell);
 
+        const int time_switch = this->stationary ? 0 : 1;
+
         for (unsigned int q = 0; q < fe_values.n_quadrature_points; ++q) {
             for (const unsigned int k : fe_values.dof_indices()) {
                 grad_phi_u[k] = fe_values[velocities].gradient(k, q);
@@ -291,7 +249,7 @@ namespace examples::cut::NavierStokes {
                 for (const unsigned int j : fe_values.dof_indices()) {
                     local_matrix(i, j) +=
                             (this->bdf_coeffs[0]
-                             * phi_u[j] * phi_u[i]  // (u, v)
+                             * phi_u[j] * phi_u[i] * time_switch // (u, v)
                              +
                              (this->nu * scalar_product(grad_phi_u[j],
                                                         grad_phi_u[i]) // (grad u, grad v)
@@ -317,12 +275,14 @@ namespace examples::cut::NavierStokes {
         FullMatrix<double> local_matrix(dofs_per_cell, dofs_per_cell);
 
         assert(!this->stationary_stiffness_matrix);
+        assert(semi_implicit);
+        assert(!this->moving_domain);
 
         // Create vector of the previous solutions values
-        std::vector <Tensor<1, dim>> val(fe_v.n_quadrature_points,
-                                         Tensor<1, dim>());
+        std::vector<Tensor<1, dim>> val(fe_v.n_quadrature_points,
+                                        Tensor<1, dim>());
         // This vector contains (-, u^n, u^(n-1)) for BDF-2.
-        std::vector < std::vector < Tensor < 1, dim >> > prev_solution_values(
+        std::vector<std::vector<Tensor<1, dim >>> prev_solution_values(
                 this->solutions.size(), val);
 
         const FEValuesExtractors::Vector v(0);
@@ -335,8 +295,8 @@ namespace examples::cut::NavierStokes {
         }
 
         Tensor<1, dim> extrapolation;
-        std::vector <Tensor<2, dim>> grad_phi_u(dofs_per_cell);
-        std::vector <Tensor<1, dim>> phi_u(dofs_per_cell);
+        std::vector<Tensor<2, dim>> grad_phi_u(dofs_per_cell);
+        std::vector<Tensor<1, dim>> phi_u(dofs_per_cell);
         for (unsigned int q = 0; q < fe_v.n_quadrature_points; ++q) {
             // Compute the extrapolated value by using the previous steps.
             extrapolation = Tensor<1, dim>();
@@ -372,6 +332,10 @@ namespace examples::cut::NavierStokes {
     assemble_convection_over_cell_moving_domain(
             const FEValues<dim> &fe_v,
             const std::vector<types::global_dof_index> &loc2glb) {
+
+        assert(this->moving_domain);
+        assert(semi_implicit);
+        assert(!this->stationary);
 
         // TODO needed?
         const hp::FECollection<dim> &fe_collection = this->dof_handlers.front()->get_fe_collection();
@@ -586,6 +550,7 @@ namespace examples::cut::NavierStokes {
         Tensor<2, dim> grad_extrap;
         Tensor<1, dim> phi_u;
         Tensor<1, dim> bdf_terms;
+        const int time_switch = this->stationary ? 0 : 1;
 
         for (unsigned int q = 0; q < fe_v.n_quadrature_points; ++q) {
             // Compute the extrapolated value by using the previous steps.
@@ -610,7 +575,7 @@ namespace examples::cut::NavierStokes {
             for (const unsigned int i : fe_v.dof_indices()) {
                 phi_u = fe_v[v].value(i, q);
                 local_rhs(i) += (this->tau * rhs_values[q] * phi_u // τ(f, v)
-                                 - bdf_terms * phi_u               // BDF-terms
+                                 - bdf_terms * phi_u * time_switch // BDF-terms
                                  - (grad_extrap * extrap)          // convection
                                    * phi_u * this->tau
                                 ) * fe_v.JxW(q);                   // dx
@@ -733,6 +698,92 @@ namespace examples::cut::NavierStokes {
             }
         }
         this->rhs.add(loc2glb, local_rhs);
+    }
+
+    template<int dim>
+    Tensor<1, dim> NavierStokesEqn<dim>::
+    compute_surface_forces() {
+        NonMatching::RegionUpdateFlags region_update_flags;
+        region_update_flags.inside = update_values | update_quadrature_points
+                                     | update_JxW_values;
+        region_update_flags.surface =
+                update_values | update_JxW_values |
+                update_gradients |
+                update_quadrature_points |
+                update_normal_vectors;
+
+        NonMatching::FEValues<dim> cut_fe_values(this->mapping_collection,
+                                                 this->fe_collection,
+                                                 this->q_collection,
+                                                 this->q_collection1D,
+                                                 region_update_flags,
+                                                 this->cut_mesh_classifier,
+                                                 this->levelset_dof_handler,
+                                                 this->levelset);
+
+        Tensor<1, dim> viscous_forces;
+        Tensor<1, dim> pressure_forces;
+        for (const auto &cell : this->dof_handlers.front()->active_cell_iterators()) {
+            const unsigned int n_dofs = cell->get_fe().dofs_per_cell;
+            // This call will compute quadrature rules relevant for this cell
+            // in the background.
+            cut_fe_values.reinit(cell);
+
+            // Retrieve an FEValues object with quadrature points
+            // on the immersed surface.
+            const boost::optional<const FEImmersedSurfaceValues<dim> &>
+                    fe_values_surface = cut_fe_values.get_surface_fe_values();
+            if (fe_values_surface) {
+                integrate_surface_forces(*fe_values_surface,
+                                         this->solutions.front(),
+                                         viscous_forces,
+                                         pressure_forces);
+            }
+        }
+        Tensor<1, dim> surface_forces = viscous_forces + pressure_forces;
+        return surface_forces;
+    }
+
+
+    template<int dim>
+    void NavierStokesEqn<dim>::
+    integrate_surface_forces(const FEValuesBase<dim> &fe_v,
+                             Vector<double> solution,
+                             Tensor<1, dim> &viscous_forces,
+                             Tensor<1, dim> &pressure_forces) {
+
+        const FEValuesExtractors::Vector v(0);
+        const FEValuesExtractors::Scalar p(dim);
+
+        // Vector of the values of the symmetric gradients for u on the
+        // quadrature points.
+        std::vector<Tensor<2, dim>> u_gradients(fe_v.n_quadrature_points);
+        fe_v[v].get_function_gradients(solution, u_gradients);
+        // Vector of the values of the pressure in the quadrature points.
+        std::vector<double> p_values(fe_v.n_quadrature_points);
+        fe_v[p].get_function_values(solution, p_values);
+
+        Tensor<1, dim> v_forces;
+        Tensor<1, dim> p_forces;
+        Tensor<2, dim> I; // Identity matrix
+        I[0][0] = 1;
+        I[1][1] = 1;
+        if (dim == 3) { I[2][2] = 1; }
+
+        Tensor<1, dim> normal;
+        for (unsigned int q : fe_v.quadrature_point_indices()) {
+            // We want the outward pointing normal of e.g. the sphere, so we
+            // need to change the direction of the implemented normal, since
+            // this normal points out of the domain.
+            normal = -fe_v.normal_vector(q);
+            // Tensor<2, dim> transposed = transpose(u_gradients[q]);
+
+            // The viscous forces and pressure forces act on the submerged body.
+            v_forces = this->nu * u_gradients[q] * normal;
+            p_forces = -p_values[q] * I * normal;
+            viscous_forces += v_forces * fe_v.JxW(q);
+            pressure_forces += p_forces * fe_v.JxW(q);
+        }
     }
 
 

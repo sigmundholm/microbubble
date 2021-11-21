@@ -56,14 +56,14 @@ namespace examples::cut::StokesEquation {
               LevelSet<dim> &levelset_func,
               const int do_nothing_id,
               const bool stabilized,
-              const bool crank_nicholson)
+              const bool stationary,
+              const bool compute_error)
             : FlowProblem<dim>(n_refines, element_order, write_output,
                                levelset_func, analytic_vel, analytic_pressure,
-                               stabilized),
+                               stabilized, stationary, compute_error),
               nu(nu), radius(radius), half_length(half_length),
               do_nothing_id(do_nothing_id) {
         this->tau = tau;
-        this->crank_nicholson = crank_nicholson;
 
         // Use Dirichlet boundary conditions everywhere, this is done by
         // default by constructor definition.
@@ -250,13 +250,6 @@ namespace examples::cut::StokesEquation {
         // Matrix and vector for the contribution of each cell
         const unsigned int dofs_per_cell = fe_values.get_fe().dofs_per_cell;
         FullMatrix<double> local_matrix(dofs_per_cell, dofs_per_cell);
-        Vector<double> local_rhs(dofs_per_cell);
-
-        // Vector for values of the RightHandSide for all quadrature points on a cell.
-        std::vector<Tensor<1, dim>> rhs_values(fe_values.n_quadrature_points,
-                                               Tensor<1, dim>());
-        this->rhs_function->value_list(fe_values.get_quadrature_points(),
-                                       rhs_values);
 
         const FEValuesExtractors::Vector velocities(0);
         const FEValuesExtractors::Scalar pressure(dim);
@@ -266,6 +259,10 @@ namespace examples::cut::StokesEquation {
         std::vector<double> div_phi_u(dofs_per_cell);
         std::vector<Tensor<1, dim>> phi_u(dofs_per_cell, Tensor<1, dim>());
         std::vector<double> phi_p(dofs_per_cell);
+
+        std::cout << "hei1" << std::endl;
+        const int time_switch = this->stationary ? 0 : 1;
+        std::cout << "hei2" << std::endl;
 
         for (unsigned int q = 0; q < fe_values.n_quadrature_points; ++q) {
             for (const unsigned int k : fe_values.dof_indices()) {
@@ -279,7 +276,7 @@ namespace examples::cut::StokesEquation {
                 for (const unsigned int j : fe_values.dof_indices()) {
                     local_matrix(i, j) +=
                             (this->bdf_coeffs[0]
-                             * phi_u[j] * phi_u[i]  // (u, v)
+                             * phi_u[j] * phi_u[i] * time_switch // (u, v)
                              +
                              (nu * scalar_product(grad_phi_u[j],
                                                   grad_phi_u[i]) // (grad u, grad v)
@@ -303,13 +300,6 @@ namespace examples::cut::StokesEquation {
         // Matrix and vector for the contribution of each cell
         const unsigned int dofs_per_cell = fe_values.get_fe().dofs_per_cell;
         FullMatrix<double> local_matrix(dofs_per_cell, dofs_per_cell);
-        Vector<double> local_rhs(dofs_per_cell);
-
-        // Evaluate the boundary function for all quadrature points on this face.
-        std::vector<Tensor<1, dim>> bdd_values(fe_values.n_quadrature_points,
-                                               Tensor<1, dim>());
-        this->boundary_values->value_list(fe_values.get_quadrature_points(),
-                                          bdd_values);
 
         const FEValuesExtractors::Vector velocities(0);
         const FEValuesExtractors::Scalar pressure(dim);

@@ -43,14 +43,17 @@ namespace utils::problems {
                   const int element_order,
                   const bool write_output,
                   LevelSet<dim> &levelset_func,
-                  const bool stabilized)
+                  const bool stabilized,
+                  const bool stationary,
+                  const bool compute_error)
             : n_refines(n_refines), element_order(element_order),
               write_output(write_output),
               fe_levelset(element_order),
               levelset_dof_handler(triangulation),
               cut_mesh_classifier(triangulation, levelset_dof_handler,
                                   levelset),
-              stabilized(stabilized) {
+              stabilized(stabilized), stationary(stationary),
+              do_compute_error(compute_error) {
         // Use no constraints when projecting.
         this->constraints.close();
 
@@ -63,22 +66,105 @@ namespace utils::problems {
     run_step() {
         make_grid(triangulation);
         setup_quadrature();
+        set_function_times(0);
         setup_level_set();
         cut_mesh_classifier.reclassify(); // TODO move this into distribute_dofs method
         dof_handlers.emplace_front(new hp::DoFHandler<dim>(triangulation));
         setup_fe_collection();
         distribute_dofs(dof_handlers.front());
-        initialize_matrices();
+
+        set_bdf_coefficients(1);
+        set_extrapolation_coefficients(1);
         int n_dofs = dof_handlers.front()->n_dofs();
         solutions.emplace_front(n_dofs);
+
+        initialize_matrices();
         pre_matrix_assembly();
-        this->assemble_system();
+        assemble_system();
+
         solve();
+        post_processing();
+
         if (write_output) {
             output_results(this->dof_handlers.front(),
                            this->solutions.front());
         }
-        return compute_error(dof_handlers.front(), solutions.front());
+        if (do_compute_error) {
+            return compute_error(dof_handlers.front(), solutions.front());
+        } else {
+            return nullptr;
+        }
+    }
+
+
+    template<int dim>
+    ErrorBase *CutFEMProblem<dim>::
+    run_step_non_linear(double tol) {
+        std::cout << "\nFixed point iteration" << std::endl;
+        std::cout << "-------------------------" << std::endl;
+
+        make_grid(triangulation);
+        setup_quadrature();
+        set_function_times(0);
+        setup_level_set();
+        cut_mesh_classifier.reclassify(); // TODO move this into distribute_dofs method
+        dof_handlers.emplace_front(new hp::DoFHandler<dim>(triangulation));
+        setup_fe_collection();
+        distribute_dofs(dof_handlers.front());
+
+        // initialize_matrices();
+        set_bdf_coefficients(1);
+        set_extrapolation_coefficients(1);
+        int n_dofs = dof_handlers.front()->n_dofs();
+
+        double prev_error;
+        double this_error = 1; // Set to 1 to enforce at least two steps.
+        ErrorBase *error;
+        double error_diff = 2 * tol;
+        int k = 0;
+
+        solutions.emplace_front(n_dofs);
+
+        while (error_diff > tol) {
+            k++;
+            std::cout << "\nFixed point iteration: step " << k << std::endl;
+            std::cout << "-----------------------------------" << std::endl;
+
+            solutions.emplace_front(n_dofs);
+            if (k == 1) {
+                initialize_matrices();
+                pre_matrix_assembly();
+                assemble_matrix();
+            }
+            if (!stationary_stiffness_matrix) {
+                timedep_stiffness_matrix.reinit(sparsity_pattern);
+                assemble_timedep_matrix();
+            }
+
+            rhs = 0;
+            assemble_rhs(0);
+
+            solve();
+            error = compute_error(dof_handlers.front(), solutions.front());
+            prev_error = this_error;
+            this_error = error->repr_error();
+            error->output();
+            error_diff = abs(this_error - prev_error);
+            std::cout << "  Error diff = " << error_diff << std::endl;
+
+            if (write_output) {
+                output_results(dof_handlers.front(), solutions.front(),
+                               k, k > 1);
+            }
+            solutions.pop_back();
+        }
+        post_processing();
+
+        if (do_compute_error) {
+            return compute_error(dof_handlers.front(), solutions.front());
+        } else {
+            return nullptr;
+        }
     }
 
 
@@ -170,14 +256,18 @@ namespace utils::problems {
 
             // TODO nødvendig??
             this->rhs.reinit(this->solutions.front().size());
-
             assemble_rhs(k);
-            this->solve();
-            errors[k] = this->compute_error(dof_handlers.front(),
-                                            solutions.front());
-            errors[k]->time_step = k;
-            write_time_error_to_file(errors[k], file);
-            errors[k]->output();
+
+            solve();
+            post_processing();
+
+            if (do_compute_error) {
+                errors[k] = this->compute_error(dof_handlers.front(),
+                                                solutions.front());
+                errors[k]->time_step = k;
+                write_time_error_to_file(errors[k], file);
+                errors[k]->output();
+            }
 
             if (this->write_output) {
                 this->output_results(this->dof_handlers.front(),
@@ -192,8 +282,11 @@ namespace utils::problems {
         for (ErrorBase *error : errors) {
             error->output();
         }
-
-        return compute_time_error(errors);
+        if (do_compute_error) {
+            return compute_time_error(errors);
+        } else {
+            return nullptr;
+        }
     }
 
 
@@ -307,10 +400,15 @@ namespace utils::problems {
             assemble_rhs(k);
 
             solve();
-            errors[k] = compute_error(dof_handlers.front(), solutions.front());
-            errors[k]->time_step = k;
-            write_time_error_to_file(errors[k], file);
-            errors[k]->output();
+            post_processing();
+
+            if (do_compute_error) {
+                errors[k] = compute_error(dof_handlers.front(),
+                                          solutions.front());
+                errors[k]->time_step = k;
+                write_time_error_to_file(errors[k], file);
+                errors[k]->output();
+            }
 
             if (write_output) {
                 output_results(this->dof_handlers.front(),
@@ -327,7 +425,11 @@ namespace utils::problems {
         for (ErrorBase *error : errors) {
             error->output();
         }
-        return compute_time_error(errors);
+        if (do_compute_error) {
+            return compute_time_error(errors);
+        } else {
+            return nullptr;
+        }
     }
 
 
@@ -653,6 +755,9 @@ namespace utils::problems {
         cutfem::nla::make_sparsity_pattern_for_stabilized(*dof_handlers.front(),
                                                           sparsity_pattern);
         stiffness_matrix.reinit(sparsity_pattern);
+        if (!stationary_stiffness_matrix) {
+            timedep_stiffness_matrix.reinit(sparsity_pattern);
+        }
     }
 
 
@@ -664,7 +769,12 @@ namespace utils::problems {
     template<int dim>
     void CutFEMProblem<dim>::
     assemble_system() {
-        throw std::logic_error("Not implemented: assemble_system");
+        std::cout << "Assemble system: matrix and rhs" << std::endl;
+        assemble_matrix();
+        assemble_rhs(0);
+        if (!stationary_stiffness_matrix) {
+            assemble_timedep_matrix();
+        }
     }
 
     template<int dim>
@@ -700,7 +810,8 @@ namespace utils::problems {
     void CutFEMProblem<dim>::
     assemble_matrix_local_over_cell(const FEValues<dim> &fe_values,
                                     const std::vector<types::global_dof_index> &loc2glb) {
-        throw std::logic_error("Not implemented: assemble_matrix_local_over_cell");
+        throw std::logic_error(
+                "Not implemented: assemble_matrix_local_over_cell");
     }
 
     template<int dim>
@@ -708,7 +819,8 @@ namespace utils::problems {
     assemble_matrix_local_over_surface(
             const FEValuesBase<dim> &fe_values,
             const std::vector<types::global_dof_index> &loc2glb) {
-        throw std::logic_error("Not implemented: assemble_matrix_local_over_surface");
+        throw std::logic_error(
+                "Not implemented: assemble_matrix_local_over_surface");
     }
 
     template<int dim>
@@ -729,7 +841,8 @@ namespace utils::problems {
     assemble_rhs_local_over_cell_cn(const FEValues<dim> &fe_values,
                                     const std::vector<types::global_dof_index> &loc2glb,
                                     const int time_step) {
-        throw std::logic_error("Not implemented: assemble_rhs_local_over_cell_cn");
+        throw std::logic_error(
+                "Not implemented: assemble_rhs_local_over_cell_cn");
     }
 
     template<int dim>
@@ -737,7 +850,8 @@ namespace utils::problems {
     assemble_rhs_local_over_surface(
             const FEValuesBase<dim> &fe_values,
             const std::vector<types::global_dof_index> &loc2glob) {
-        throw std::logic_error("Not implemented: assemble_rhs_local_over_surface");
+        throw std::logic_error(
+                "Not implemented: assemble_rhs_local_over_surface");
     }
 
     template<int dim>
@@ -746,7 +860,8 @@ namespace utils::problems {
             const FEValuesBase<dim> &fe_values,
             const std::vector<types::global_dof_index> &loc2glob,
             const int time_step) {
-        throw std::logic_error("Not implemented: assemble_rhs_local_over_surface_cn");
+        throw std::logic_error(
+                "Not implemented: assemble_rhs_local_over_surface_cn");
     }
 
 
@@ -811,6 +926,10 @@ namespace utils::problems {
         output_results(dof_handler, solution, k, minimal_output);
     }
 
+
+    template<int dim>
+    void CutFEMProblem<dim>::
+    post_processing() {}
 
     template
     class LevelSet<2>;
