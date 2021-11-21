@@ -83,7 +83,7 @@ namespace utils::problems {
         assemble_system();
 
         solve();
-        post_processing();
+        post_processing(0);
 
         if (write_output) {
             output_results(this->dof_handlers.front(),
@@ -145,6 +145,8 @@ namespace utils::problems {
             assemble_rhs(0);
 
             solve();
+            post_processing(k);
+
             error = compute_error(dof_handlers.front(), solutions.front());
             prev_error = this_error;
             this_error = error->repr_error();
@@ -158,7 +160,7 @@ namespace utils::problems {
             }
             solutions.pop_back();
         }
-        post_processing();
+        post_processing(k + 1);
 
         if (do_compute_error) {
             return compute_error(dof_handlers.front(), solutions.front());
@@ -266,7 +268,7 @@ namespace utils::problems {
             assemble_rhs(k);
 
             solve();
-            post_processing();
+            post_processing(k);
 
             if (do_compute_error) {
                 // TODO segfault when this is compute_error = false.
@@ -412,7 +414,7 @@ namespace utils::problems {
             assemble_rhs(k);
 
             solve();
-            post_processing();
+            post_processing(k);
 
             if (do_compute_error) {
                 errors[k] = compute_error(dof_handlers.front(),
@@ -613,10 +615,8 @@ namespace utils::problems {
         // Create an extended vector of supplied_solutions, with vectors of
         // length 1 to mark the time steps where we want to keep and use the
         // interpolated solution.
-        std::vector<Vector < double>>
-        full_vector(bdf_type, Vector<double>(1));
-        std::vector<std::shared_ptr<hp::DoFHandler < dim>> >
-        full_dofs(bdf_type);
+        std::vector<Vector<double>> full_vector(bdf_type, Vector<double>(1));
+        std::vector<std::shared_ptr<hp::DoFHandler<dim>>> full_dofs(bdf_type);
 
         unsigned int num_supp = supplied_solutions.size();
         unsigned int size_diff = bdf_type - num_supp;
@@ -923,7 +923,7 @@ namespace utils::problems {
 
     template<int dim>
     void CutFEMProblem<dim>::
-    post_processing() {}
+    post_processing(unsigned int time_step) {}
 
     template
     class LevelSet<2>;

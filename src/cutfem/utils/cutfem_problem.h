@@ -295,7 +295,7 @@ namespace utils::problems {
                        bool minimal_output = false) const;
 
         virtual void
-        post_processing();
+        post_processing(unsigned int time_step);
 
         const unsigned int n_refines;
         const unsigned int element_order;
