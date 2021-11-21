@@ -38,9 +38,13 @@ namespace examples::cut::NavierStokes::benchmarks {
                     Sphere<dim> &levelset_func,
                     std::string filename,
                     bool semi_implicit, int do_nothing_id = 10,
-                    bool stationary = false, bool compute_error = true);
+                    bool stabilized = true, bool stationary = false,
+                    bool compute_error = true);
 
     protected:
+        void
+        make_grid(Triangulation<dim> &tria) override;
+
         /**
          * Compute the pressure difference between two points in front of and
          * behind the sphere. Also compute the drag and lift coefficients of

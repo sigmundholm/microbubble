@@ -236,6 +236,13 @@ namespace examples::cut::NavierStokes {
     double Sphere<dim>::
     get_radius() { return sphere_radius; }
 
+    template<int dim>
+    Point<dim> Sphere<dim>::
+    get_center() {
+        Point<dim> c(center_x, center_y);
+        return c;
+    }
+
 
     template
     class RightHandSide<2>;

@@ -133,6 +133,8 @@ namespace examples::cut::NavierStokes {
 
         double get_radius();
 
+        Point<dim> get_center();
+
     private:
         const double sphere_radius;
         const double center_x;

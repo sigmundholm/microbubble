@@ -1,5 +1,9 @@
 #include <deal.II/base/point.h>
-
+#include <deal.II/grid/grid_generator.h>
+#include <deal.II/grid/grid_out.h>
+#include <deal.II/grid/grid_tools.h>
+#include <deal.II/grid/tria_accessor.h>
+#include <deal.II/fe/mapping_cartesian.h>
 #include <deal.II/numerics/vector_tools.h>
 
 #include "ns_benchmark.h"
@@ -20,7 +24,8 @@ namespace examples::cut::NavierStokes::benchmarks {
                 Sphere<dim> &levelset_func,
                 std::string filename,
                 const bool semi_implicit, const int do_nothing_id,
-                const bool stationary, const bool compute_error)
+                bool stabilized, const bool stationary,
+                const bool compute_error)
             : NavierStokes::NavierStokesEqn<dim>(
             nu, tau, radius, half_length, n_refines, element_order,
             write_output, rhs, bdd_values, analytic_vel, analytic_pressure,
@@ -28,6 +33,59 @@ namespace examples::cut::NavierStokes::benchmarks {
             stationary, compute_error) {
         file = std::ofstream(filename);
         file << "k;t;C_D;C_L;\\Delta p\n" << std::endl;
+    }
+
+
+    template<int dim>
+    void BenchmarkNS<dim>::
+    make_grid(Triangulation<dim> &tria) {
+        std::cout << "Creating triangulation" << std::endl;
+
+        GridGenerator::cylinder(tria, this->radius, this->half_length);
+        GridTools::remove_anisotropy(tria, 1.618, 5);
+        tria.refine_global(this->n_refines);
+
+        auto *sphere = dynamic_cast<Sphere<dim>*>(this->levelset_function);
+        double radius = sphere->get_radius();
+        Point<dim> center = sphere->get_center();
+        double x0 = center[0];
+        double y0 = center[1];
+        double x;
+        double y;
+
+        double dist;
+        Point<dim> vertex;
+
+        unsigned int max_step = 1;
+        for (unsigned int step = 0; step < max_step; ++step) {
+            for (auto &cell : tria.active_cell_iterators()) {
+                for (const auto v : cell->vertex_indices()) {
+                    // Mark for refinement if the cell is close to the levelset.
+                    vertex = cell->vertex(v);
+                    x = vertex[0];
+                    y = vertex[1];
+                    // const double distance_from_center =
+                            // center.distance(cell->vertex(v));
+                    dist = -sqrt(pow(x - x0, 2) + pow(y - y0, 2)) + radius;
+
+                    if (std::fabs(dist) <= radius) {
+                        cell->set_refine_flag();
+                        break;
+                    }
+                }
+            }
+            tria.execute_coarsening_and_refinement();
+        }
+        this->mapping_collection.push_back(MappingCartesian<dim>());
+
+        // Save the cell-size, we need it in the Nitsche term.
+        typename Triangulation<dim>::active_cell_iterator cell =
+                tria.begin_active();
+        this->h = std::pow(cell->measure(), 1.0 / dim);
+
+        std::ofstream out("grid.svg");
+        GridOut grid_out;
+        grid_out.write_svg(tria, out);
     }
 
 
