@@ -179,8 +179,15 @@ namespace utils::problems {
         virtual void
         initialize_matrices();
 
+
+        virtual void
+        pre_time_loop(unsigned int bdf_type, unsigned int steps);
+
         virtual void
         pre_matrix_assembly();
+
+        virtual void
+        post_processing(unsigned int time_step);
 
 
         // Methods related to assembling the stiffness matrix and rhs vector.
@@ -293,9 +300,6 @@ namespace utils::problems {
         output_results(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
                        Vector<double> &solution,
                        bool minimal_output = false) const;
-
-        virtual void
-        post_processing(unsigned int time_step);
 
         const unsigned int n_refines;
         const unsigned int element_order;

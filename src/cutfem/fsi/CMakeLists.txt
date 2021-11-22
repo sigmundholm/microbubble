@@ -1,1 +1,2 @@
+add_subdirectory(falling_sphere)
 add_subdirectory(moving_sphere)

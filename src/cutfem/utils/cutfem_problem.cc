@@ -212,6 +212,8 @@ namespace utils::problems {
         dof_handlers.emplace_front(new hp::DoFHandler<dim>());
         distribute_dofs(dof_handlers.front());
 
+        pre_time_loop(bdf_type, steps);
+
         // Vector for the computed error for each time step.
         std::vector<ErrorBase *> errors(steps + 1);
 
@@ -355,7 +357,7 @@ namespace utils::problems {
         dof_handlers.emplace_front(new hp::DoFHandler<dim>());
         distribute_dofs(dof_handlers.front(), size_of_bound);
 
-        initialize_matrices();
+        pre_time_loop(bdf_type, steps);
 
         // Vector for the computed error for each time step.
         std::vector<ErrorBase *> errors(steps + 1);
@@ -754,6 +756,10 @@ namespace utils::problems {
         }
     }
 
+
+    template<int dim>
+    void CutFEMProblem<dim>::
+    pre_time_loop(unsigned int bdf_type, unsigned int steps) {}
 
     template<int dim>
     void CutFEMProblem<dim>::
