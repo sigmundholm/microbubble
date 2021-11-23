@@ -290,11 +290,11 @@ namespace utils::problems {
             solutions.pop_back();
         }
 
-        std::cout << std::endl;
-        for (ErrorBase *error : errors) {
-            error->output();
-        }
         if (do_compute_error) {
+            std::cout << std::endl;
+            for (ErrorBase *error : errors) {
+                error->output();
+            }
             return compute_time_error(errors);
         } else {
             return nullptr;
@@ -437,11 +437,11 @@ namespace utils::problems {
             dof_handlers.pop_back();
         }
 
-        std::cout << std::endl;
-        for (ErrorBase *error : errors) {
-            error->output();
-        }
         if (do_compute_error) {
+            std::cout << std::endl;
+            for (ErrorBase *error : errors) {
+                error->output();
+            }
             return compute_time_error(errors);
         } else {
             return nullptr;
