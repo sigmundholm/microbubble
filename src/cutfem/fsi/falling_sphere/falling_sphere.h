@@ -1,7 +1,5 @@
-#ifndef MICROBUBBLE_EX_FALLING_SPHERE_H
-#define MICROBUBBLE_EX_FALLING_SPHERE_H
-
-// #include "../../navier_stokes/navier_stokes.h"
+#ifndef MICROBUBBLE_FSI_FALLING_SPHERE_H
+#define MICROBUBBLE_FSI_FALLING_SPHERE_H
 
 #include <boost/optional.hpp>
 #include <queue>
@@ -10,8 +8,24 @@
 
 
 namespace cut::fsi::falling_sphere {
-    // using namespace examples::cut;
 
+    /**
+     * This class creates a simulation of a sphere submerged in a fluid, and
+     * and the forces acting on the sphere, causes it either to sink, or float.
+     *
+     * The fluid is modelled using Navier-Stokes equations, while the sphere
+     * moves as a rigid body. The forces acting on the sphere is gravity and
+     * friction forces acting on the sphere surfaces resulting from the viscous
+     * forces and pressure forces from the fluid on the sphere.
+     *
+     * To run the simulation, se the method run_moving_domain(bdf_type, steps).
+     * Then in each time step, when the method post_processing() of this class
+     * is called, the forces on the sphere is computed, and its position for the
+     * next step is calculated by solving the ODEs resulting from conservation
+     * of linear and angular momentum.
+     *
+     * @tparam dim
+     */
     template<int dim>
     class FallingSphere : public NavierStokes::NavierStokesEqn<dim> {
     public:
@@ -26,6 +40,7 @@ namespace cut::fsi::falling_sphere {
                       double fluid_density,
                       double sphere_density,
                       double sphere_radius,
+                      Tensor<1, dim> r0,
                       bool semi_implicit,
                       int do_nothing_id = 10);
 
@@ -45,6 +60,9 @@ namespace cut::fsi::falling_sphere {
 
         void
         update_boundary_values();
+
+        void
+        write_data(unsigned int time_step);
 
         /**
          * This method computes the torque resulting from the viscous and pressure
@@ -71,6 +89,8 @@ namespace cut::fsi::falling_sphere {
         MovingDomain<dim> *domain;
         BoundaryValues<dim> *boundary;
 
+        Tensor<1, dim> r0;
+
         boost::optional<std::deque<Tensor<1, dim>>> positions;
         boost::optional<std::deque<Tensor<1, dim>>> velocities;
         boost::optional<std::deque<Tensor<1, dim>>> accelerations;
@@ -83,4 +103,4 @@ namespace cut::fsi::falling_sphere {
 }
 
 
-#endif //MICROBUBBLE_EX_FALLING_SPHERE_H
+#endif // MICROBUBBLE_FSI_FALLING_SPHERE_H

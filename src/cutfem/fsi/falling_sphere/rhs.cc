@@ -6,7 +6,7 @@ namespace cut::fsi::falling_sphere {
 
 
     template<int dim>
-    double cross_product(Point<dim> a, Tensor<1, dim> b) {
+    double cross_product(Tensor<1, dim> a, Tensor<1, dim> b) {
         return a[0] * b[1] - a[1] * b[0];
     }
 
@@ -27,9 +27,10 @@ namespace cut::fsi::falling_sphere {
     template<int dim>
     BoundaryValues<dim>::BoundaryValues(const double half_length,
                                         const double radius,
-                                        const double sphere_radius)
+                                        const double sphere_radius,
+                                        const Tensor<1, dim> r0)
             : TensorFunction<1, dim>(), half_length(half_length),
-              radius(radius), sphere_radius(sphere_radius) {}
+              radius(radius), sphere_radius(sphere_radius), position(r0) {}
 
     template<int dim>
     Tensor<1, dim> BoundaryValues<dim>::
@@ -43,13 +44,40 @@ namespace cut::fsi::falling_sphere {
             // Zero Dirichlet boundary conditions on the whole boundary.
             return zero_velocity;
         }
-        return sphere_velocity;
+        return velocity;
     }
 
     template<int dim>
     void BoundaryValues<dim>::
-    set_sphere_velocity(Tensor<1, dim> value) {
-        sphere_velocity = value;
+    set_sphere_center_velocity(Tensor<1, dim> value) {
+        velocity = value;
+    }
+
+    template<int dim>
+    void BoundaryValues<dim>::
+    set_sphere_center_position(Tensor<1, dim> value) {
+        position = value;
+    }
+
+    template<int dim>
+    void BoundaryValues<dim>::
+    set_sphere_angular_velocity(double value) {
+        angular_velocity = value;
+    }
+
+    template<int dim>
+    Tensor<1, dim> BoundaryValues<dim>::
+    compute_boundary_velocity(Tensor<1, dim> point) {
+
+        // This is the velocity component at the sphere boundary resulting from
+        // the sphere rotation.
+        Tensor<1, dim> angular_contrib;
+        // The cross product of the angular velocity vector (in 2D this vector
+        // points in the z-direction), and the position of the sphere center.
+        angular_contrib[0] = angular_velocity * (point[1] - position[1]);
+        angular_contrib[1] = angular_velocity * (point[0] - position[0]);
+
+        return velocity + angular_contrib;
     }
 
 
@@ -57,10 +85,9 @@ namespace cut::fsi::falling_sphere {
     MovingDomain<dim>::MovingDomain(const double half_length,
                                     const double radius,
                                     const double sphere_radius,
-                                    const double x0,
-                                    const double y0)
+                                    const Tensor<1, dim> r0)
             :  half_length(half_length), radius(radius),
-               sphere_radius(sphere_radius), x0(x0), y0(y0) {}
+               sphere_radius(sphere_radius), new_position(r0) {}
 
     template<int dim>
     double MovingDomain<dim>::
@@ -80,7 +107,7 @@ namespace cut::fsi::falling_sphere {
     }
 
     template
-    double cross_product<2>(Point<2>, Tensor<1, 2>);
+    double cross_product<2>(Tensor<1, 2>, Tensor<1, 2>);
 
     template
     class RightHandSide<2>;

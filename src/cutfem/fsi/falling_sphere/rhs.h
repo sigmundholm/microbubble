@@ -1,5 +1,5 @@
-#ifndef MICROBUBBLE_RHS_H
-#define MICROBUBBLE_RHS_H
+#ifndef MICROBUBBLE_FSI_FALLING_SPHERE_RHS_H
+#define MICROBUBBLE_FSI_FALLING_SPHERE_RHS_H
 // TODO make the above unique.
 
 #include <deal.II/base/tensor.h>
@@ -24,7 +24,7 @@ namespace cut::fsi::falling_sphere {
      * @return
      */
     template<int dim>
-    double cross_product(Point<dim> a, Tensor<1, dim> b);
+    double cross_product(Tensor<1, dim> a, Tensor<1, dim> b);
 
     template<int dim>
     class RightHandSide : public TensorFunction<1, dim> {
@@ -39,18 +39,47 @@ namespace cut::fsi::falling_sphere {
     template<int dim>
     class BoundaryValues : public TensorFunction<1, dim> {
     public:
-        BoundaryValues(double half_length, double radius, double sphere_radius);
+        BoundaryValues(double half_length, double radius, double sphere_radius,
+                       Tensor<1, dim> r0);
 
         Tensor<1, dim>
         value(const Point<dim> &p) const override;
 
         void
-        set_sphere_velocity(Tensor<1, dim> value);
+        set_sphere_center_velocity(Tensor<1, dim> value);
+
+        void
+        set_sphere_center_position(Tensor<1, dim> value);
+
+        void
+        set_sphere_angular_velocity(double value);
+
+        /**
+         * This compute the value for the no-slip boundary condition around the
+         * sphere. The given point is a point at the boundary of the sphere.
+         * The velocity at that point is the sum of the contribution from the
+         * linear movement of the spheres center, and the velocity at that
+         * point resulting from the rotation of the sphere. That is,
+         *
+         *   u(x, t) = V(x, t) +  ω x (point - r_s)
+         *
+         * This computations is done for 2D only. In 2D, ω is the angular
+         * momentum as a vector always pointing along the z-axis. This causes
+         * the cross product above to lie in the xy-plane.
+         */
+        Tensor<1, dim>
+        compute_boundary_velocity(Tensor<1, dim> point);
 
         const double half_length;
         const double radius;
         const double sphere_radius;
-        Tensor<1, dim> sphere_velocity;
+
+        // The computed position of the sphere center in the next time step.
+        Tensor<1, dim> position;
+        // The velocity of the center of the sphere in the next time step.
+        Tensor<1, dim> velocity;
+        // The angular velocity of the sphere in the next time step.
+        double angular_velocity;
     };
 
 
@@ -58,7 +87,7 @@ namespace cut::fsi::falling_sphere {
     class MovingDomain : public LevelSet<dim> {
     public :
         MovingDomain(double half_length, double radius, double sphere_radius,
-                     double x0, double y0);
+                     Tensor<1, dim> r0);
 
         double
         value(const Point<dim> &p, unsigned int component) const override;
@@ -71,11 +100,8 @@ namespace cut::fsi::falling_sphere {
         const double radius;
         const double sphere_radius;
 
-        const double x0;
-        const double y0;
-
         Tensor<1, dim> new_position;
     };
 }
 
-#endif //MICROBUBBLE_RHS_H
+#endif // MICROBUBBLE_FSI_FALLING_SPHERE_RHS_H
