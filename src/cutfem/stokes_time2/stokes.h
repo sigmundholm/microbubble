@@ -101,6 +101,22 @@ namespace examples::cut::StokesEquation {
                 const std::vector<types::global_dof_index> &loc2glb) override;
 
 
+        enum StressComputation {
+            Regular = 1,
+            Symmetric = 2,
+            NitscheFlux = 3
+        };
+
+        Tensor<1, dim>
+        compute_surface_forces(StressComputation method);
+
+        void
+        integrate_surface_forces(const FEValuesBase<dim> &fe_v,
+                                 Vector<double> solution,
+                                 StressComputation method,
+                                 Tensor<1, dim> &viscous_forces,
+                                 Tensor<1, dim> &pressure_forces);
+
         const double nu;
 
         const double radius;
