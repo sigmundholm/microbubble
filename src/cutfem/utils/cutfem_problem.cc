@@ -64,6 +64,10 @@ namespace utils::problems {
     template<int dim>
     ErrorBase *CutFEMProblem<dim>::
     run_step() {
+        // Check that the stationary flag is set to true, else we might be
+        // solving the wrong problem.
+        assert(stationary);
+
         make_grid(triangulation);
         setup_quadrature();
         set_function_times(0);
@@ -102,6 +106,10 @@ namespace utils::problems {
     run_step_non_linear(double tol) {
         std::cout << "\nFixed point iteration" << std::endl;
         std::cout << "-------------------------" << std::endl;
+
+        // Check that the stationary flag is set to true, else we might be
+        // solving the wrong problem.
+        assert(stationary);
 
         make_grid(triangulation);
         setup_quadrature();

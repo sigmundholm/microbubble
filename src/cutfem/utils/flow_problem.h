@@ -66,6 +66,15 @@ namespace utils::problems::flow {
     };
 
 
+    enum Stress {
+        Regular = 0x0001,
+        Symmetric = 0x0002,
+        NitscheFlux = 0x0004,
+        Exact = 0x0008,
+        Test = 0x0010
+    };
+
+
     template<int dim>
     class FlowProblem : public CutFEMProblem<dim> {
     public:
@@ -145,7 +154,11 @@ namespace utils::problems::flow {
         TensorFunction<1, dim> *boundary_values;
         TensorFunction<1, dim> *analytical_velocity;
         Function<dim> *analytical_pressure;
-};
+
+        // Scaling constants for the stabilizations.
+        double velocity_stab_scaling = 0;
+        double pressure_stab_scaling = 0;
+    };
 
 } // namespace utils::problems::flow
 

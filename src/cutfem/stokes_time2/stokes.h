@@ -70,6 +70,38 @@ namespace examples::cut::StokesEquation {
         static void
         write_error_to_file(ErrorBase *error, std::ofstream &file);
 
+        /**
+         * Compute the stress over the surface of the submerged body (over the
+         * level set function boundary).
+         *
+         * The computation methods (Stress::<field>) can be combined by using
+         * the bitwise or | operator.
+         *
+         * @param method as a field of the Stress enum defined in FlowProblem.h.
+         *   Can also use the bitwise or operator | to apply multiple Stress
+         *   settings for the computation. The different choices are:
+         *    - Stress::Regular: compute the stress by using that
+         *          σ = ν𝛁u - pI
+         *    - Stress::Symmetric: compute the stress by using the symmetric
+         *        gradient, s.t.
+         *          σ = ν(𝛁u + 𝛁u^T)/2 - pI
+         *    - Stress::NitscheFlux: compute the stress by adjusting for the
+         *        Nitche terms, by integraing
+         *          ν𝛁u - pI + 𝛾/h(u - g)
+         *        over the surface. When combined with Stress::Symmetric, the
+         *        symmetric gradient is used.
+         *    - Stress::Exact: compute the stress using the exact solution in
+         *        the quadrature points.
+         *    - Stress::Test: this flag should be used when performing a
+         *        convergence test for the different computation methods. This
+         *        causes the mean pressure over the boundary to be subtracted
+         *        from the pressure value, since the computed pressure is not
+         *        unique when using Dirichlet on the whole boundary.
+         * @return the stress (drag and lift)
+         */
+        Tensor<1, dim>
+        compute_surface_forces(unsigned int method = Stress::Regular);
+
     protected:
         void
         set_function_times(double time) override;
@@ -100,20 +132,10 @@ namespace examples::cut::StokesEquation {
                 const FEValuesBase<dim> &fe_values,
                 const std::vector<types::global_dof_index> &loc2glb) override;
 
-
-        enum StressComputation {
-            Regular = 1,
-            Symmetric = 2,
-            NitscheFlux = 3
-        };
-
-        Tensor<1, dim>
-        compute_surface_forces(StressComputation method);
-
         void
         integrate_surface_forces(const FEValuesBase<dim> &fe_v,
                                  Vector<double> solution,
-                                 StressComputation method,
+                                 unsigned int method,
                                  Tensor<1, dim> &viscous_forces,
                                  Tensor<1, dim> &pressure_forces);
 
@@ -124,9 +146,6 @@ namespace examples::cut::StokesEquation {
 
         unsigned int do_nothing_id;
 
-        // Scaling constants for the stabilizations.
-        double velocity_stab_scaling = 0;
-        double pressure_stab_scaling = 0;
     };
 
 } // namespace examples::cut::StokesEquation

@@ -373,6 +373,11 @@ namespace utils::problems {
         // term.
         bool stationary_stiffness_matrix = true;
 
+        // This is the Nitsche penalty parameter used to scale the penalty
+        // term that enforces the Dirichlet conditions, often denoted by
+        // mu = gamma / h in texts.
+        double nitsche_penalty;
+
     };
 }
 

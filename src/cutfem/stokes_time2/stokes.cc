@@ -119,6 +119,11 @@ namespace examples::cut::StokesEquation {
                 gamma_u * (1 + this->tau * nu / pow(this->h, 2));
         this->pressure_stab_scaling =
                 -gamma_p * this->tau / (nu + pow(this->h, 2) / this->tau);
+
+        // Nitsche penalty parameter
+        this->nitsche_penalty =
+                5 * nu * this->element_order * (this->element_order + 1) /
+                this->h;
     }
 
 
@@ -153,8 +158,8 @@ namespace examples::cut::StokesEquation {
         pressure_stab.set_weight_function(stabilization::taylor_weights);
         pressure_stab.set_extractor(pressure);
 
-        assert(velocity_stab_scaling != 0);
-        assert(pressure_stab_scaling != 0);
+        assert(this->velocity_stab_scaling != 0);
+        assert(this->pressure_stab_scaling != 0);
 
         NonMatching::RegionUpdateFlags region_update_flags;
         region_update_flags.inside = update_values | update_JxW_values |
@@ -311,8 +316,8 @@ namespace examples::cut::StokesEquation {
         std::vector<double> phi_p(dofs_per_cell);
 
         // Nitsche penalty parameter
-        double mu = 5 * nu * this->element_order * (this->element_order + 1) /
-                    this->h;
+        double mu = this->nitsche_penalty;
+
         Tensor<1, dim> normal;
 
         for (unsigned int q : fe_values.quadrature_point_indices()) {
@@ -451,8 +456,8 @@ namespace examples::cut::StokesEquation {
         const FEValuesExtractors::Scalar p(dim);
 
         // Nitsche penalty parameter
-        double mu = 5 * nu * this->element_order * (this->element_order + 1) /
-                    this->h;
+        double mu = this->nitsche_penalty;
+
         Tensor<1, dim> normal;
 
         for (unsigned int q : fe_values.quadrature_point_indices()) {
@@ -504,7 +509,7 @@ namespace examples::cut::StokesEquation {
 
     template<int dim>
     Tensor<1, dim> StokesEqn<dim>::
-    compute_surface_forces(StressComputation method) {
+    compute_surface_forces(unsigned int method) {
         NonMatching::RegionUpdateFlags region_update_flags;
         region_update_flags.inside = update_values | update_quadrature_points
                                      | update_JxW_values;
@@ -552,20 +557,39 @@ namespace examples::cut::StokesEquation {
     void StokesEqn<dim>::
     integrate_surface_forces(const FEValuesBase<dim> &fe_v,
                              Vector<double> solution,
-                             StressComputation method,
+                             unsigned int method,
                              Tensor<1, dim> &viscous_forces,
                              Tensor<1, dim> &pressure_forces) {
 
         const FEValuesExtractors::Vector v(0);
         const FEValuesExtractors::Scalar p(dim);
 
-        // Vector of the values of the symmetric gradients for u on the
-        // quadrature points.
+        // The gradients for u on the quadrature points.
         std::vector<Tensor<2, dim>> u_gradients(fe_v.n_quadrature_points);
         fe_v[v].get_function_gradients(solution, u_gradients);
+
         // Vector of the values of the pressure in the quadrature points.
         std::vector<double> p_values(fe_v.n_quadrature_points);
         fe_v[p].get_function_values(solution, p_values);
+
+        // Boundary values
+        std::vector<Tensor<1, dim>> bdd_values(fe_v.n_quadrature_points);
+        // Function values of u.
+        std::vector<Tensor<1, dim>> u_values(fe_v.n_quadrature_points);
+
+        // Compute values needed for the Nitsche boundary flux.
+        if (method & Stress::NitscheFlux) {
+            this->boundary_values->value_list(fe_v.get_quadrature_points(),
+                                              bdd_values);
+            fe_v[v].get_function_values(solution, u_values);
+        }
+        if (method & Stress::Exact) {
+            // Use the exact function values for the computation.
+            this->analytical_velocity->gradient_list(
+                    fe_v.get_quadrature_points(), u_gradients);
+            this->analytical_pressure->value_list(
+                    fe_v.get_quadrature_points(), p_values);
+        }
 
         Tensor<1, dim> v_forces;
         Tensor<1, dim> p_forces;
@@ -574,17 +598,50 @@ namespace examples::cut::StokesEquation {
         I[1][1] = 1;
         if (dim == 3) { I[2][2] = 1; }
 
+        Tensor<2, dim> transposed;
+        Tensor<2, dim> gradient;
         Tensor<1, dim> normal;
+
+        // Compute the mean pressure over the surface, and subtract from the
+        // pressure value if the Test flag is set. This should not be done when
+        // we use do-nothing boundary conditions, then the pressure is unique.
+        double mean_pressure = 0;
+        double area = 0;
+        if (method & Stress::Test) {
+            for (unsigned int q : fe_v.quadrature_point_indices()) {
+                mean_pressure += p_values[q] * fe_v.JxW(q);
+                area += fe_v.JxW(q);
+            }
+            mean_pressure /= area;
+        }
+
         for (unsigned int q : fe_v.quadrature_point_indices()) {
             // We want the outward pointing normal of e.g. the sphere, so we
             // need to change the direction of the implemented normal, since
             // this normal points out of the domain.
             normal = -fe_v.normal_vector(q);
-            // Tensor<2, dim> transposed = transpose(u_gradients[q]);
+
+            if (method & Stress::Symmetric) {
+                // Compute the symmetric u-gradient
+                transposed = transpose(u_gradients[q]);
+                gradient = 0.5 * (u_gradients[q] + transposed);
+            } else {
+                gradient = u_gradients[q];
+            }
 
             // The viscous forces and pressure forces act on the submerged body.
             v_forces = this->nu * u_gradients[q] * normal;
-            p_forces = -p_values[q] * I * normal;
+
+            // Add the Nitsche term if we want to compute the stress using
+            // the Nitsche flux.
+            if (method & Stress::NitscheFlux) {
+                v_forces +=
+                        this->nitsche_penalty * (u_values[q] - bdd_values[q]);
+            }
+            // The mean_pressure is zero, if the Stress::Test method field
+            // is not used.
+            p_forces = -(p_values[q] - mean_pressure) * I * normal;
+
             viscous_forces += v_forces * fe_v.JxW(q);
             pressure_forces += p_forces * fe_v.JxW(q);
         }
