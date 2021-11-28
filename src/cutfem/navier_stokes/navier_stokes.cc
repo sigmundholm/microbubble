@@ -138,6 +138,11 @@ namespace examples::cut::NavierStokes {
                     -gamma_p * this->tau /
                     (this->nu + pow(this->h, 2) / this->tau);
         }
+
+        // Nitsche penalty parameter
+        this->nitsche_penalty =
+                5 * this->nu * this->element_order * (this->element_order + 1) /
+                this->h;
     }
 
 

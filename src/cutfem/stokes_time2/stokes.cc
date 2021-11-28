@@ -638,7 +638,7 @@ namespace examples::cut::StokesEquation {
             }
 
             // The viscous forces and pressure forces act on the submerged body.
-            v_forces = this->nu * u_gradients[q] * normal;
+            v_forces = this->nu * gradient * normal;
 
             // Add the Nitsche term if we want to compute the stress using
             // the Nitsche flux.
