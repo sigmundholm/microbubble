@@ -519,10 +519,18 @@ namespace examples::cut::StokesEquation {
                 update_quadrature_points |
                 update_normal_vectors;
 
+        // Use a higher order quadrature formula when computing the error than
+        // when assembling the stiffness matrix.
+        const unsigned int n_quad_points = this->element_order + 4;
+        hp::QCollection<dim> q_collection;
+        q_collection.push_back(QGauss<dim>(n_quad_points));
+        hp::QCollection<1> q_collection1D;
+        q_collection1D.push_back(QGauss<1>(n_quad_points));
+
         NonMatching::FEValues<dim> cut_fe_values(this->mapping_collection,
                                                  this->fe_collection,
-                                                 this->q_collection,
-                                                 this->q_collection1D,
+                                                 q_collection,
+                                                 q_collection1D,
                                                  region_update_flags,
                                                  this->cut_mesh_classifier,
                                                  this->levelset_dof_handler,

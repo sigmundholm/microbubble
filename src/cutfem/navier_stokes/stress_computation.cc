@@ -21,7 +21,7 @@ void solve_for_element_order(int element_order, int max_refinement,
     double tau = 1;
 
     double sphere_radius = 0.75 * radius;
-    double sphere_x_coord = 0;
+    double sphere_x_coord = radius / 5;
 
     const bool semi_implicit = true;
 
@@ -39,7 +39,18 @@ void solve_for_element_order(int element_order, int max_refinement,
     stationary::AnalyticalVelocity<dim> analytical_velocity(nu);
     stationary::AnalyticalVelocity<dim> boundary_values(nu);
     stationary::AnalyticalPressure<dim> analytical_pressure(nu);
-    MovingDomain<dim> domain(sphere_radius, half_length, radius);
+    Sphere<dim> domain(sphere_radius, sphere_x_coord, 0);
+
+    std::cout << "Compute exact surface forces first." << std::endl;
+    NavierStokesEqn<dim> ns_exact(nu, tau, radius, half_length, max_refinement,
+                                  element_order, write_output, rhs,
+                                  boundary_values,
+                                  analytical_velocity, analytical_pressure,
+                                  domain, semi_implicit, 10,
+                                  true, true);
+    ns_exact.run_step_non_linear(1e-11);
+    Tensor<1, dim> exact = ns_exact.compute_surface_forces(
+            Stress::Exact | Stress::Test);
 
     for (int n_refines = 3; n_refines < max_refinement + 1; ++n_refines) {
         std::cout << "\nn_refines=" << n_refines << std::endl
@@ -68,8 +79,6 @@ void solve_for_element_order(int element_order, int max_refinement,
 
         // Compute the stress forces on the sphere, using the
         // different approaches.
-        Tensor<1, dim> exact = ns.compute_surface_forces(
-                Stress::Exact | Stress::Test);
         Tensor<1, dim> regular = ns.compute_surface_forces(
                 Stress::Regular | Stress::Test);
         Tensor<1, dim> symmetric = ns.compute_surface_forces(
