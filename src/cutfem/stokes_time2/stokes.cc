@@ -119,6 +119,11 @@ namespace examples::cut::StokesEquation {
                 gamma_u * (1 + this->tau * nu / pow(this->h, 2));
         this->pressure_stab_scaling =
                 -gamma_p * this->tau / (nu + pow(this->h, 2) / this->tau);
+
+        // Nitsche penalty parameter
+        this->nitsche_penalty =
+                5 * nu * this->element_order * (this->element_order + 1) /
+                this->h;
     }
 
 
@@ -153,8 +158,8 @@ namespace examples::cut::StokesEquation {
         pressure_stab.set_weight_function(stabilization::taylor_weights);
         pressure_stab.set_extractor(pressure);
 
-        assert(velocity_stab_scaling != 0);
-        assert(pressure_stab_scaling != 0);
+        assert(this->velocity_stab_scaling != 0);
+        assert(this->pressure_stab_scaling != 0);
 
         NonMatching::RegionUpdateFlags region_update_flags;
         region_update_flags.inside = update_values | update_JxW_values |
@@ -311,8 +316,8 @@ namespace examples::cut::StokesEquation {
         std::vector<double> phi_p(dofs_per_cell);
 
         // Nitsche penalty parameter
-        double mu = 5 * nu * this->element_order * (this->element_order + 1) /
-                    this->h;
+        double mu = this->nitsche_penalty;
+
         Tensor<1, dim> normal;
 
         for (unsigned int q : fe_values.quadrature_point_indices()) {
@@ -451,8 +456,8 @@ namespace examples::cut::StokesEquation {
         const FEValuesExtractors::Scalar p(dim);
 
         // Nitsche penalty parameter
-        double mu = 5 * nu * this->element_order * (this->element_order + 1) /
-                    this->h;
+        double mu = this->nitsche_penalty;
+
         Tensor<1, dim> normal;
 
         for (unsigned int q : fe_values.quadrature_point_indices()) {
@@ -499,6 +504,178 @@ namespace examples::cut::StokesEquation {
              << err->h1_semi_p << ","
              << err->l_inf_l2_error_u << ","
              << err->l_inf_h1_error_u << std::endl;
+    }
+
+
+    template<int dim>
+    Tensor<1, dim> StokesEqn<dim>::
+    compute_surface_forces(unsigned int method) {
+        NonMatching::RegionUpdateFlags region_update_flags;
+        region_update_flags.inside = update_values | update_quadrature_points
+                                     | update_JxW_values;
+        region_update_flags.surface =
+                update_values | update_JxW_values |
+                update_gradients |
+                update_quadrature_points |
+                update_normal_vectors;
+
+        // Use a higher order quadrature formula when computing the error than
+        // when assembling the stiffness matrix.
+        const unsigned int n_quad_points = this->element_order + 4;
+        hp::QCollection<dim> q_collection;
+        q_collection.push_back(QGauss<dim>(n_quad_points));
+        hp::QCollection<1> q_collection1D;
+        q_collection1D.push_back(QGauss<1>(n_quad_points));
+
+        NonMatching::FEValues<dim> cut_fe_values(this->mapping_collection,
+                                                 this->fe_collection,
+                                                 q_collection,
+                                                 q_collection1D,
+                                                 region_update_flags,
+                                                 this->cut_mesh_classifier,
+                                                 this->levelset_dof_handler,
+                                                 this->levelset);
+
+        Tensor<1, dim> forces;
+        for (const auto &cell : this->dof_handlers.front()->active_cell_iterators()) {
+            const unsigned int n_dofs = cell->get_fe().dofs_per_cell;
+            // This call will compute quadrature rules relevant for this cell
+            // in the background.
+            cut_fe_values.reinit(cell);
+
+            // Retrieve an FEValues object with quadrature points
+            // on the immersed surface.
+            const boost::optional<const FEImmersedSurfaceValues<dim> &>
+                    fe_values_surface = cut_fe_values.get_surface_fe_values();
+            if (fe_values_surface) {
+                integrate_surface_forces(*fe_values_surface,
+                                         this->solutions.front(),
+                                         method,
+                                         forces);
+            }
+        }
+        if (method & Stress::Error) {
+            // Take the square root of the result to get the L^2 norm error.
+            forces[0] = sqrt(forces[0]);
+            // In the case of error computation, the scalar result is given in
+            // the first component of the vector, and the other component
+            // should thus be zero.
+            assert(forces[1] == 0);
+        }
+        return forces;
+    }
+
+
+    template<int dim>
+    void StokesEqn<dim>::
+    integrate_surface_forces(const FEValuesBase<dim> &fe_v,
+                             Vector<double> solution,
+                             unsigned int method,
+                             Tensor<1, dim> &force_integral) {
+
+        const FEValuesExtractors::Vector v(0);
+        const FEValuesExtractors::Scalar p(dim);
+
+        // The gradients for u on the quadrature points.
+        std::vector<Tensor<2, dim>> u_gradients(fe_v.n_quadrature_points);
+        fe_v[v].get_function_gradients(solution, u_gradients);
+
+        // Vector of the values of the pressure in the quadrature points.
+        std::vector<double> p_values(fe_v.n_quadrature_points);
+        fe_v[p].get_function_values(solution, p_values);
+
+        // Exact values
+        std::vector<Tensor<2, dim>> exact_u_gradients(fe_v.n_quadrature_points);
+        std::vector<double> exact_p_values(fe_v.n_quadrature_points);
+
+        // Boundary values
+        std::vector<Tensor<1, dim>> bdd_values(fe_v.n_quadrature_points);
+        // Function values of u.
+        std::vector<Tensor<1, dim>> u_values(fe_v.n_quadrature_points);
+
+        // Compute values needed for the Nitsche boundary flux.
+        if (method & Stress::NitscheFlux) {
+            this->boundary_values->value_list(fe_v.get_quadrature_points(),
+                                              bdd_values);
+            fe_v[v].get_function_values(solution, u_values);
+        }
+
+        if (method & Stress::Exact || method & Stress::Error) {
+            // Get the exact function values for the computation.
+            this->analytical_velocity->gradient_list(
+                    fe_v.get_quadrature_points(), exact_u_gradients);
+            this->analytical_pressure->value_list(
+                    fe_v.get_quadrature_points(), exact_p_values);
+        }
+        if (method & Stress::Exact) {
+            u_gradients = exact_u_gradients;
+            p_values = exact_p_values;
+        }
+
+        Tensor<1, dim> forces;
+        Tensor<2, dim> I; // Identity matrix
+        I[0][0] = 1;
+        I[1][1] = 1;
+        if (dim == 3) { I[2][2] = 1; }
+
+        Tensor<2, dim> transposed;
+        Tensor<2, dim> gradient;
+        Tensor<1, dim> normal;
+
+        // Compute the mean pressure over the surface, and subtract from the
+        // pressure value if the Test flag is set. This should not be done when
+        // we use do-nothing boundary conditions, then the pressure is unique.
+        double mean_num_pressure = 0;
+        double mean_exact_pressure = 0;
+        double area = 0;
+        if (method & Stress::Error) {
+            for (unsigned int q : fe_v.quadrature_point_indices()) {
+                mean_num_pressure += p_values[q] * fe_v.JxW(q);
+                mean_exact_pressure += exact_p_values[q] * fe_v.JxW(q);
+                area += fe_v.JxW(q);
+            }
+            mean_num_pressure /= area;
+            mean_exact_pressure /= area;
+        }
+
+        for (unsigned int q : fe_v.quadrature_point_indices()) {
+            // We want the outward pointing normal of e.g. the sphere, so we
+            // need to change the direction of the implemented normal, since
+            // this normal points out of the domain.
+            normal = -fe_v.normal_vector(q);
+            if (method & Stress::Symmetric) {
+                // Compute the symmetric u-gradient
+                transposed = transpose(u_gradients[q]);
+                gradient = 0.5 * (u_gradients[q] + transposed);
+            } else {
+                gradient = u_gradients[q];
+            }
+
+            // The viscous forces and pressure forces act on the submerged body.
+            // The mean_pressure is zero, if the Stress::Test method field is
+            // not used.
+            forces = this->nu * gradient * normal
+                     - (p_values[q] - mean_num_pressure) * I * normal;
+
+            // Add the Nitsche term if we want to compute the stress using
+            // the Nitsche flux.
+            if (method & Stress::NitscheFlux) {
+                forces += this->nitsche_penalty * (u_values[q] - bdd_values[q]);
+            }
+            if (method & Stress::Error) {
+                // Subtract the analytic boundary flux (not symmetric gradient
+                // in this implementation).
+                forces -= this->nu * exact_u_gradients[q] * normal
+                          - (exact_p_values[q] - mean_exact_pressure) * I * normal;
+                // Compute integral over the boundary of the squared difference
+                // of the numeric flux and the analytical boundary flux.
+                // Note that because this integral is a scalar, it is put in
+                // first component of the resulting value Tensor.
+                force_integral[0] += forces * forces * fe_v.JxW(q);
+            } else {
+                forces += forces * fe_v.JxW(q);
+            }
+        }
     }
 
 

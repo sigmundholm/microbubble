@@ -15,4 +15,8 @@ add_executable(stat-conv-ns convergence_stationary.cc rhs_stat.cc)
 deal_ii_setup_target(stat-conv-ns)
 target_link_libraries(stat-conv-ns navier-stokes)
 
+add_executable(stress-test stress_computation.cc rhs_stat.cc)
+deal_ii_setup_target(stress-test)
+target_link_libraries(stress-test navier-stokes)
+
 add_subdirectory(benchmarks)

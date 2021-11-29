@@ -106,15 +106,6 @@ namespace examples::cut::NavierStokes {
                 const FEValues<dim> &fe_v,
                 const std::vector<types::global_dof_index> &loc2glb) override;
 
-        Tensor<1, dim>
-        compute_surface_forces();
-
-        void
-        integrate_surface_forces(const FEValuesBase<dim> &fe_v,
-                                 Vector<double> solution,
-                                 Tensor<1, dim> &viscous_forces,
-                                 Tensor<1, dim> &pressure_forces);
-
 
         // If true, a semi-implicit discretisation is used for the convection
         // term. Else, it an explicit discretisation is used.

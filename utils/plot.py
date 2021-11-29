@@ -137,7 +137,7 @@ def plot3d(field, title="", latex=False, z_label="z", xs=None, ys=None):
 
 
 def conv_plots(data, columns, title="", latex=True, domain_length=1, xlabel="N",
-               max_contrast=True, unique_marker=True):
+               max_contrast=True, unique_marker=True, yscale="log2"):
     if_latex(latex)
 
     mesh_size = data[:, 0]
@@ -156,7 +156,7 @@ def conv_plots(data, columns, title="", latex=True, domain_length=1, xlabel="N",
     for k, (col_name, data_col) in enumerate(zip(columns[1:], [data[:, i] for i in range(1, data.shape[1])])):
         print()
         print(col_name, data_col)
-        ax = add_convergence_line(ax, ns, data_col, "log2", name=col_name, xlabel=f"${xlabel}$",
+        ax = add_convergence_line(ax, ns, data_col, yscale, name=col_name, xlabel=f"${xlabel}$",
                                   color=cmap(k / (len(columns[1:]) - 1 - int(max_contrast))),
                                   marker=next(marker) if unique_marker else ".")
     ax.set_title(title)
