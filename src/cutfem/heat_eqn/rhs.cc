@@ -89,6 +89,25 @@ namespace examples::cut::HeatEquation {
                (r / r0) * cos(5 * atan2(y, x));
     }
 
+    template<int dim>
+    MovingDomain<dim>::MovingDomain(const double sphere_radius,
+                                    const double half_length,
+                                    const double radius)
+            : sphere_radius(sphere_radius), half_length(half_length),
+              radius(radius) {}
+
+    template<int dim>
+    double MovingDomain<dim>::
+    value(const Point<dim> &p, const unsigned int component) const {
+        (void) component;
+        double t = this->get_time();
+        double x0 = 0.9 * (half_length - sphere_radius) * (2 * t - 1);
+        double y0 = 0;
+        double x = p[0];
+        double y = p[1];
+        return sqrt(pow(x - x0, 2) + pow(y - y0, 2)) - sphere_radius;
+    }
+
 
     template
     class RightHandSide<2>;
@@ -113,5 +132,11 @@ namespace examples::cut::HeatEquation {
 
     template
     class FlowerDomain<3>;
+
+    template
+    class MovingDomain<2>;
+
+    template
+    class MovingDomain<3>;
 
 } // namespace examples::cut::HeatEquation

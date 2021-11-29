@@ -73,6 +73,14 @@ namespace utils::problems::scalar {
                       Function<dim> &analytical_soln,
                       const bool stabilized = true);
 
+        ScalarProblem(const unsigned int n_refines,
+                      const int element_order,
+                      const bool write_output,
+                      Triangulation<dim> &tria,
+                      Function<dim> &levelset_func,
+                      Function<dim> &analytical_soln,
+                      const bool stabilized = true);
+
         static void
         write_header_to_file(std::ofstream &file);
 
@@ -81,40 +89,58 @@ namespace utils::problems::scalar {
 
     protected:
         virtual void
-        interpolate_solution(int time_step) override;
+        interpolate_solution(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
+                             int time_step,
+                             bool moving_domain = false) override;
 
-        void
-        distribute_dofs() override;
+        virtual void
+        setup_fe_collection() override;
 
         virtual void
         assemble_system() override;
 
+        virtual void
+        assemble_rhs_and_bdf_terms_local_over_cell(
+                const FEValues<dim> &fe_values,
+                const std::vector<types::global_dof_index> &loc2glb) override;
 
-        ErrorBase*
-        compute_error() override;
+        virtual void
+        assemble_rhs_and_bdf_terms_local_over_cell_moving_domain(
+                const FEValues<dim> &fe_values,
+                const std::vector<types::global_dof_index> &loc2glb) override;
 
-        ErrorBase*
-        compute_time_error(std::vector<ErrorBase*> &errors) override;
+        ErrorBase *
+        compute_error(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
+                      Vector<double> &solution) override;
+
+        ErrorBase *
+        compute_time_error(std::vector<ErrorBase *> &errors) override;
 
         void
         integrate_cell(const FEValues<dim> &fe_v,
+                       Vector<double> &solution,
                        double &l2_error_integral,
-                       double &h1_error_integral) const override;
+                       double &h1_error_integral) const;
 
 
         virtual void
         write_time_header_to_file(std::ofstream &file) override;
 
         virtual void
-        write_time_error_to_file(ErrorBase *error, std::ofstream &file) override;
+        write_time_error_to_file(ErrorBase *error,
+                                 std::ofstream &file) override;
 
 
         virtual void
-        output_results(std::string &suffix,
+        output_results(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
+                       Vector<double> &solution,
+                       std::string &suffix,
                        bool minimal_output = false) const override;
 
         FE_Q<dim> fe;
 
+        Function<dim> *rhs_function;
+        Function<dim> *boundary_values;
         Function<dim> *analytical_solution;
 
     };

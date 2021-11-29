@@ -18,6 +18,8 @@ The following solvers all use CutFEM, and hence solve the problems on an unfitte
 - Time Dependent Stokes (Implicit Euler): `stokes_time`
 - Time Dependent Stokes (BDF-2): `stokes_time2`
 
+#### Moving domains
+- Heat equation
 
 In addition, solvers for the Poisson problem and the Stokes Equations are also implemented on a fitted mesh, using Nitsches method for the Dirichlet boundary conditions.
 

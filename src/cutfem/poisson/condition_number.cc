@@ -42,13 +42,14 @@ void condition_number_sensitivity() {
         Poisson<dim> poisson(radius, half_length, n_refines, element_order,
                              write_output, rhs, bdd, soln, domain, stabilized);
 
-        Error error = poisson.run(true, "-k" + std::to_string(k));
+        ErrorBase *err = poisson.run_step();
+        auto *error = dynamic_cast<ErrorScalar*>(err);
 
         file << k << ","
-             << error.cond_num << ","
-             << error.l2_error << ","
-             << error.h1_error << std::endl;
-        h = error.mesh_size;
+             << error->cond_num << ","
+             << error->l2_error << ","
+             << error->h1_error << std::endl;
+        h = error->h;
     }
 }
 

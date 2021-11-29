@@ -27,6 +27,8 @@
 #include <deal.II/lac/sparsity_pattern.h>
 #include <deal.II/lac/vector.h>
 
+#include <deque>
+#include <memory>
 #include <vector>
 
 #include "cutfem/geometry/SignedDistanceSphere.h"
@@ -63,12 +65,22 @@ namespace utils::problems {
                       Function<dim> &levelset_func,
                       const bool stabilized = true);
 
+        CutFEMProblem(const unsigned int n_refines,
+                      const int element_order,
+                      const bool write_output,
+                      Triangulation<dim> &tria,
+                      Function<dim> &levelset_func,
+                      const bool stabilized = true);
 
-        ErrorBase*
+
+        ErrorBase *
         run_step();
 
         Vector<double>
         get_solution();
+
+        std::shared_ptr<hp::DoFHandler<dim>>
+        get_dof_handler();
 
         /**
          * Run a time loop with a BDF-method.
@@ -82,12 +94,22 @@ namespace utils::problems {
          * @param steps: the number of steps to run.
          * @return an Error object.
          */
-        ErrorBase*
+        ErrorBase *
         run_time(unsigned int bdf_type, unsigned int steps,
                  std::vector<Vector<double>> &supplied_solutions);
 
-        ErrorBase*
+        ErrorBase *
         run_time(unsigned int bdf_type, unsigned int steps);
+
+        ErrorBase *
+        run_moving_domain(unsigned int bdf_type, unsigned int steps,
+                          std::vector<Vector<double>> &supplied_solutions,
+                          std::vector<std::shared_ptr<hp::DoFHandler<dim>>> &supplied_dof_handlers,
+                          const double mesh_bound_multiplier = 1);
+
+        ErrorBase *
+        run_moving_domain(unsigned int bdf_type, unsigned int steps,
+                          const double mesh_bound_multiplier = 1);
 
         static void
         write_header_to_file(std::ofstream &file);
@@ -101,18 +123,22 @@ namespace utils::problems {
 
         void
         interpolate_first_steps(unsigned int bdf_type,
-                                std::vector<ErrorBase*> &errors);
+                                std::vector<ErrorBase *> &errors,
+                                bool moving_domain = false);
 
         void
         set_supplied_solutions(unsigned int bdf_type,
                                std::vector<Vector<double>> &supplied_solutions,
-                               std::vector<ErrorBase*> &errors);
+                               std::vector<std::shared_ptr<hp::DoFHandler<dim>>> &supplied_dof_handlers,
+                               std::vector<ErrorBase *> &errors,
+                               bool moving_domain = false);
 
         virtual void
         set_function_times(double time);
 
         virtual void
-        interpolate_solution(int time_step);
+        interpolate_solution(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
+                             int time_step, bool moving_domain = false);
 
 
         virtual void
@@ -125,74 +151,95 @@ namespace utils::problems {
         setup_level_set();
 
         virtual void
-        distribute_dofs() = 0;
+        setup_fe_collection() = 0;
+
+        virtual void
+        distribute_dofs(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
+                        double size_of_bound = 0);
 
         virtual void
         initialize_matrices();
 
 
+        // Methods related to assembling the stiffness matrix and rhs vector.
+        // -------------------------------------------------------------------
+
+        /**
+         * Assemble the stiffness matrix and rhs vector. This method is used
+         * for stationary problems.
+         *
+         * This method should in turn call the methods assemble_local_over_cell
+         * and assemble_local_over_surface.
+         */
         virtual void
-        assemble_system() = 0;
+        assemble_system();
 
         virtual void
         assemble_local_over_cell(const FEValues<dim> &fe_values,
-                                 const std::vector<types::global_dof_index> &loc2glb) = 0;
+                                 const std::vector<types::global_dof_index> &loc2glb);
 
         virtual void
         assemble_local_over_surface(
                 const FEValuesBase<dim> &fe_values,
-                const std::vector<types::global_dof_index> &loc2glb) = 0;
+                const std::vector<types::global_dof_index> &loc2glb);
 
+        // TODO create a method assemble_rhs() for stationary problems.
 
         virtual void
-        assemble_matrix() = 0;
+        assemble_matrix();
 
         virtual void
         assemble_matrix_local_over_cell(const FEValues<dim> &fe_values,
-                                        const std::vector<types::global_dof_index> &loc2glb) = 0;
+                                        const std::vector<types::global_dof_index> &loc2glb);
 
         virtual void
         assemble_matrix_local_over_surface(
                 const FEValuesBase<dim> &fe_values,
-                const std::vector<types::global_dof_index> &loc2glb) = 0;
+                const std::vector<types::global_dof_index> &loc2glb);
 
         virtual void
-        assemble_rhs(int time_step) = 0;
+        assemble_rhs(int time_step, bool moving_domain);
 
         virtual void
         assemble_rhs_local_over_cell(const FEValues<dim> &fe_values,
-                                     const std::vector<types::global_dof_index> &loc2glb) = 0;
+                                     const std::vector<types::global_dof_index> &loc2glb);
+
+        virtual void
+        assemble_rhs_and_bdf_terms_local_over_cell(
+                const FEValues<dim> &fe_values,
+                const std::vector<types::global_dof_index> &loc2glb) = 0;
+
+        virtual void
+        assemble_rhs_and_bdf_terms_local_over_cell_moving_domain(
+                const FEValues<dim> &fe_values,
+                const std::vector<types::global_dof_index> &loc2glb) = 0;
 
         virtual void
         assemble_rhs_local_over_cell_cn(const FEValues<dim> &fe_values,
                                         const std::vector<types::global_dof_index> &loc2glb,
-                                        const int time_step) = 0;
+                                        const int time_step);
 
         virtual void
         assemble_rhs_local_over_surface(
                 const FEValuesBase<dim> &fe_values,
-                const std::vector<types::global_dof_index> &loc2glob) = 0;
+                const std::vector<types::global_dof_index> &loc2glob);
 
         virtual void
         assemble_rhs_local_over_surface_cn(
                 const FEValuesBase<dim> &fe_values,
                 const std::vector<types::global_dof_index> &loc2glob,
-                const int time_step) = 0;
+                const int time_step);
 
 
         virtual void
         solve();
 
-        virtual ErrorBase*
-        compute_error() = 0;
+        virtual ErrorBase *
+        compute_error(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
+                      Vector<double> &solution) = 0;
 
-        virtual ErrorBase*
-        compute_time_error(std::vector<ErrorBase*> &errors) = 0;
-
-        virtual void
-        integrate_cell(const FEValues<dim> &fe_v,
-                       double &l2_error_integral,
-                       double &h1_error_integral) const = 0;
+        virtual ErrorBase *
+        compute_time_error(std::vector<ErrorBase *> &errors) = 0;
 
         double
         compute_condition_number();
@@ -206,15 +253,21 @@ namespace utils::problems {
 
 
         virtual void
-        output_results(std::string &suffix,
+        output_results(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
+                       Vector<double> &solution,
+                       std::string &suffix,
                        bool minimal_output = false) const = 0;
 
         virtual void
-        output_results(int time_step,
+        output_results(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
+                       Vector<double> &solution,
+                       int time_step,
                        bool minimal_output = false) const;
 
         virtual void
-        output_results(bool minimal_output = false) const;
+        output_results(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
+                       Vector<double> &solution,
+                       bool minimal_output = false) const;
 
         const unsigned int n_refines;
         const unsigned int element_order;
@@ -235,12 +288,10 @@ namespace utils::problems {
         DoFHandler<dim> levelset_dof_handler;
         Vector<double> levelset;
 
-        Function<dim> *rhs_function;
-        Function<dim> *boundary_values;
         Function<dim> *levelset_function;
 
         // Object managing degrees of freedom for the cutfem method.
-        hp::DoFHandler<dim> dof_handler;
+        std::deque<std::shared_ptr<hp::DoFHandler<dim>>> dof_handlers;
 
         NonMatching::CutMeshClassifier<dim> cut_mesh_classifier;
 
@@ -248,16 +299,19 @@ namespace utils::problems {
 
         SparseMatrix<double> stiffness_matrix;
         Vector<double> rhs;
-        Vector<double> solution;
+        // Vector<double> solution;
 
         AffineConstraints<double> constraints;
 
-        // Vector of previous solutions, used in the time discretization method.
-        std::vector<Vector<double>> solutions; // (u0, u1) when BDF-2 is used.
+        // Queue of current and  previous solutions, used in the time
+        // discretization method. When a new time step is solved, a new empty
+        // solution vector is pushed to the front.
+        //  - In the first iteration of BDF-2 it containts (u, u1, u0).
+        std::deque<Vector<double>> solutions;
 
         // Constants used for the time discretization, defined as:
         //   u_t = (au^(n+1) + bu^n + cu^(n-1))/τ, where u = u^(n+1)
-        // For BDF-1: (b, a), and (c, b, a) for BDF-2.
+        // For BDF-1: (a, b), and (a, b, c) for BDF-2.
         std::vector<double> bdf_coeffs;
         bool crank_nicholson;
 

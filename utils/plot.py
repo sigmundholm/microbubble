@@ -152,7 +152,7 @@ def conv_plots(data, columns, title="", latex=True, domain_length=1, xlabel="N")
     ax.set_title(title)
 
 
-def eoc_plot(data, columns, title="", domain_lenght=1, latex=True, lines_at=None, xlabel="N"):
+def eoc_plot(data, columns, title="", domain_lenght=1, latex=True, lines_at=None, xlabel="N", legend_pos="best"):
     if_latex(latex)
 
     mesh_size = data[:, 0]
@@ -191,14 +191,14 @@ def eoc_plot(data, columns, title="", domain_lenght=1, latex=True, lines_at=None
     ax.set_title(title)
     ax.set_xlabel(f"${xlabel}$")
     ax.set_ylabel(r"\textrm{EOC}")
-    ax.legend()
+    ax.legend(loc=legend_pos)
 
     return ax
 
 
 def conv_plots2(paths, norm_names, element_orders, expected_degrees, domain_length=1.0,
                 colors=None, save_figs=False, font_size=10, label_size='medium', skip=0,
-                ylabel=None, guess_degree=True):
+                ylabel=None, guess_degree=True, flip_triangle=()):
     """
     Creates convergence plot for the report. One plot for each norm, then one convergence
     line for each element order.
@@ -215,15 +215,13 @@ def conv_plots2(paths, norm_names, element_orders, expected_degrees, domain_leng
 
     dfs = []
     head = ""
-    mesh_size = []
     for full_path in paths:
         head = list(map(str.strip, open(full_path).readline().split(",")))
         data = np.genfromtxt(full_path, delimiter=",", skip_header=True)
-
-        mesh_size = data[:, 0]
         dfs.append(data)
 
-    ns = list(map(int, domain_length / mesh_size))[skip:]
+    if len(flip_triangle) == 0:
+        flip_triangle = [False for i in element_orders]
 
     matplotlib.rcParams['xtick.minor.size'] = 0
     matplotlib.rcParams['xtick.minor.width'] = 0
@@ -237,16 +235,19 @@ def conv_plots2(paths, norm_names, element_orders, expected_degrees, domain_leng
     for i, norm_name in enumerate(norm_names):
         fig, ax = plt.subplots()
         for deg_index, degree in enumerate(element_orders):
+            mesh_size = dfs[deg_index][:, 0]
+            ns = list(map(int, domain_length / mesh_size))[skip:]
+
             data_column = head.index(norm_name)
             errors = dfs[deg_index][skip:, data_column]
             color = None if colors is None else colors[deg_index]
-            ax = add_convergence_line(ax, ns, errors, yscale="log", name=f"k={degree}", color=color, regression=False)
+            ax = add_convergence_line(ax, ns, errors, yscale="log", name=f"p={degree}", color=color, regression=False)
             if guess_degree:
                 guess = expected_degrees[i] + degree
             else:
                 guess = expected_degrees[i][deg_index]
 
-            add_conv_triangle(ax, guess, color, errors[-1], ns[-2:])
+            add_conv_triangle(ax, guess, color, errors[-2:], ns[-2:], flip=flip_triangle[deg_index])
 
         ylabel_text = f"${norm_name}".replace("u", "u - u_h")[:-1] + r"(\Omega)}$" if ylabel is None else ylabel
         ax.set_ylabel(ylabel_text)
@@ -256,21 +257,36 @@ def conv_plots2(paths, norm_names, element_orders, expected_degrees, domain_leng
             plt.savefig(f"conv-norm-{i}.pdf")
 
 
-def add_conv_triangle(ax, degree, color, right_error, ns):
-    left_n, right_n = ns[0] * 1.1, ns[1] / 1.1
-    bottom_value = right_error / 1.05
-    top_value = bottom_value * 2 ** (degree * np.log2(right_n / left_n))  # from EOC formula
+def add_conv_triangle(ax, degree, color, errors, ns, flip=False):
+    left_error, right_error = errors
+
+    if not flip:
+        left_n, right_n = ns[0] * 1.1, ns[1] / 1.1
+        bottom_value = right_error / 1.05
+        top_value = bottom_value * 2 ** (degree * np.log2(right_n / left_n))  # from EOC formula
+    else:
+        right_n, left_n = ns[0] * 1.1, ns[1] / 1.1
+        bottom_value = left_error * 1.05
+        top_value = bottom_value * 2 ** (degree * np.log2(right_n / left_n))  # from EOC formula
 
     linestyle = "dashed"
     linewidth = 1
+
     # Horisontal line
     ax.plot([left_n, right_n], [bottom_value, bottom_value], color=color, linestyle=linestyle, linewidth=linewidth)
-    ax.text(ns[0] * 1.4, bottom_value / 1.5, f"$1$", color=color)
+    if not flip:
+        ax.text(ns[0] * 1.4, bottom_value / 1.5, f"$1$", color=color)
+    else:
+        ax.text(ns[1] / 1.4, bottom_value * 1.1, f"$1$", color=color)
 
     # Vertical line
     ax.plot([left_n, left_n], [bottom_value, top_value], color=color, linestyle=linestyle, linewidth=linewidth)
-    degree_text_x = ns[0] / 1.05 if degree < 0 else ns[0]
-    ax.text(degree_text_x, bottom_value * 2 ** (degree / 4), f"${degree}$", color=color)
+    if not flip:
+        degree_text_x = ns[0] / 1.05 if degree < 0 else ns[0]
+        ax.text(degree_text_x, bottom_value * 2 ** (degree / 4), f"${degree}$", color=color)
+    else:
+        degree_text_x = ns[1] * 1.05 if degree < 0 else ns[1] / 1.03
+        ax.text(degree_text_x, top_value * 2 ** (degree / 4), f"${degree}$", color=color)
 
     # Diagonal line
     ax.plot([left_n, right_n], [top_value, bottom_value], color=color, linestyle=linestyle, linewidth=linewidth)
@@ -375,9 +391,10 @@ def time_error_plots(paths, data_indices, title="", save_fig=True, identifier=1,
 
 
 def eoc_plot_after_cut_off_time(build_base, factors, folder_names, end_time, cutoff_time, n_refines,
-                                columns_idx, max_norm_idx=(), max_norm_names=()):
+                                columns_idx, max_norm_idx=(), max_norm_names=(), lines_at=(1, 2, 3),
+                                legend_pos="best", element_orders=(1, 2)):
     for folder, factor in zip(folder_names, factors):
-        for poly_order in [1, 2]:
+        for poly_order in element_orders:
             print("\nfactor =", factor, ", order =", poly_order)
             # Errors calculated from the cutoff time
             aggregated_data = []
@@ -396,7 +413,6 @@ def eoc_plot_after_cut_off_time(build_base, factors, folder_names, end_time, cut
                 end_step = int(cutoff_time / tau)
 
                 cut_data = data[end_step:, :]
-                print(cut_data)
 
                 cut_off_norms = np.sqrt((cut_data ** 2 * tau).sum(axis=0))
 
@@ -414,7 +430,7 @@ def eoc_plot_after_cut_off_time(build_base, factors, folder_names, end_time, cut
             eoc_plot(data_cols, cut_head,
                      title=r"\textrm{Heat Equation (CutFEM) EOC, $k=" + str(poly_order) + r"$, $\tau=h/" + str(
                          factor) + r"$, for $t\geq " + str(cutoff_time / end_time) + r"\, T$}",
-                     domain_lenght=end_time, lines_at=np.array([1, 2, 3]), xlabel=xlabel)
+                     domain_lenght=end_time, lines_at=lines_at, xlabel=xlabel, legend_pos=legend_pos)
             plt.savefig(f"eoc-cut-o{poly_order}-h_{factor}tau.pdf")
 
 
