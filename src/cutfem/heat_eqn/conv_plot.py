@@ -34,7 +34,7 @@ def time_error_plot():
                          title=f"Heat equation time error, element order {d}", save_fig=True, identifier=d)
 
 
-folder = "e_bdf3"
+folder = ""
 degrees = [2, 3]
 domain_length = 1
 
