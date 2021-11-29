@@ -92,12 +92,17 @@ namespace examples::cut::StokesEquation {
          *        symmetric gradient is used.
          *    - Stress::Exact: compute the stress using the exact solution in
          *        the quadrature points.
-         *    - Stress::Test: this flag should be used when performing a
-         *        convergence test for the different computation methods. This
-         *        causes the mean pressure over the boundary to be subtracted
-         *        from the pressure value, since the computed pressure is not
-         *        unique when using Dirichlet on the whole boundary.
-         * @return the stress (drag and lift)
+         *    - Stress::Error: this flag should be used when performing a
+         *        convergence test for the different computation methods. In
+         *        case, the squared difference of the numerical and exact stress
+         *        is computed over the surface. For the computation, the mean
+         *        pressure over the boundary is subtracted from the pressure
+         *        value, since the computed pressure is note unique when using
+         *        Dirichlet on the whole boundary. The resulting scalar error
+         *        value is returned in the first componenet of the returned
+         *        Tensor.
+         * @return the stress (drag and lift), (or the scalar error value in
+         *   the first component when using Stress::Error.
          */
         Tensor<1, dim>
         compute_surface_forces(unsigned int method = Stress::Regular);
@@ -136,8 +141,7 @@ namespace examples::cut::StokesEquation {
         integrate_surface_forces(const FEValuesBase<dim> &fe_v,
                                  Vector<double> solution,
                                  unsigned int method,
-                                 Tensor<1, dim> &viscous_forces,
-                                 Tensor<1, dim> &pressure_forces);
+                                 Tensor<1, dim> &force_integral);
 
         const double nu;
 

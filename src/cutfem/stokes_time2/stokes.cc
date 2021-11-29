@@ -536,8 +536,7 @@ namespace examples::cut::StokesEquation {
                                                  this->levelset_dof_handler,
                                                  this->levelset);
 
-        Tensor<1, dim> viscous_forces;
-        Tensor<1, dim> pressure_forces;
+        Tensor<1, dim> forces;
         for (const auto &cell : this->dof_handlers.front()->active_cell_iterators()) {
             const unsigned int n_dofs = cell->get_fe().dofs_per_cell;
             // This call will compute quadrature rules relevant for this cell
@@ -552,12 +551,18 @@ namespace examples::cut::StokesEquation {
                 integrate_surface_forces(*fe_values_surface,
                                          this->solutions.front(),
                                          method,
-                                         viscous_forces,
-                                         pressure_forces);
+                                         forces);
             }
         }
-        Tensor<1, dim> surface_forces = viscous_forces + pressure_forces;
-        return surface_forces;
+        if (method & Stress::Error) {
+            // Take the square root of the result to get the L^2 norm error.
+            forces[0] = sqrt(forces[0]);
+            // In the case of error computation, the scalar result is given in
+            // the first component of the vector, and the other component
+            // should thus be zero.
+            assert(forces[1] == 0);
+        }
+        return forces;
     }
 
 
@@ -566,8 +571,7 @@ namespace examples::cut::StokesEquation {
     integrate_surface_forces(const FEValuesBase<dim> &fe_v,
                              Vector<double> solution,
                              unsigned int method,
-                             Tensor<1, dim> &viscous_forces,
-                             Tensor<1, dim> &pressure_forces) {
+                             Tensor<1, dim> &force_integral) {
 
         const FEValuesExtractors::Vector v(0);
         const FEValuesExtractors::Scalar p(dim);
@@ -580,6 +584,10 @@ namespace examples::cut::StokesEquation {
         std::vector<double> p_values(fe_v.n_quadrature_points);
         fe_v[p].get_function_values(solution, p_values);
 
+        // Exact values
+        std::vector<Tensor<2, dim>> exact_u_gradients(fe_v.n_quadrature_points);
+        std::vector<double> exact_p_values(fe_v.n_quadrature_points);
+
         // Boundary values
         std::vector<Tensor<1, dim>> bdd_values(fe_v.n_quadrature_points);
         // Function values of u.
@@ -591,16 +599,20 @@ namespace examples::cut::StokesEquation {
                                               bdd_values);
             fe_v[v].get_function_values(solution, u_values);
         }
-        if (method & Stress::Exact) {
-            // Use the exact function values for the computation.
+
+        if (method & Stress::Exact || method & Stress::Error) {
+            // Get the exact function values for the computation.
             this->analytical_velocity->gradient_list(
-                    fe_v.get_quadrature_points(), u_gradients);
+                    fe_v.get_quadrature_points(), exact_u_gradients);
             this->analytical_pressure->value_list(
-                    fe_v.get_quadrature_points(), p_values);
+                    fe_v.get_quadrature_points(), exact_p_values);
+        }
+        if (method & Stress::Exact) {
+            u_gradients = exact_u_gradients;
+            p_values = exact_p_values;
         }
 
-        Tensor<1, dim> v_forces;
-        Tensor<1, dim> p_forces;
+        Tensor<1, dim> forces;
         Tensor<2, dim> I; // Identity matrix
         I[0][0] = 1;
         I[1][1] = 1;
@@ -613,14 +625,17 @@ namespace examples::cut::StokesEquation {
         // Compute the mean pressure over the surface, and subtract from the
         // pressure value if the Test flag is set. This should not be done when
         // we use do-nothing boundary conditions, then the pressure is unique.
-        double mean_pressure = 0;
+        double mean_num_pressure = 0;
+        double mean_exact_pressure = 0;
         double area = 0;
-        if (method & Stress::Test) {
+        if (method & Stress::Error) {
             for (unsigned int q : fe_v.quadrature_point_indices()) {
-                mean_pressure += p_values[q] * fe_v.JxW(q);
+                mean_num_pressure += p_values[q] * fe_v.JxW(q);
+                mean_exact_pressure += exact_p_values[q] * fe_v.JxW(q);
                 area += fe_v.JxW(q);
             }
-            mean_pressure /= area;
+            mean_num_pressure /= area;
+            mean_exact_pressure /= area;
         }
 
         for (unsigned int q : fe_v.quadrature_point_indices()) {
@@ -628,7 +643,6 @@ namespace examples::cut::StokesEquation {
             // need to change the direction of the implemented normal, since
             // this normal points out of the domain.
             normal = -fe_v.normal_vector(q);
-
             if (method & Stress::Symmetric) {
                 // Compute the symmetric u-gradient
                 transposed = transpose(u_gradients[q]);
@@ -638,20 +652,29 @@ namespace examples::cut::StokesEquation {
             }
 
             // The viscous forces and pressure forces act on the submerged body.
-            v_forces = this->nu * gradient * normal;
+            // The mean_pressure is zero, if the Stress::Test method field is
+            // not used.
+            forces = this->nu * gradient * normal
+                     - (p_values[q] - mean_num_pressure) * I * normal;
 
             // Add the Nitsche term if we want to compute the stress using
             // the Nitsche flux.
             if (method & Stress::NitscheFlux) {
-                v_forces +=
-                        this->nitsche_penalty * (u_values[q] - bdd_values[q]);
+                forces += this->nitsche_penalty * (u_values[q] - bdd_values[q]);
             }
-            // The mean_pressure is zero, if the Stress::Test method field
-            // is not used.
-            p_forces = -(p_values[q] - mean_pressure) * I * normal;
-
-            viscous_forces += v_forces * fe_v.JxW(q);
-            pressure_forces += p_forces * fe_v.JxW(q);
+            if (method & Stress::Error) {
+                // Subtract the analytic boundary flux (not symmetric gradient
+                // in this implementation).
+                forces -= this->nu * exact_u_gradients[q] * normal
+                          - (exact_p_values[q] - mean_exact_pressure) * I * normal;
+                // Compute integral over the boundary of the squared difference
+                // of the numeric flux and the analytical boundary flux.
+                // Note that because this integral is a scalar, it is put in
+                // first component of the resulting value Tensor.
+                force_integral[0] += forces * forces * fe_v.JxW(q);
+            } else {
+                forces += forces * fe_v.JxW(q);
+            }
         }
     }
 

@@ -71,7 +71,7 @@ namespace utils::problems::flow {
         Symmetric = 0x0002,
         NitscheFlux = 0x0004,
         Exact = 0x0008,
-        Test = 0x0010
+        Error = 0x0010
     };
 
 

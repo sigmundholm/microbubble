@@ -22,14 +22,13 @@ void solve_for_element_order(int element_order, int max_refinement,
 
     double sphere_radius = 0.75 * radius;
     double sphere_x_coord = radius / 5;
+    double sphere_y_coord = radius / 5;
 
     const bool semi_implicit = true;
 
     std::ofstream file_stresses("e-stress-d" + std::to_string(dim)
                                 + "o" + std::to_string(element_order) + ".csv");
-    file_stresses << "h; drag_exact; lift_exact; drag_regular; lift_regular; "
-                     "drag_symmetric; lift_symmetric; "
-                     "drag_nitsche; lift_nitsche" << std::endl;
+    file_stresses << "h; exact; regular; symmetric; nitsche; symmetric_nitsche" << std::endl;
 
     std::ofstream file_errors("errors-stat-d" + std::to_string(dim)
                               + "o" + std::to_string(element_order) + ".csv");
@@ -39,18 +38,7 @@ void solve_for_element_order(int element_order, int max_refinement,
     stationary::AnalyticalVelocity<dim> analytical_velocity(nu);
     stationary::AnalyticalVelocity<dim> boundary_values(nu);
     stationary::AnalyticalPressure<dim> analytical_pressure(nu);
-    Sphere<dim> domain(sphere_radius, sphere_x_coord, 0);
-
-    std::cout << "Compute exact surface forces first." << std::endl;
-    NavierStokesEqn<dim> ns_exact(nu, tau, radius, half_length, max_refinement,
-                                  element_order, write_output, rhs,
-                                  boundary_values,
-                                  analytical_velocity, analytical_pressure,
-                                  domain, semi_implicit, 10,
-                                  true, true);
-    ns_exact.run_step_non_linear(1e-11);
-    Tensor<1, dim> exact = ns_exact.compute_surface_forces(
-            Stress::Exact | Stress::Test);
+    Sphere<dim> domain(sphere_radius, sphere_x_coord, sphere_y_coord);
 
     for (int n_refines = 3; n_refines < max_refinement + 1; ++n_refines) {
         std::cout << "\nn_refines=" << n_refines << std::endl
@@ -79,23 +67,21 @@ void solve_for_element_order(int element_order, int max_refinement,
 
         // Compute the stress forces on the sphere, using the
         // different approaches.
+        Tensor<1, dim> exact = ns.compute_surface_forces(
+                Stress::Exact | Stress::Error);
         Tensor<1, dim> regular = ns.compute_surface_forces(
-                Stress::Regular | Stress::Test);
+                Stress::Regular | Stress::Error);
         Tensor<1, dim> symmetric = ns.compute_surface_forces(
-                Stress::Symmetric | Stress::Test);
+                Stress::Symmetric | Stress::Error);
         Tensor<1, dim> nitsche = ns.compute_surface_forces(
-                Stress::NitscheFlux | Stress::Test);
-
-        regular -= exact;
-        symmetric -= exact;
-        nitsche -= exact;
+                Stress::NitscheFlux | Stress::Error);
+        Tensor<1, dim> symmetric_nitsche = ns.compute_surface_forces(
+                Stress::NitscheFlux | Stress::Symmetric | Stress::Error);
 
         file_stresses << h << ";"
-                      << exact[0] << ";" << exact[1] << ";"
-                      << regular[0] << ";" << regular[1] << ";"
-                      << symmetric[0] << ";" << symmetric[1] << ";"
-                      << nitsche[0] << ";" << nitsche[1] << std::endl;
-
+                      << exact[0] << ";" << regular[0] << ";"
+                      << symmetric[0] << ";" << nitsche[0] << ";"
+                      << symmetric_nitsche[0] << std::endl;
     }
 }
 
@@ -112,5 +98,4 @@ void run_convergence_test(std::vector<int> orders, int max_refinement,
 
 int main() {
     run_convergence_test<2>({1, 2}, 7, true);
-    std::cout << "\n\n=========end" << std::endl;
 }
