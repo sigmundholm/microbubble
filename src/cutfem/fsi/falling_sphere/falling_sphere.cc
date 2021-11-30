@@ -192,7 +192,8 @@ namespace cut::fsi::falling_sphere {
         boundary->set_sphere_angular_velocity(angular_velocity);
 
         // Update the position of the sphere center.
-        domain->set_position(positions.value()[0]);
+        domain->set_position(position);
+        domain->set_velocity(velocity);
     }
 
 

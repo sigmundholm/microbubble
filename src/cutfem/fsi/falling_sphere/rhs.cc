@@ -87,14 +87,15 @@ namespace cut::fsi::falling_sphere {
                                     const double sphere_radius,
                                     const Tensor<1, dim> r0)
             :  half_length(half_length), radius(radius),
-               sphere_radius(sphere_radius), new_position(r0) {}
+               sphere_radius(sphere_radius),
+               position(r0), velocity(Tensor<1, dim>()) {}
 
     template<int dim>
     double MovingDomain<dim>::
     value(const Point<dim> &p, const unsigned int component) const {
         (void) component;
-        double x0 = new_position[0];
-        double y0 = new_position[1];
+        double x0 = position[0];
+        double y0 = position[1];
         double x = p[0];
         double y = p[1];
         return -sqrt(pow(x - x0, 2) + pow(y - y0, 2)) + sphere_radius;
@@ -103,7 +104,19 @@ namespace cut::fsi::falling_sphere {
     template<int dim>
     void MovingDomain<dim>::
     set_position(Tensor<1, dim> value) {
-        this->new_position = value;
+        this->position = value;
+    }
+
+    template<int dim>
+    void MovingDomain<dim>::
+    set_velocity(Tensor<1, dim> value) {
+        this->velocity = value;
+    }
+
+    template<int dim>
+    Tensor<1, dim> MovingDomain<dim>::
+    get_velocity() {
+        return velocity;
     }
 
     template

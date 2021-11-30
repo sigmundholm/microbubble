@@ -95,12 +95,19 @@ namespace cut::fsi::falling_sphere {
         void
         set_position(Tensor<1, dim> value);
 
+        void
+        set_velocity(Tensor<1, dim> value);
+
+        Tensor<1, dim>
+        get_velocity() override;
+
     private:
         const double half_length;
         const double radius;
         const double sphere_radius;
 
-        Tensor<1, dim> new_position;
+        Tensor<1, dim> position;
+        Tensor<1, dim> velocity;
     };
 }
 
