@@ -673,7 +673,7 @@ namespace examples::cut::StokesEquation {
                 // first component of the resulting value Tensor.
                 force_integral[0] += forces * forces * fe_v.JxW(q);
             } else {
-                forces += forces * fe_v.JxW(q);
+                force_integral += forces * fe_v.JxW(q);
             }
         }
     }
