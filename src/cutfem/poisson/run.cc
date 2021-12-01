@@ -9,13 +9,17 @@ using namespace utils::problems::scalar;
 
 int main() {
     const int dim = 2;
-    double radius = 1;
-    double half_length = 1;
-    int n_refines = 5;
-    int degree = 1;
-    bool write_output = true;
 
-    RightHandSide<dim> rhs;
+    const double nu = 2;
+    const double radius = 1;
+    const double half_length = 1;
+    const int n_refines = 5;
+    const int degree = 1;
+    const bool write_output = true;
+
+    using namespace cut::PoissonProblem;
+
+    RightHandSide<dim> rhs(nu);
     BoundaryValues<dim> bdd;
     AnalyticalSolution<dim> soln;
 
@@ -31,7 +35,7 @@ int main() {
 
     FlowerDomain<dim> domain;
 
-    Poisson<dim> poisson(radius, half_length, n_refines, degree, write_output,
+    Poisson<dim> poisson(nu, radius, half_length, n_refines, degree, write_output,
                          rhs, bdd, soln, domain);
 
     ErrorBase *err = poisson.run_step();

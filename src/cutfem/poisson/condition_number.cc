@@ -12,9 +12,12 @@ void condition_number_sensitivity() {
     int n_refines = 5;
     bool write_output = true;
 
+    double nu = 2;
     double radius = 1.1;
     double half_length = 1.2;
     double sphere_rad = 1.0;
+
+    using namespace cut::PoissonProblem;
 
     std::ofstream file("condnums-d" + std::to_string(dim)
                        + "o" + std::to_string(element_order)
@@ -31,7 +34,7 @@ void condition_number_sensitivity() {
         std::cout << std::endl << "k = " << k << std::endl;
         center = k / (pow(2, 0.5) * n) * h;
 
-        RightHandSide<dim> rhs(center, center);
+        RightHandSide<dim> rhs(nu, center, center);
         BoundaryValues<dim> bdd(center, center);
         AnalyticalSolution<dim> soln(center, center);
 
@@ -39,7 +42,7 @@ void condition_number_sensitivity() {
         // cutfem::geometry::SignedDistanceSphere<dim> domain(sphere_radius, sphere_center, 1);
         FlowerDomain<dim> domain(center, center);
 
-        Poisson<dim> poisson(radius, half_length, n_refines, element_order,
+        Poisson<dim> poisson(nu, radius, half_length, n_refines, element_order,
                              write_output, rhs, bdd, soln, domain, stabilized);
 
         ErrorBase *err = poisson.run_step();

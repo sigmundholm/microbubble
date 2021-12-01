@@ -1,4 +1,3 @@
-#include <iomanip>
 #include <iostream>
 #include <vector>
 
@@ -14,14 +13,17 @@ template<int dim>
 void solve_for_element_order(int element_order, int max_refinement,
                              bool write_output) {
 
+    using namespace cut::PoissonProblem;
+
     std::ofstream file("errors-d" + std::to_string(dim)
                        + "o" + std::to_string(element_order) + ".csv");
     Poisson<dim>::write_header_to_file(file);
 
+    double nu = 2;
     double radius = 1.1;
     double half_length = 1.1;
 
-    RightHandSide<dim> rhs;
+    RightHandSide<dim> rhs(nu);
     BoundaryValues<dim> bdd;
     AnalyticalSolution<dim> soln;
 
@@ -39,7 +41,7 @@ void solve_for_element_order(int element_order, int max_refinement,
     for (int n_refines = 1; n_refines < max_refinement + 1; ++n_refines) {
         std::cout << "\nn_refines=" << n_refines << std::endl;
 
-        Poisson<dim> poisson(radius, half_length, n_refines, element_order, write_output,
+        Poisson<dim> poisson(nu, radius, half_length, n_refines, element_order, write_output,
                              rhs, bdd, soln, domain);
         ErrorBase *err = poisson.run_step();
         auto *error = dynamic_cast<ErrorScalar*>(err);

@@ -63,6 +63,14 @@ namespace utils::problems::scalar {
     };
 
 
+    enum Flux {
+        Regular = 0x0001,
+        NitscheFlux = 0x0004,
+        Exact = 0x0008,
+        Error = 0x0010,
+    };
+
+
     template<int dim>
     class ScalarProblem : public CutFEMProblem<dim> {
     public:

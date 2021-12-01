@@ -9,3 +9,7 @@ target_link_libraries(convergence-poisson-cutfem scalar base cutfem)
 add_executable(condnum-poisson-cutfem condition_number.cc poisson.cc rhs.cc)
 deal_ii_setup_target(condnum-poisson-cutfem)
 target_link_libraries(condnum-poisson-cutfem scalar base cutfem)
+
+add_executable(flux-test-poisson flux_computation.cc poisson.cc rhs.cc)
+deal_ii_setup_target(flux-test-poisson)
+target_link_libraries(flux-test-poisson scalar base cutfem)

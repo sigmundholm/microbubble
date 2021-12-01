@@ -39,48 +39,62 @@ using namespace dealii;
 using namespace cutfem;
 
 
-using NonMatching::LocationToLevelSet;
-using namespace utils::problems::scalar;
+namespace cut::PoissonProblem {
 
-template<int dim>
-class Poisson : public ScalarProblem<dim> {
-public:
-    Poisson(const double radius,
-            const double half_length,
-            const unsigned int n_refines,
-            const int element_order,
-            const bool write_output,
-            Function<dim> &rhs,
-            Function<dim> &bdd_values,
-            Function<dim> &analytical_soln,
-            Function<dim> &domain_func,
-            const bool stabilized = true);
+    using NonMatching::LocationToLevelSet;
+    using namespace utils::problems::scalar;
 
-    static void
-    write_header_to_file(std::ofstream &file);
+    template<int dim>
+    class Poisson : public ScalarProblem<dim> {
+    public:
+        Poisson(double nu,
+                double radius,
+                double half_length,
+                unsigned int n_refines,
+                int element_order,
+                bool write_output,
+                Function<dim> &rhs,
+                Function<dim> &bdd_values,
+                Function<dim> &analytical_soln,
+                Function<dim> &domain_func,
+                bool stabilized = true);
 
-    static void
-    write_error_to_file(ErrorBase *error, std::ofstream &file);
+        static void
+        write_header_to_file(std::ofstream &file);
 
-protected:
-    void
-    make_grid(Triangulation<dim> &tria) override;
+        static void
+        write_error_to_file(ErrorBase *error, std::ofstream &file);
+
+        double
+        compute_surface_flux(unsigned int method);
+
+    protected:
+        void
+        make_grid(Triangulation<dim> &tria) override;
 
         void
         pre_matrix_assembly() override;
 
-    void
-    assemble_local_over_cell(const FEValues<dim> &fe_values,
-                             const std::vector<types::global_dof_index> &loc2glb) override;
+        void
+        assemble_local_over_cell(const FEValues<dim> &fe_values,
+                                 const std::vector<types::global_dof_index> &loc2glb) override;
 
-    void
-    assemble_local_over_surface(
-            const FEValuesBase<dim> &fe_values,
-            const std::vector<types::global_dof_index> &loc2glb) override;
+        void
+        assemble_local_over_surface(
+                const FEValuesBase<dim> &fe_values,
+                const std::vector<types::global_dof_index> &loc2glb) override;
 
-    const double radius;
-    const double half_length;
-};
+        void
+        integrate_surface_forces(const FEValuesBase<dim> &fe_v,
+                                 Vector<double> solution,
+                                 unsigned int method,
+                                 double &flux_integral);
 
+        const double nu;
+        const double radius;
+        const double half_length;
+    };
+
+} // namespace cut::PoissonProblem
 
 #endif //MICROBUBBLE_CUTFEM_POISSON_POISSON_H
