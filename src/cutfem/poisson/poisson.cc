@@ -72,12 +72,21 @@ make_grid(Triangulation<dim> &tria) {
     typename Triangulation<dim>::active_cell_iterator cell =
             tria.begin_active();
     this->h = std::pow(cell->measure(), 1.0 / dim);
-}
+    }
 
 
-template<int dim>
-void Poisson<dim>::
-assemble_local_over_cell(
+    template<int dim>
+    void Poisson<dim>::
+    pre_matrix_assembly() {
+        // Set the CutFEM stabilization scaling constant.
+        double gamma_A = 0.5;
+        this->stabilization_scaling = gamma_A / (this->h * this->h);
+    }
+
+
+    template<int dim>
+    void Poisson<dim>::
+    assemble_local_over_cell(
         const FEValues<dim> &fe_values,
         const std::vector<types::global_dof_index> &loc2glb) {
     // TODO generelt: er det for mange hjelpeobjekter som opprettes her i cella?

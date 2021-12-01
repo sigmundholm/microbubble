@@ -59,7 +59,10 @@ namespace utils::problems {
         initialize_matrices();
         int n_dofs = dof_handlers.front()->n_dofs();
         solutions.emplace_front(n_dofs);
-        this->assemble_system();
+
+        pre_matrix_assembly();
+        assemble_system();
+
         solve();
         if (write_output) {
             output_results(this->dof_handlers.front(),
@@ -116,6 +119,7 @@ namespace utils::problems {
 
         // TODO note that the next solution vector is not yet set in solutions,
         //  this may lead to problems. Eg for Crank-Nicholson?
+        pre_matrix_assembly();
         assemble_matrix();
 
         std::ofstream file("errors-time-d" + std::to_string(dim)
@@ -271,6 +275,7 @@ namespace utils::problems {
             // was updated.
             initialize_matrices();
 
+            pre_matrix_assembly();
             assemble_matrix();
             assemble_rhs(k, true);
 
@@ -588,6 +593,11 @@ namespace utils::problems {
                                                           sparsity_pattern);
         stiffness_matrix.reinit(sparsity_pattern);
     }
+
+
+    template<int dim>
+    void CutFEMProblem<dim>::
+    pre_matrix_assembly() {}
 
 
     template<int dim>

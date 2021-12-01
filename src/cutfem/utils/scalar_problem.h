@@ -143,6 +143,9 @@ namespace utils::problems::scalar {
         Function<dim> *boundary_values;
         Function<dim> *analytical_solution;
 
+        // Scaling constant for the stabilization.
+        double stabilization_scaling;
+
     };
 
 } // namespace utils::problems::scalar

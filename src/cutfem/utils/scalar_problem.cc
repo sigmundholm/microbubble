@@ -94,6 +94,7 @@ namespace utils::problems::scalar {
             velocity_stabilization.set_weight_function(
                     stabilization::taylor_weights);
             velocity_stabilization.set_extractor(velocities);
+            assert(stabilization_scaling != 0);
         }
 
         NonMatching::RegionUpdateFlags region_update_flags;
@@ -122,12 +123,6 @@ namespace utils::problems::scalar {
                                          update_quadrature_points |
                                          update_normal_vectors |
                                          update_JxW_values);
-
-        double beta_0 = 0.1;
-        double gamma_A =
-                beta_0 * this->element_order * (this->element_order + 1);
-        double gamma_M =
-                beta_0 * this->element_order * (this->element_order + 1);
 
         for (const auto &cell : this->dof_handlers.front()->active_cell_iterators()) {
             const unsigned int n_dofs = cell->get_fe().dofs_per_cell;
@@ -159,8 +154,7 @@ namespace utils::problems::scalar {
                 // Compute and add the velocity stabilization.
                 velocity_stabilization.compute_stabilization(cell);
                 velocity_stabilization.add_stabilization_to_matrix(
-                        gamma_M + gamma_A / (this->h * this->h),
-                        this->stiffness_matrix);
+                        stabilization_scaling, this->stiffness_matrix);
             }
         }
     }

@@ -164,6 +164,9 @@ namespace utils::problems {
         // Methods related to assembling the stiffness matrix and rhs vector.
         // -------------------------------------------------------------------
 
+        virtual void
+        pre_matrix_assembly();
+
         /**
          * Assemble the stiffness matrix and rhs vector. This method is used
          * for stationary problems.

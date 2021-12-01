@@ -66,6 +66,9 @@ protected:
     void
     make_grid(Triangulation<dim> &tria) override;
 
+        void
+        pre_matrix_assembly() override;
+
     void
     assemble_local_over_cell(const FEValues<dim> &fe_values,
                              const std::vector<types::global_dof_index> &loc2glb) override;
