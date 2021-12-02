@@ -44,7 +44,7 @@ namespace cut::fsi::falling_sphere {
             // Zero Dirichlet boundary conditions on the whole boundary.
             return zero_velocity;
         }
-        return velocity;
+        return compute_boundary_velocity(p);
     }
 
     template<int dim>
@@ -67,8 +67,7 @@ namespace cut::fsi::falling_sphere {
 
     template<int dim>
     Tensor<1, dim> BoundaryValues<dim>::
-    compute_boundary_velocity(Tensor<1, dim> point) {
-
+    compute_boundary_velocity(Tensor<1, dim> point) const {
         // This is the velocity component at the sphere boundary resulting from
         // the sphere rotation.
         Tensor<1, dim> angular_contrib;

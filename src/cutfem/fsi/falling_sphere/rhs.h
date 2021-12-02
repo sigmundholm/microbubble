@@ -68,7 +68,7 @@ namespace cut::fsi::falling_sphere {
          * the cross product above to lie in the xy-plane.
          */
         Tensor<1, dim>
-        compute_boundary_velocity(Tensor<1, dim> point);
+        compute_boundary_velocity(Tensor<1, dim> point) const;
 
         const double half_length;
         const double radius;
