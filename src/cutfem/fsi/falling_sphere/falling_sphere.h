@@ -53,10 +53,10 @@ namespace cut::fsi::falling_sphere {
         post_processing(unsigned int time_step) override;
 
         void
-        conservation_linear_momentum();
+        conservation_linear_momentum(unsigned int time_step);
 
         void
-        conservation_angular_momentum();
+        conservation_angular_momentum(unsigned int time_step);
 
         void
         update_boundary_values();

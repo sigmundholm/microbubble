@@ -94,16 +94,9 @@ namespace cut::fsi::falling_sphere {
     post_processing(unsigned int time_step) {
         std::cout << "Post processing " << std::endl;
 
-        // Store all positions and accelerations.
-        std::cout << positions.value().size() << " "
-                  << velocities.value().size() << " "
-                  << accelerations.value().size() << " "
-                  << angles.value().size() << " "
-                  << angular_velocities.value().size() << " "
-                  << angular_accelerations.value().size() << std::endl;
-        conservation_linear_momentum();
+        conservation_linear_momentum(time_step);
 
-        conservation_angular_momentum();
+        conservation_angular_momentum(time_step);
 
         update_boundary_values();
 
@@ -122,7 +115,7 @@ namespace cut::fsi::falling_sphere {
         // Compute the acceleration of the sphere center
         double sphere_mass = sphere_density * sphere_volume;
         Tensor<1, dim> acceleration = gravity;
-        Tensor<1, dim> sur_forces = surface_forces;
+        Tensor<1, dim> sur_forces = surface_forces / sphere_mass;
         acceleration += sur_forces;
 
         // TODO gravity seems to make sense, but not the surface forses?
@@ -132,49 +125,48 @@ namespace cut::fsi::falling_sphere {
         std::cout << " - surface_forces = " << sur_forces << std::endl;
         std::cout << " - a = " << acceleration << std::endl;
 
-        // Set the compute acceleration on the domain object
-        // domain->set_acceleration(acceleration);
-
         // Compute the velocity and position of the next step.
         accelerations.value().push_front(acceleration);
+        Tensor<1, dim> last_velocity = velocities.value()[0];
         Tensor<1, dim> next_velocity =
-                velocities.value()[0]
-                + this->tau * acceleration;
+                last_velocity + this->tau * acceleration;
         velocities.value().push_front(next_velocity);
         std::cout << " - v = " << next_velocity << std::endl;
 
         // Compute the new position to the sphere, based on the previous
         // position and the acceleration.
+        Tensor<1, dim> last_position = positions.value()[0];
         Tensor<1, dim> next_position =
-                positions.value()[0] + this->tau * next_velocity
-                + pow(this->tau, 2) / 2 * acceleration;
+                last_position
+                + this->tau / 2 * (last_velocity + next_velocity);
         positions.value().push_front(next_position);
         std::cout << " - r = " << next_position << std::endl;
     }
 
     template<int dim>
     void FallingSphere<dim>::
-    conservation_angular_momentum() {
-        double surface_torque = compute_surface_torque();
+    conservation_angular_momentum(unsigned int time_step) {
+        double surface_torque = fluid_density * compute_surface_torque();
         double sphere_volume = M_PI * pow(sphere_radius, 2);
         double sphere_mass = sphere_density * sphere_volume;
 
         double angular_acceleration =
-                2 / (sphere_mass * pow(sphere_radius, 2)) * surface_torque;
+                2 * surface_torque / (sphere_mass * pow(sphere_radius, 2));
         angular_accelerations.value().push_front(angular_acceleration);
         std::cout << " - alpha = " << angular_acceleration << std::endl;
 
         // Compute the angular velocity and angle of the next step.
+        double last_angular_v = angular_velocities.value()[0];
         double next_angular_velocity =
-                angular_velocities.value()[0]
-                + this->tau * angular_acceleration;
+                last_angular_v + this->tau * angular_acceleration;
         angular_velocities.value().push_front(next_angular_velocity);
         std::cout << " - omega = " << next_angular_velocity << std::endl;
 
         // TODO use a higher order method.
+        double last_angle = angles.value()[0];
         double next_angle =
-                angles.value()[0] + this->tau * next_angular_velocity
-                + pow(this->tau, 2) / 2 * angular_acceleration;
+                last_angle
+                + this->tau / 2 * (last_angular_v + next_angular_velocity);
         angles.value().push_front(next_angle);
         std::cout << " - theta = " << next_angle << std::endl;
 
