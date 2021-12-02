@@ -56,19 +56,8 @@ namespace cut::fsi::falling_sphere {
         std::deque<double> new_angular_accelerations;
 
         if (positions) {
-            std::cout << "# pre_time_loop: bdf1 ran earlier ??" << std::endl;
             // A BDF method of lower degree was probably run before this. We
-            // therefore want to save the steps that has already been done.
-            for (unsigned int k = positions.value().size() - 1; k >= 0; --k) {
-                new_positions.push_front(positions.value()[k]);
-                new_velocities.push_front(velocities.value()[k]);
-                new_accelerations.push_front(accelerations.value()[k]);
-                new_angles.push_front(angles.value()[k]);
-                new_angular_velocities.push_front(
-                        angular_velocities.value()[k]);
-                new_angular_accelerations.push_front(
-                        angular_accelerations.value()[k]);
-            }
+            // will therefore just use the data saved from earlier steps.
         } else {
             Tensor<1, dim> zero;
             new_positions.push_front(r0);
@@ -79,13 +68,14 @@ namespace cut::fsi::falling_sphere {
             new_angular_accelerations.push_front(0);
             file << "0; 0;" << r0[0] << ";" << r0[1] << ";"
                  << "0;0;0;0;0;0;0" << std::endl;
+
+            positions = new_positions;
+            velocities = new_velocities;
+            accelerations = new_accelerations;
+            angles = new_angles;
+            angular_velocities = new_angular_velocities;
+            angular_accelerations = new_angular_accelerations;
         }
-        positions = new_positions;
-        velocities = new_velocities;
-        accelerations = new_accelerations;
-        angles = new_angles;
-        angular_velocities = new_angular_velocities;
-        angular_accelerations = new_angular_accelerations;
     }
 
 
