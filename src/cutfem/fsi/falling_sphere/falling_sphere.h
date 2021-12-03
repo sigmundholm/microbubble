@@ -59,7 +59,7 @@ namespace cut::fsi::falling_sphere {
         conservation_angular_momentum(unsigned int time_step);
 
         void
-        update_boundary_values();
+        update_boundary_values(unsigned int time_step);
 
         void
         write_data(unsigned int time_step);
@@ -99,6 +99,7 @@ namespace cut::fsi::falling_sphere {
         boost::optional<std::deque<double>> angular_accelerations;
 
         std::ofstream file;
+        std::ofstream file_forces;
     };
 }
 

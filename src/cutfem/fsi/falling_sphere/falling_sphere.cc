@@ -39,7 +39,9 @@ namespace cut::fsi::falling_sphere {
         file = std::ofstream("fsi_falling_sphere.csv");
         file << "k; t; r_x; r_y; v_x; v_y; a_x; a_y; "
                 " \\theta; \\omega; \\alpha" << std::endl;
-                // "F_gx;F_gy;F_px;F_py;F_vx;F_vy" << std::endl;
+        file_forces = std::ofstream("fsi_falling_sphere_forces.csv");
+        file_forces << "k; t; a_gx; a_gy; a_sx; a_sy; a_x; a_y; S_x; S_y"
+                    << std::endl;
     }
 
 
@@ -88,7 +90,7 @@ namespace cut::fsi::falling_sphere {
 
         conservation_angular_momentum(time_step);
 
-        update_boundary_values();
+        update_boundary_values(time_step);
 
         write_data(time_step);
     }
@@ -96,7 +98,7 @@ namespace cut::fsi::falling_sphere {
 
     template<int dim>
     void FallingSphere<dim>::
-    conservation_linear_momentum() {
+    conservation_linear_momentum(unsigned int time_step) {
         Tensor<1, dim> surface_forces = this->compute_surface_forces();
         Tensor<1, dim> gravity;
         gravity[1] = -9.81;
@@ -107,6 +109,13 @@ namespace cut::fsi::falling_sphere {
         Tensor<1, dim> acceleration = gravity;
         Tensor<1, dim> sur_forces = surface_forces / sphere_mass;
         acceleration += sur_forces;
+
+        file_forces << time_step << ";" << time_step * this->tau << ";"
+                    << gravity[0] << ";" << gravity[1] << ";"
+                    << sur_forces[0] << ";" << sur_forces[1] << ";"
+                    << acceleration[0] << ";" << acceleration[1] << ";"
+                    << surface_forces[0] << ";" << surface_forces[1]
+                    << std::endl;
 
         // TODO gravity seems to make sense, but not the surface forses?
         //  maybe the viscous forces are ruining thins. Maybe they explode when
@@ -164,7 +173,7 @@ namespace cut::fsi::falling_sphere {
 
     template<int dim>
     void FallingSphere<dim>::
-    update_boundary_values() {
+    update_boundary_values(unsigned int time_step) {
         Tensor<1, dim> position = positions.value()[0];
         Tensor<1, dim> velocity = velocities.value()[0];
         double angular_velocity = angular_velocities.value()[0];
