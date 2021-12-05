@@ -73,7 +73,7 @@ namespace cut::fsi::falling_sphere {
         Tensor<1, dim> angular_contrib;
         // The cross product of the angular velocity vector (in 2D this vector
         // points in the z-direction), and the position of the sphere center.
-        angular_contrib[0] = angular_velocity * (point[1] - position[1]);
+        angular_contrib[0] = -angular_velocity * (point[1] - position[1]);
         angular_contrib[1] = angular_velocity * (point[0] - position[0]);
 
         return velocity + angular_contrib;
