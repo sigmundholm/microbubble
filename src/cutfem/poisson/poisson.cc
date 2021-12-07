@@ -236,7 +236,7 @@ namespace cut::PoissonProblem {
                                                  this->levelset_dof_handler,
                                                  this->levelset);
 
-        double flux_integral;
+        double flux_integral = 0;
         for (const auto &cell : this->dof_handlers.front()->active_cell_iterators()) {
             const unsigned int n_dofs = cell->get_fe().dofs_per_cell;
             // This call will compute quadrature rules relevant for this cell

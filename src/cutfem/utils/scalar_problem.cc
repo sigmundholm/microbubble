@@ -291,8 +291,8 @@ namespace utils::problems::scalar {
                   Vector<double> &solution) {
         std::cout << "Compute error" << std::endl;
 
-        double l2_error_integral;
-        double h1_semi_error_integral;
+        double l2_error_integral = 0;
+        double h1_semi_error_integral = 0;
 
         NonMatching::RegionUpdateFlags region_update_flags;
         region_update_flags.inside = update_values | update_JxW_values |
