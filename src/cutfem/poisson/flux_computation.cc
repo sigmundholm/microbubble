@@ -17,7 +17,7 @@ void solve_for_element_order(int element_order, int max_refinement,
     const double half_length = radius;
     const double sphere_radius = 0.9 * radius;
 
-    const double nu = 10;
+    const double nu = 2;
     double h;
 
     std::ofstream file_stresses("e-flux-d" + std::to_string(dim)
@@ -29,17 +29,18 @@ void solve_for_element_order(int element_order, int max_refinement,
 
     Poisson<dim>::write_header_to_file(file_errors);
 
-    RightHandSide <dim> rhs(nu);
-    AnalyticalSolution <dim> solution;
-    BoundaryValues <dim> boundary;
+    RightHandSide<dim> rhs(nu);
+    AnalyticalSolution<dim> solution;
+    BoundaryValues<dim> boundary;
 
-    Point <dim> sphere_center;
+    Point<dim> sphere_center;
     if (dim == 2) {
         sphere_center = Point<dim>(0, 0);
     } else if (dim == 3) {
         sphere_center = Point<dim>(0, 0, 0);
     }
-    cutfem::geometry::SignedDistanceSphere<dim> domain(sphere_radius, sphere_center, 1);
+    cutfem::geometry::SignedDistanceSphere<dim> domain(sphere_radius,
+                                                       sphere_center, 1);
     // FlowerDomain <dim> domain;
 
     for (int n_refines = 3; n_refines < max_refinement + 1; ++n_refines) {
@@ -48,8 +49,8 @@ void solve_for_element_order(int element_order, int max_refinement,
         std::cout << "\nn_refines=" << n_refines << std::endl
                   << "===========" << std::endl;
 
-        Poisson <dim> poisson(nu, radius, half_length, n_refines, element_order,
-                              write_output, rhs, boundary, solution, domain);
+        Poisson<dim> poisson(nu, radius, half_length, n_refines, element_order,
+                             write_output, rhs, boundary, solution, domain);
 
         ErrorBase *err = poisson.run_step();
         auto *error = dynamic_cast<ErrorScalar *>(err);

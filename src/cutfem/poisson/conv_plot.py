@@ -43,7 +43,7 @@ def condition_number_plot():
 
 
 # Plot settings
-domain_length = 2.2
+domain_length = 1
 
 if __name__ == '__main__':
     base = split(split(split(os.getcwd())[0])[0])[0]

@@ -35,10 +35,17 @@ int main() {
 
     FlowerDomain<dim> domain;
 
-    Poisson<dim> poisson(nu, radius, half_length, n_refines, degree, write_output,
-                         rhs, bdd, soln, domain);
+    Poisson<dim> poisson(nu, radius, half_length, n_refines, degree,
+                         write_output, rhs, bdd, soln, domain);
 
     ErrorBase *err = poisson.run_step();
-    auto *error = dynamic_cast<ErrorScalar*>(err);
+    auto *error = dynamic_cast<ErrorScalar *>(err);
     error->output();
+
+    double regular = poisson.compute_surface_flux(Flux::Regular);
+    double nitsche = poisson.compute_surface_flux(Flux::NitscheFlux);
+    std::cout << "Boundary flux:"
+              << "\n- Regular = " << regular
+              << "\n- Nitsche flux = " << nitsche
+              << std::endl;
 }
