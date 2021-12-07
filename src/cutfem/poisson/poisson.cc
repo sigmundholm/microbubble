@@ -149,7 +149,7 @@ namespace cut::PoissonProblem {
         std::vector<Tensor<1, dim>> grad_phi(dofs_per_cell);
         std::vector<double> phi(dofs_per_cell);
 
-        double gamma = 20 * this->element_order * (this->element_order + 1);
+        double gamma = 5 * nu * this->element_order * (this->element_order + 1);
         double mu = gamma / this->h; // Penalty parameter
         Tensor<1, dim> normal;
 
@@ -301,7 +301,7 @@ namespace cut::PoissonProblem {
         double flux;
         Tensor<1, dim> normal;
 
-        double gamma = 20 * this->element_order * (this->element_order + 1);
+        double gamma = 5 * nu * this->element_order * (this->element_order + 1);
         double nitsche_penalty = gamma / this->h;
 
         for (unsigned int q : fe_v.quadrature_point_indices()) {
