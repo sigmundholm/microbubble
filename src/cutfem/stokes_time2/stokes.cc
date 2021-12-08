@@ -111,8 +111,14 @@ namespace examples::cut::StokesEquation {
     void StokesEqn<dim>::
     pre_matrix_assembly() {
         std::cout << "Stabilization constants set for StokesEqn." << std::endl;
-        // Set the velocity and pressure stabilization scalings. These can
-        // be overridden in a subclass constructor.
+
+        // If we are solving a stationary problem, set tau to 1, to keep
+        // the stabilization scalings correct.
+        if (this->stationary) {
+            this->tau = 1;
+        }
+
+        // Set the velocity and pressure stabilization scalings.
         double gamma_u = 0.5;
         double gamma_p = 0.5;
         this->velocity_stab_scaling =
@@ -265,9 +271,7 @@ namespace examples::cut::StokesEquation {
         std::vector<Tensor<1, dim>> phi_u(dofs_per_cell, Tensor<1, dim>());
         std::vector<double> phi_p(dofs_per_cell);
 
-        std::cout << "hei1" << std::endl;
         const int time_switch = this->stationary ? 0 : 1;
-        std::cout << "hei2" << std::endl;
 
         for (unsigned int q = 0; q < fe_values.n_quadrature_points; ++q) {
             for (const unsigned int k : fe_values.dof_indices()) {

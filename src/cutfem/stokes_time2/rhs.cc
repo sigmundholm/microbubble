@@ -1,13 +1,10 @@
-#include <deal.II/base/exceptions.h>
 #include <deal.II/base/geometric_utilities.h>
 
 #include <boost/math/special_functions/sinc.hpp>
 
-#include <iostream>
+#include <cmath>
 
 #include "rhs.h"
-
-#define pi 3.141592653589793
 
 
 namespace examples::cut::StokesEquation {
@@ -26,8 +23,8 @@ namespace examples::cut::StokesEquation {
 
         Tensor<1, dim> val;
 
-        val[0] = pi * exp(-4 * pi * pi * nu * t) * sin(2 * pi * x) / 2;
-        val[1] = pi * exp(-4 * pi * pi * nu * t) * sin(2 * pi * y) / 2;
+        val[0] = M_PI * exp(-4 * M_PI * M_PI * nu * t) * sin(2 * M_PI * x) / 2;
+        val[1] = M_PI * exp(-4 * M_PI * M_PI * nu * t) * sin(2 * M_PI * y) / 2;
 
         return val;
     }
@@ -45,8 +42,8 @@ namespace examples::cut::StokesEquation {
         double t = this->get_time();
 
         Tensor<1, dim> val;
-        val[0] = -exp(-2 * pi * pi * nu * t) * sin(pi * y) * cos(pi * x);
-        val[1] = exp(-2 * pi * pi * nu * t) * sin(pi * x) * cos(pi * y);
+        val[0] = -exp(-2 * M_PI * M_PI * nu * t) * sin(M_PI * y) * cos(M_PI * x);
+        val[1] = exp(-2 * M_PI * M_PI * nu * t) * sin(M_PI * x) * cos(M_PI * y);
         return val;
     }
 
@@ -63,8 +60,8 @@ namespace examples::cut::StokesEquation {
         double t = this->get_time();
 
         Tensor<1, dim> val;
-        val[0] = -exp(-2 * pi * pi * nu * t) * sin(pi * y) * cos(pi * x);
-        val[1] = exp(-2 * pi * pi * nu * t) * sin(pi * x) * cos(pi * y);
+        val[0] = -exp(-2 * M_PI * M_PI * nu * t) * sin(M_PI * y) * cos(M_PI * x);
+        val[1] = exp(-2 * M_PI * M_PI * nu * t) * sin(M_PI * x) * cos(M_PI * y);
         return val;
     }
 
@@ -76,14 +73,14 @@ namespace examples::cut::StokesEquation {
         double t = this->get_time();
 
         Tensor<2, dim> value;
-        value[0][0] = pi * exp(-2 * pi * pi * nu * t) *
-                      sin(pi * x) * sin(pi * y);
-        value[0][1] = -pi * exp(-2 * pi * pi * nu * t) *
-                      cos(pi * x) * cos(pi * y);
-        value[1][0] = pi * exp(-2 * pi * pi * nu * t) *
-                      cos(pi * x) * cos(pi * y);
-        value[1][1] = -pi * exp(-2 * pi * pi * nu * t) *
-                      sin(pi * x) * sin(pi * y);
+        value[0][0] = M_PI * exp(-2 * M_PI * M_PI * nu * t) *
+                      sin(M_PI * x) * sin(M_PI * y);
+        value[0][1] = -M_PI * exp(-2 * M_PI * M_PI * nu * t) *
+                      cos(M_PI * x) * cos(M_PI * y);
+        value[1][0] = M_PI * exp(-2 * M_PI * M_PI * nu * t) *
+                      cos(M_PI * x) * cos(M_PI * y);
+        value[1][1] = -M_PI * exp(-2 * M_PI * M_PI * nu * t) *
+                      sin(M_PI * x) * sin(M_PI * y);
         return value;
     }
 
@@ -100,8 +97,8 @@ namespace examples::cut::StokesEquation {
         double y = p[1];
         double t = this->get_time();
 
-        return (-cos(2 * pi * x) / 4 - cos(2 * pi * y) / 4) *
-               exp(-4 * pi * pi * nu * t);
+        return (-cos(2 * M_PI * x) / 4 - cos(2 * M_PI * y) / 4) *
+               exp(-4 * M_PI * M_PI * nu * t);
     }
 
     template<int dim>
@@ -113,8 +110,8 @@ namespace examples::cut::StokesEquation {
         double t = this->get_time();
 
         Tensor<1, dim> value;
-        value[0] = pi * exp(-4 * pi * pi * nu * t) * sin(2 * pi * x) / 2;
-        value[1] = pi * exp(-4 * pi * pi * nu * t) * sin(2 * pi * y) / 2;
+        value[0] = M_PI * exp(-4 * M_PI * M_PI * nu * t) * sin(2 * M_PI * x) / 2;
+        value[1] = M_PI * exp(-4 * M_PI * M_PI * nu * t) * sin(2 * M_PI * y) / 2;
         return value;
     }
 
@@ -135,7 +132,7 @@ namespace examples::cut::StokesEquation {
         // solution used is very small at the end time.
         // TODO fix this: dont hardcode the end time
         double x0 = 0.9 * (half_length - sphere_radius) *
-                    (2 * t/0.05 - 1); // sin(2 * pi * t);
+                    (2 * t/0.05 - 1); // sin(2 * M_PI * t);
         double y0 = 0.9 * (radius - sphere_radius) * (2 * t/0.05 - 1);
         double x = p[0];
         double y = p[1];

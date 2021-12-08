@@ -10,3 +10,7 @@ target_link_libraries(run-time2 stokes-time2 projections flow base cutfem)
 add_executable(convergence-time2 convergence.cc)
 deal_ii_setup_target(convergence-time2)
 target_link_libraries(convergence-time2 stokes-time2 stokes-time projections flow base cutfem)
+
+add_executable(stat-convergence convergence_stationary.cc rhs_stat.cc)
+deal_ii_setup_target(stat-convergence)
+target_link_libraries(stat-convergence stokes-time2)
