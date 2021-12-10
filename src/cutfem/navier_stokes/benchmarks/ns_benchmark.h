@@ -36,6 +36,7 @@ namespace examples::cut::NavierStokes::benchmarks {
                     TensorFunction<1, dim> &analytic_vel,
                     Function<dim> &analytic_pressure,
                     Sphere<dim> &levelset_func,
+                    std::string filename,
                     bool semi_implicit, int do_nothing_id = 10,
                     bool stationary = false, bool compute_error = true);
 
@@ -45,7 +46,7 @@ namespace examples::cut::NavierStokes::benchmarks {
          * behind the sphere. Also compute the drag and lift coefficients of
          * sphere.
          */
-        void post_processing();
+        void post_processing(unsigned int time_step);
 
         /**
          * Compute the pressure difference between the points a_1 and a_2, used in
@@ -54,6 +55,11 @@ namespace examples::cut::NavierStokes::benchmarks {
          * @return
          */
         double compute_pressure_difference();
+
+    private:
+        // Write the computed data to file as csv.
+        std::ofstream file;
+
     };
 }
 

@@ -83,7 +83,7 @@ namespace utils::problems {
         assemble_system();
 
         solve();
-        post_processing();
+        post_processing(0);
 
         if (write_output) {
             output_results(this->dof_handlers.front(),
@@ -145,6 +145,8 @@ namespace utils::problems {
             assemble_rhs(0);
 
             solve();
+            post_processing(k);
+
             error = compute_error(dof_handlers.front(), solutions.front());
             prev_error = this_error;
             this_error = error->repr_error();
@@ -158,7 +160,7 @@ namespace utils::problems {
             }
             solutions.pop_back();
         }
-        post_processing();
+        post_processing(k + 1);
 
         if (do_compute_error) {
             return compute_error(dof_handlers.front(), solutions.front());
@@ -178,7 +180,6 @@ namespace utils::problems {
     template<int dim>
     std::shared_ptr<hp::DoFHandler<dim>> CutFEMProblem<dim>::
     get_dof_handler() {
-        // TODO return reference or pointer?
         return dof_handlers.front();
     }
 
@@ -190,10 +191,19 @@ namespace utils::problems {
 
         std::cout << "\nBDF-" << bdf_type << ", steps=" << steps << std::endl;
         std::cout << "-------------------------" << std::endl;
-        // TODO fix BDF-2 with given u1 from BDF-1
 
-        make_grid(triangulation);
-        setup_quadrature();
+        assert(supplied_solutions.size() < bdf_type);
+        // Clear the solutions and dof_handlers from possibly previous BDF
+        // method runs performed by this object.
+        solutions.clear();
+        dof_handlers.clear();
+
+        // Don't make the triangulation if it was done by a previously run
+        // of a BDF-method.
+        if (triangulation.n_quads() == 0) {
+            make_grid(triangulation);
+            setup_quadrature();
+        }
         set_function_times(0);
         setup_level_set();
         cut_mesh_classifier.reclassify();
@@ -215,8 +225,8 @@ namespace utils::problems {
         set_extrapolation_coefficients(bdf_type);
 
         std::ofstream file("errors-time-d" + std::to_string(dim)
-                           + "o" + std::to_string(this->element_order)
-                           + "r" + std::to_string(this->n_refines) + ".csv");
+                           + "o" + std::to_string(element_order)
+                           + "r" + std::to_string(n_refines) + ".csv");
         write_time_header_to_file(file);
 
         // Write the errors for the first steps to file.
@@ -227,17 +237,17 @@ namespace utils::problems {
 
         double time;
         for (unsigned int k = bdf_type; k <= steps; ++k) {
-            time = k * this->tau;
+            time = k * tau;
             std::cout << "\nTime Step = " << k
-                      << ", tau = " << this->tau
+                      << ", tau = " << tau
                       << ", time = " << time << std::endl;
 
             // Advance the time for all functions.
             set_function_times(time);
 
             // Create a new solution vector to contain the next solution.
-            int n_dofs = this->dof_handlers.front()->n_dofs();
-            this->solutions.emplace_front(n_dofs);
+            int n_dofs = dof_handlers.front()->n_dofs();
+            solutions.emplace_front(n_dofs);
 
             if (k == bdf_type) {
                 // Assemble the matrix after the new solution vector is created.
@@ -254,24 +264,24 @@ namespace utils::problems {
                 assemble_timedep_matrix();
             }
 
-            // TODO nødvendig??
-            this->rhs.reinit(this->solutions.front().size());
+            rhs = 0;
             assemble_rhs(k);
 
             solve();
-            post_processing();
+            post_processing(k);
 
             if (do_compute_error) {
-                errors[k] = this->compute_error(dof_handlers.front(),
-                                                solutions.front());
+                // TODO segfault when this is compute_error = false.
+                errors[k] = compute_error(dof_handlers.front(),
+                                          solutions.front());
                 errors[k]->time_step = k;
                 write_time_error_to_file(errors[k], file);
                 errors[k]->output();
             }
 
-            if (this->write_output) {
-                this->output_results(this->dof_handlers.front(),
-                                     this->solutions.front(), k, true);
+            if (write_output) {
+                output_results(dof_handlers.front(), solutions.front(),
+                               k, true);
             }
 
             // Remove the oldest solution, since it is no longer needed.
@@ -313,9 +323,13 @@ namespace utils::problems {
 
         // One dof_handler must be supplied for each supplied solution vector.
         assert(supplied_solutions.size() == supplied_dof_handlers.size());
+        // Clear the solutions and dof_handlers from possibly previous BDF
+        // method runs performed by this object.
         solutions.clear();
         dof_handlers.clear();
 
+        // Don't make the triangulation if it was done by a previously run
+        // of a BDF-method.
         if (triangulation.n_quads() == 0) {
             make_grid(triangulation);
             setup_quadrature();
@@ -348,7 +362,7 @@ namespace utils::problems {
 
         interpolate_first_steps(bdf_type, errors, mesh_bound_multiplier);
         set_supplied_solutions(bdf_type, supplied_solutions,
-                               supplied_dof_handlers, errors, true);
+                               supplied_dof_handlers, errors);
         set_bdf_coefficients(bdf_type);
         set_extrapolation_coefficients(bdf_type);
 
@@ -400,7 +414,7 @@ namespace utils::problems {
             assemble_rhs(k);
 
             solve();
-            post_processing();
+            post_processing(k);
 
             if (do_compute_error) {
                 errors[k] = compute_error(dof_handlers.front(),
@@ -536,7 +550,7 @@ namespace utils::problems {
             std::cout << " - Interpolate step k = " << k << std::endl;
 
             // Interpolate it a the correct time.
-            set_function_times(k * this->tau);
+            set_function_times(k * tau);
 
             if (moving_domain && k > 0) {
                 // For moving domains we need a new dof_handler for each step,
@@ -561,30 +575,14 @@ namespace utils::problems {
             interpolate_solution(dof_handlers.front(), k);
 
             // Compute the error for this step.
-            errors[k] = this->compute_error(dof_handlers.front(),
-                                            solutions.front());
+            errors[k] = compute_error(dof_handlers.front(),
+                                      solutions.front());
             errors[k]->time_step = k;
             errors[k]->output();
             std::string suffix = std::to_string(k) + "-inter";
-            this->output_results(this->dof_handlers.front(),
-                                 this->solutions.front(), suffix);
+            this->output_results(dof_handlers.front(),
+                                 solutions.front(), suffix);
         }
-
-        // TODO burde kanskje heller interpolere boundary_values for
-        //  initial verdier?
-        // Important that the boundary_values function uses t=0, when
-        // we interpolate the initial value from it.
-        // boundary_values->set_time(0);
-
-        // Use the boundary_values as initial values. Interpolate the
-        // boundary_values function into the finite element space.
-        // const unsigned int n_components_on_element = dim + 1;
-        // FEValuesExtractors::Vector velocities(0);
-        //VectorFunctionFromTensorFunction<dim> adapter(
-        //        *boundary_values,
-        //        velocities.first_vector_component,
-        //        n_components_on_element);
-
     }
 
     template<int dim>
@@ -592,8 +590,7 @@ namespace utils::problems {
     set_supplied_solutions(unsigned int bdf_type,
                            std::vector<Vector<double>> &supplied_solutions,
                            std::vector<std::shared_ptr<hp::DoFHandler<dim>>> &supplied_dof_handlers,
-                           std::vector<ErrorBase *> &errors,
-                           bool moving_domain) {
+                           std::vector<ErrorBase *> &errors) {
         std::cout << "Set supplied solutions" << std::endl;
 
         // At this point we assume the solution vector that are used for solving
@@ -618,24 +615,23 @@ namespace utils::problems {
         // Create an extended vector of supplied_solutions, with vectors of
         // length 1 to mark the time steps where we want to keep and use the
         // interpolated solution.
-        std::vector<Vector<double>>
-                full_vector(bdf_type, Vector<double>(1));
-        std::vector<std::shared_ptr<hp::DoFHandler<dim>>> full_dofs(
-                bdf_type); //, nullptr);
-        // TODO bruk shared_ptr istedet for reference_wrap
+        std::vector<Vector<double>> full_vector(bdf_type, Vector<double>(1));
+        std::vector<std::shared_ptr<hp::DoFHandler<dim>>> full_dofs(bdf_type);
+
         unsigned int num_supp = supplied_solutions.size();
         unsigned int size_diff = bdf_type - num_supp;
         assert(size_diff >= 0);
         for (unsigned int k = 0; k < num_supp; ++k) {
             full_vector[size_diff + k] = supplied_solutions[k];
-            full_dofs[size_diff + k] = supplied_dof_handlers[k];
+            if (moving_domain) {
+                full_dofs[size_diff + k] = supplied_dof_handlers[k];
+            }
         }
 
         // Insert the supplied solutions in the solutions deque, and compute
         // the errors.
         unsigned int solution_index;
         unsigned int dof_index = 0;
-        unsigned int n_dofs = this->dof_handlers.front()->n_dofs();
 
         for (unsigned int k = 0; k < bdf_type; ++k) {
             if (full_vector[k].size() != 1) {
@@ -648,8 +644,6 @@ namespace utils::problems {
                 // was supplied to the solver.
                 solutions[solution_index] = full_vector[k];
                 if (moving_domain) {
-                    // TODO ignore the dof_handlers if the vector is empty,
-                    //  then the run_time method was run.
                     // Replace the previously set dof_handler (of the
                     // interpolated solution), with the supplied one.
                     dof_handlers[solution_index] = full_dofs[k];
@@ -657,11 +651,11 @@ namespace utils::problems {
                 }
 
                 // Overwrite the error too.
-                set_function_times(k * this->tau);
+                set_function_times(k * tau);
                 // If the domain is stationary, we only have one dof_handler.
                 // dof_index = moving_domain ? solution_index : 0;
-                errors[k] = this->compute_error(dof_handlers[dof_index],
-                                                solutions[solution_index]);
+                errors[k] = compute_error(dof_handlers[dof_index],
+                                          solutions[solution_index]);
                 errors[k]->time_step = k;
                 // TODO feilen i steg u1 er ikke det samme for BDF-2, som den
                 //  som blir supplied fra BDF-1.
@@ -929,7 +923,7 @@ namespace utils::problems {
 
     template<int dim>
     void CutFEMProblem<dim>::
-    post_processing() {}
+    post_processing(unsigned int time_step) {}
 
     template
     class LevelSet<2>;

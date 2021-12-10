@@ -18,18 +18,22 @@ namespace examples::cut::NavierStokes::benchmarks {
                 TensorFunction<1, dim> &analytic_vel,
                 Function<dim> &analytic_pressure,
                 Sphere<dim> &levelset_func,
+                std::string filename,
                 const bool semi_implicit, const int do_nothing_id,
                 const bool stationary, const bool compute_error)
             : NavierStokes::NavierStokesEqn<dim>(
             nu, tau, radius, half_length, n_refines, element_order,
             write_output, rhs, bdd_values, analytic_vel, analytic_pressure,
             levelset_func, semi_implicit, do_nothing_id, true,
-            stationary, compute_error) {}
+            stationary, compute_error) {
+        file = std::ofstream(filename);
+        file << "k;t;C_D;C_L;\\Delta p\n" << std::endl;
+    }
 
 
     template<int dim>
     void BenchmarkNS<dim>::
-    post_processing() {
+    post_processing(unsigned int time_step) {
         std::cout << "Post-processing:" << std::endl;
 
         // Compute the surface forces. Which are the drag and lift forces
@@ -54,6 +58,12 @@ namespace examples::cut::NavierStokes::benchmarks {
 
         double pressure_diff = compute_pressure_difference();
         std::cout << " * Δp = " << pressure_diff << std::endl;
+
+        file << time_step << ";"
+             << this->tau * time_step << ";"
+             << drag_coefficient << ";"
+             << lift_coefficient << ";"
+             << pressure_diff << std::endl;
     }
 
     template<int dim>
