@@ -260,9 +260,7 @@ namespace examples::cut::StokesEquation {
         std::vector<Tensor<1, dim>> phi_u(dofs_per_cell, Tensor<1, dim>());
         std::vector<double> phi_p(dofs_per_cell);
 
-        std::cout << "hei1" << std::endl;
         const int time_switch = this->stationary ? 0 : 1;
-        std::cout << "hei2" << std::endl;
 
         for (unsigned int q = 0; q < fe_values.n_quadrature_points; ++q) {
             for (const unsigned int k : fe_values.dof_indices()) {
