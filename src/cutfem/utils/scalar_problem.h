@@ -1,7 +1,9 @@
 #ifndef MICROBUBBLE_SCALAR_PROBLEM_H
 #define MICROBUBBLE_SCALAR_PROBLEM_H
 
+#include <deal.II/base/conditional_ostream.h>
 #include <deal.II/base/function.h>
+#include <deal.II/base/mpi.h>
 #include <deal.II/base/point.h>
 #include <deal.II/base/quadrature.h>
 #include <deal.II/base/tensor.h>
@@ -22,10 +24,12 @@
 #include <deal.II/hp/mapping_collection.h>
 #include <deal.II/hp/q_collection.h>
 
-#include <deal.II/lac/affine_constraints.h>
-#include <deal.II/lac/sparse_matrix.h>
-#include <deal.II/lac/sparsity_pattern.h>
-#include <deal.II/lac/vector.h>
+//#include <deal.II/lac/affine_constraints.h>
+// #include <deal.II/lac/sparse_matrix.h>
+// #include <deal.II/lac/sparsity_pattern.h>
+// #include <deal.II/lac/vector.h>
+//#include <deal.II/lac/petsc_vector>
+//#include <deal.II/lac/petsc_sparse_matrix>
 
 #include <vector>
 
@@ -79,10 +83,10 @@ namespace utils::problems::scalar {
                       const bool stationary = false,
                       const bool compute_error = true);
 
-        static void
+        void
         write_header_to_file(std::ofstream &file);
 
-        static void
+        void
         write_error_to_file(ErrorBase *error, std::ofstream &file);
 
     protected:
@@ -108,7 +112,7 @@ namespace utils::problems::scalar {
 
         ErrorBase *
         compute_error(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
-                      Vector<double> &solution) override;
+                      PETScWrappers::MPI::Vector &solution) override;
 
         ErrorBase *
         compute_time_error(std::vector<ErrorBase *> &errors) override;
@@ -130,7 +134,7 @@ namespace utils::problems::scalar {
 
         virtual void
         output_results(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
-                       Vector<double> &solution,
+                       PETScWrappers::MPI::Vector &solution,
                        std::string &suffix,
                        bool minimal_output = false) const override;
 

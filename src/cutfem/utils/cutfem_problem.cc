@@ -53,7 +53,11 @@ namespace utils::problems {
               cut_mesh_classifier(triangulation, levelset_dof_handler,
                                   levelset),
               stabilized(stabilized), stationary(stationary),
-              do_compute_error(compute_error) {
+              do_compute_error(compute_error),
+              mpi_communicator(MPI_COMM_WORLD), 
+              n_mpi_processes(Utilities::MPI::n_mpi_processes(mpi_communicator)),
+              this_mpi_process(Utilities::MPI::this_mpi_process(mpi_communicator)),
+              pcout(std::cout, (this_mpi_process == 0)) {
         // Use no constraints when projecting.
         this->constraints.close();
 
@@ -65,6 +69,8 @@ namespace utils::problems {
     ErrorBase *CutFEMProblem<dim>::
     run_step() {
         make_grid(triangulation);
+        // MPI: split the grid in subdomains to be spread across the processes.
+        GridTools::partition_triangulation(n_mpi_processes, triangulation);
         setup_quadrature();
         set_function_times(0);
         setup_level_set();
@@ -76,7 +82,13 @@ namespace utils::problems {
         set_bdf_coefficients(1);
         set_extrapolation_coefficients(1);
         int n_dofs = dof_handlers.front()->n_dofs();
-        solutions.emplace_front(n_dofs);
+
+        // MPI: determine the set of locally owned dofs.
+        const std::vector<IndexSet> locally_owned_dofs_per_proc =
+            DoFTools::locally_owned_dofs_per_subdomain(*dof_handlers.front());
+        const IndexSet locally_owned_dofs = 
+            locally_owned_dofs_per_proc[this_mpi_process];
+        solutions.emplace_front(locally_owned_dofs, mpi_communicator);
 
         initialize_matrices();
         pre_matrix_assembly();
@@ -100,10 +112,12 @@ namespace utils::problems {
     template<int dim>
     ErrorBase *CutFEMProblem<dim>::
     run_step_non_linear(double tol) {
-        std::cout << "\nFixed point iteration" << std::endl;
-        std::cout << "-------------------------" << std::endl;
+        pcout << "\nFixed point iteration" << std::endl;
+        pcout << "-------------------------" << std::endl;
 
         make_grid(triangulation);
+        // MPI: split the grid in subdomains to be spread across the processes.
+        GridTools::partition_triangulation(n_mpi_processes, triangulation);
         setup_quadrature();
         set_function_times(0);
         setup_level_set();
@@ -123,21 +137,27 @@ namespace utils::problems {
         double error_diff = 2 * tol;
         int k = 0;
 
-        solutions.emplace_front(n_dofs);
+        // MPI: determine the set of locally owned dofs.
+        // TODO is this a costly operation? Also done in intialize_matrices().
+        const std::vector<IndexSet> locally_owned_dofs_per_proc =
+            DoFTools::locally_owned_dofs_per_subdomain(*dof_handlers.front());
+        const IndexSet locally_owned_dofs = 
+            locally_owned_dofs_per_proc[this_mpi_process];
+        solutions.emplace_front(locally_owned_dofs, mpi_communicator);
 
         while (error_diff > tol) {
             k++;
-            std::cout << "\nFixed point iteration: step " << k << std::endl;
-            std::cout << "-----------------------------------" << std::endl;
+            pcout << "\nFixed point iteration: step " << k << std::endl;
+            pcout << "-----------------------------------" << std::endl;
 
-            solutions.emplace_front(n_dofs);
+            solutions.emplace_front(locally_owned_dofs, mpi_communicator);
             if (k == 1) {
                 initialize_matrices();
                 pre_matrix_assembly();
                 assemble_matrix();
             }
             if (!stationary_stiffness_matrix) {
-                timedep_stiffness_matrix.reinit(sparsity_pattern);
+                timedep_stiffness_matrix = 0;
                 assemble_timedep_matrix();
             }
 
@@ -152,7 +172,7 @@ namespace utils::problems {
             this_error = error->repr_error();
             error->output();
             error_diff = abs(this_error - prev_error);
-            std::cout << "  Error diff = " << error_diff << std::endl;
+            pcout << "  Error diff = " << error_diff << std::endl;
 
             if (write_output) {
                 output_results(dof_handlers.front(), solutions.front(),
@@ -171,7 +191,7 @@ namespace utils::problems {
 
 
     template<int dim>
-    Vector<double> CutFEMProblem<dim>::
+    PETScWrappers::MPI::Vector CutFEMProblem<dim>::
     get_solution() {
         return solutions.front();
     }
@@ -189,8 +209,8 @@ namespace utils::problems {
     run_time(unsigned int bdf_type, unsigned int steps,
              std::vector<Vector<double>> &supplied_solutions) {
 
-        std::cout << "\nBDF-" << bdf_type << ", steps=" << steps << std::endl;
-        std::cout << "-------------------------" << std::endl;
+        pcout << "\nBDF-" << bdf_type << ", steps=" << steps << std::endl;
+        pcout << "-------------------------" << std::endl;
 
         assert(supplied_solutions.size() < bdf_type);
         // Clear the solutions and dof_handlers from possibly previous BDF
@@ -202,6 +222,8 @@ namespace utils::problems {
         // of a BDF-method.
         if (triangulation.n_quads() == 0) {
             make_grid(triangulation);
+            // MPI: split the grid in subdomains to be spread across the processes.
+            GridTools::partition_triangulation(n_mpi_processes, triangulation);
             setup_quadrature();
         }
         set_function_times(0);
@@ -235,10 +257,17 @@ namespace utils::problems {
             errors[k]->output();
         }
 
+        // MPI: determine the set of locally owned dofs.
+        // TODO is this a costly operation? Also done in intialize_matrices().
+        const std::vector<IndexSet> locally_owned_dofs_per_proc =
+            DoFTools::locally_owned_dofs_per_subdomain(*dof_handlers.front());
+        const IndexSet locally_owned_dofs = 
+            locally_owned_dofs_per_proc[this_mpi_process];
+
         double time;
         for (unsigned int k = bdf_type; k <= steps; ++k) {
             time = k * tau;
-            std::cout << "\nTime Step = " << k
+            pcout << "\nTime Step = " << k
                       << ", tau = " << tau
                       << ", time = " << time << std::endl;
 
@@ -246,8 +275,7 @@ namespace utils::problems {
             set_function_times(time);
 
             // Create a new solution vector to contain the next solution.
-            int n_dofs = dof_handlers.front()->n_dofs();
-            solutions.emplace_front(n_dofs);
+            solutions.emplace_front(locally_owned_dofs, mpi_communicator);
 
             if (k == bdf_type) {
                 // Assemble the matrix after the new solution vector is created.
@@ -260,7 +288,7 @@ namespace utils::problems {
                 assemble_matrix();
             }
             if (!stationary_stiffness_matrix) {
-                timedep_stiffness_matrix.reinit(sparsity_pattern);
+                timedep_stiffness_matrix = 0;
                 assemble_timedep_matrix();
             }
 
@@ -288,7 +316,7 @@ namespace utils::problems {
             solutions.pop_back();
         }
 
-        std::cout << std::endl;
+        pcout << std::endl;
         for (ErrorBase *error : errors) {
             error->output();
         }
@@ -317,8 +345,8 @@ namespace utils::problems {
                       std::vector<std::shared_ptr<hp::DoFHandler<dim>>> &supplied_dof_handlers,
                       const double mesh_bound_multiplier) {
 
-        std::cout << "\nBDF-" << bdf_type << ", steps=" << steps << std::endl;
-        std::cout << "-------------------------" << std::endl;
+        pcout << "\nBDF-" << bdf_type << ", steps=" << steps << std::endl;
+        pcout << "-------------------------" << std::endl;
         moving_domain = true;
 
         // One dof_handler must be supplied for each supplied solution vector.
@@ -332,6 +360,9 @@ namespace utils::problems {
         // of a BDF-method.
         if (triangulation.n_quads() == 0) {
             make_grid(triangulation);
+            // MPI: split the grid in subdomains to be spread across the processes.
+            // MPI: partitioning the mesh, 
+            GridTools::partition_triangulation(n_mpi_processes, triangulation);
             setup_quadrature();
         }
         set_function_times(0);
@@ -350,7 +381,7 @@ namespace utils::problems {
         double size_of_bound = mesh_bound_multiplier * buffer_constant
                                * (levelset_function->get_speed() * tau
                                   * bdf_type + h);
-        std::cout << " # size_of_bound = " << size_of_bound << std::endl;
+        pcout << " # size_of_bound = " << size_of_bound << std::endl;
 
         dof_handlers.emplace_front(new hp::DoFHandler<dim>());
         distribute_dofs(dof_handlers.front(), size_of_bound);
@@ -371,7 +402,7 @@ namespace utils::problems {
                            + "r" + std::to_string(n_refines) + ".csv");
         write_time_header_to_file(file);
 
-        std::cout << "Interpolated / supplied solutions." << std::endl;
+        pcout << "Interpolated / supplied solutions." << std::endl;
         // Write the errors for the first steps to file.
         for (unsigned int k = 0; k < bdf_type; ++k) {
             write_time_error_to_file(errors[k], file);
@@ -384,7 +415,7 @@ namespace utils::problems {
         double time;
         for (unsigned int k = bdf_type; k <= steps; ++k) {
             time = k * tau;
-            std::cout << "\nTime Step = " << k
+            pcout << "\nTime Step = " << k
                       << ", tau = " << tau
                       << ", time = " << time << std::endl;
 
@@ -392,18 +423,25 @@ namespace utils::problems {
             setup_level_set();
             cut_mesh_classifier.reclassify(); // TODO kalles denne i riktig rekkefølge?
 
-            // Create a new solution vector to contain the next solution.
-            int n_dofs = dof_handlers.front()->n_dofs();
-            solutions.emplace_front(n_dofs);
-
             // Redistribute the dofs after the level set was updated
             // size_of_bound = buffer_constant * bdf_type * this->h;
             size_of_bound = mesh_bound_multiplier * buffer_constant
                             * (levelset_function->get_speed() * tau
                                * bdf_type + h);
-            std::cout << " # size_of_bound = " << size_of_bound << std::endl;
+            pcout << " # size_of_bound = " << size_of_bound << std::endl;
             dof_handlers.emplace_front(new hp::DoFHandler<dim>());
             distribute_dofs(dof_handlers.front(), size_of_bound);
+            
+            // MPI: determine the set of locally owned dofs.
+            // TODO is this a costly operation? Also done in intialize_matrices().
+            const std::vector<IndexSet> locally_owned_dofs_per_proc =
+                DoFTools::locally_owned_dofs_per_subdomain(*dof_handlers.front());
+            const IndexSet locally_owned_dofs = 
+                locally_owned_dofs_per_proc[this_mpi_process];
+            
+            // Create a new solution vector to contain the next solution.
+            // int n_dofs = dof_handlers.front()->n_dofs();
+            solutions.emplace_front(locally_owned_dofs, mpi_communicator);
 
             // Reinitialize the matrices and vectors after the number of dofs
             // was updated.
@@ -435,7 +473,7 @@ namespace utils::problems {
             dof_handlers.pop_back();
         }
 
-        std::cout << std::endl;
+        pcout << std::endl;
         for (ErrorBase *error : errors) {
             error->output();
         }
@@ -463,7 +501,7 @@ namespace utils::problems {
     template<int dim>
     void CutFEMProblem<dim>::
     set_bdf_coefficients(unsigned int bdf_type) {
-        std::cout << "Set BDF coefficients" << std::endl;
+        pcout << "Set BDF coefficients" << std::endl;
         this->bdf_coeffs = std::vector<double>(bdf_type + 1);
 
         if (bdf_type == 1) {
@@ -539,15 +577,16 @@ namespace utils::problems {
     interpolate_first_steps(unsigned int bdf_type,
                             std::vector<ErrorBase *> &errors,
                             double mesh_bound_multiplier) {
-        std::cout << "Interpolate first step(s)." << std::endl;
+        pcout << "Interpolate first step(s)." << std::endl;
         // Assume the deque of solutions is empty at this point.
         assert(solutions.empty());
         // At this point, one dof_handler should have been created.
         assert(dof_handlers.size() == 1);
 
+
         for (unsigned int k = 0; k < bdf_type; ++k) {
             // Create a new solution vector.
-            std::cout << " - Interpolate step k = " << k << std::endl;
+            pcout << " - Interpolate step k = " << k << std::endl;
 
             // Interpolate it a the correct time.
             set_function_times(k * tau);
@@ -569,8 +608,13 @@ namespace utils::problems {
                 dof_handlers.emplace_front(new hp::DoFHandler<dim>());
                 distribute_dofs(dof_handlers.front(), size_of_bound);
             }
-            int n_dofs = dof_handlers.front()->n_dofs();
-            solutions.emplace_front(n_dofs);
+
+            // MPI: determine the set of locally owned dofs.
+            const std::vector<IndexSet> locally_owned_dofs_per_proc =
+                DoFTools::locally_owned_dofs_per_subdomain(*dof_handlers.front());
+            const IndexSet locally_owned_dofs = 
+                locally_owned_dofs_per_proc[this_mpi_process];
+            solutions.emplace_front(locally_owned_dofs, mpi_communicator);
 
             interpolate_solution(dof_handlers.front(), k);
 
@@ -591,7 +635,7 @@ namespace utils::problems {
                            std::vector<Vector<double>> &supplied_solutions,
                            std::vector<std::shared_ptr<hp::DoFHandler<dim>>> &supplied_dof_handlers,
                            std::vector<ErrorBase *> &errors) {
-        std::cout << "Set supplied solutions" << std::endl;
+        pcout << "Set supplied solutions" << std::endl;
 
         // At this point we assume the solution vector that are used for solving
         // the next time step is not yet created.
@@ -635,7 +679,7 @@ namespace utils::problems {
 
         for (unsigned int k = 0; k < bdf_type; ++k) {
             if (full_vector[k].size() != 1) {
-                std::cout << " - Set supplied for k = " << k << std::endl;
+                pcout << " - Set supplied for k = " << k << std::endl;
                 // Flip the index, since the solutions deque and the
                 // supplied solutions vector holds the solution vectors
                 // in opposite order.
@@ -694,11 +738,12 @@ namespace utils::problems {
     template<int dim>
     void CutFEMProblem<dim>::
     setup_level_set() {
-        std::cout << "Setting up level set" << std::endl;
+        pcout << "Setting up level set" << std::endl;
 
         // The level set function lives on the whole background mesh.
         levelset_dof_handler.distribute_dofs(fe_levelset);
-        printf("  leveset dofs: %d\n", levelset_dof_handler.n_dofs());
+        pcout << "  leveset dofs: " << levelset_dof_handler.n_dofs() 
+              << std::endl;
         levelset.reinit(levelset_dof_handler.n_dofs());
 
         // Project the geometry onto the mesh.
@@ -735,22 +780,60 @@ namespace utils::problems {
             }
         }
         dof_handler->distribute_dofs(this->fe_collection);
+        // MPI: reorder the dofs for MPI (see tutorial 17).
+        DoFRenumbering::subdomain_wise(*dof_handlers.front());
     }
 
 
     template<int dim>
     void CutFEMProblem<dim>::
     initialize_matrices() {
-        std::cout << "Initialize marices" << std::endl;
-        int n_dofs = dof_handlers.front()->n_dofs();
-        rhs.reinit(n_dofs);
+        pcout << "Initialize marices" << std::endl;
 
-        // TODO unopack the pointer in some way?
         cutfem::nla::make_sparsity_pattern_for_stabilized(*dof_handlers.front(),
                                                           sparsity_pattern);
-        stiffness_matrix.reinit(sparsity_pattern);
+
+        // Copied from Simons: cutfem::nla::make_sparsity_pattern_for_stabilized.
+        const int n_dofs = dof_handlers.front()->n_dofs();
+        DynamicSparsityPattern dsp(n_dofs, n_dofs);
+        DoFTools::make_sparsity_pattern(*dof_handlers.front(), dsp);
+
+        const hp::FECollection<dim> &fe_collection =
+            dof_handlers.front()->get_fe_collection();
+        // Copied from step-46.
+        Table<2, DoFTools::Coupling> cell_coupling(fe_collection.n_components(),
+                                                    fe_collection.n_components());
+        Table<2, DoFTools::Coupling> face_coupling(fe_collection.n_components(),
+                                                    fe_collection.n_components());
+        for (unsigned int c = 0; c < fe_collection.n_components(); ++c) {
+            for (unsigned int d = 0; d < fe_collection.n_components(); ++d) {
+                cell_coupling[c][d] = DoFTools::always;
+                face_coupling[c][d] = DoFTools::always;
+            }
+        }
+        DoFTools::make_flux_sparsity_pattern(*dof_handlers.front(),
+                                            dsp,
+                                            cell_coupling,
+                                            face_coupling);
+        sparsity_pattern.copy_from(dsp);
+
+        // MPI: determine the set of locally owned dofs.
+        const std::vector<IndexSet> locally_owned_dofs_per_proc =
+            DoFTools::locally_owned_dofs_per_subdomain(*dof_handlers.front());
+        const IndexSet locally_owned_dofs = 
+            locally_owned_dofs_per_proc[this_mpi_process];
+
+        stiffness_matrix.reinit(locally_owned_dofs, 
+                                locally_owned_dofs,
+                                dsp,
+                                mpi_communicator);
+        
+        rhs.reinit(locally_owned_dofs, mpi_communicator);
         if (!stationary_stiffness_matrix) {
-            timedep_stiffness_matrix.reinit(sparsity_pattern);
+            timedep_stiffness_matrix.reinit(locally_owned_dofs,
+                                            locally_owned_dofs,
+                                            dsp,
+                                            mpi_communicator);
         }
     }
 
@@ -763,7 +846,7 @@ namespace utils::problems {
     template<int dim>
     void CutFEMProblem<dim>::
     assemble_system() {
-        std::cout << "Assemble system: matrix and rhs" << std::endl;
+        pcout << "Assemble system: matrix and rhs" << std::endl;
         assemble_matrix();
         assemble_rhs(0);
         if (!stationary_stiffness_matrix) {
@@ -862,12 +945,18 @@ namespace utils::problems {
     template<int dim>
     void CutFEMProblem<dim>::
     solve() {
-        std::cout << "Solving system" << std::endl;
+        pcout << "Solving system" << std::endl;
         if (stationary_stiffness_matrix) {
-            SparseDirectUMFPACK inverse;
-            inverse.initialize(stiffness_matrix);
-            inverse.vmult(solutions.front(), rhs);
+            SolverControl cn;
+            PETScWrappers::SparseDirectMUMPS solver(cn, mpi_communicator);
+            solver.set_symmetric_mode(false);
+            // inverse.initialize(stiffness_matrix);
+            // inverse.vmult(solutions.front(), rhs);
+            solver.solve(stiffness_matrix, solutions.front(), rhs);
         } else {
+            // TODO fix for Navier-Stokes
+            assert(false);
+            /*
             SparseDirectUMFPACK inverse;
             SparseMatrix<double> timedep;
             timedep.reinit(sparsity_pattern);
@@ -875,14 +964,24 @@ namespace utils::problems {
             timedep.add(1, timedep_stiffness_matrix);
             inverse.initialize(timedep);
             inverse.vmult(solutions.front(), rhs);
+            */
         }
+        pcout << "   Number of active cells:       "
+              << triangulation.n_active_cells() << std::endl;
+        pcout << "   Number of degrees of freedom: " << dof_handlers.front()->n_dofs()
+              << " (by partition:";
+        for (unsigned int p = 0; p < n_mpi_processes; ++p)
+            pcout << (p == 0 ? ' ' : '+')
+                  << (DoFTools::count_dofs_with_subdomain_association(
+                        *dof_handlers.front(), p));
+        pcout << ")" << std::endl;
     }
 
 
     template<int dim>
     double CutFEMProblem<dim>::
     compute_condition_number() {
-        std::cout << "Compute condition number" << std::endl;
+        pcout << "Compute condition number" << std::endl;
 
         // Invert the stiffness_matrix
         FullMatrix<double> stiffness_matrix_full(solutions.front().size());
@@ -894,7 +993,7 @@ namespace utils::problems {
         double inverse_norm = inverse.frobenius_norm();
 
         double condition_number = norm * inverse_norm;
-        std::cout << "  cond_num = " << condition_number << std::endl;
+        pcout << "  cond_num = " << condition_number << std::endl;
 
         // TODO bruk eigenvalues istedet
         return condition_number;
@@ -904,7 +1003,7 @@ namespace utils::problems {
     template<int dim>
     void CutFEMProblem<dim>::
     output_results(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
-                   Vector<double> &solution,
+                   PETScWrappers::MPI::Vector &solution,
                    bool minimal_output) const {
         std::string empty;
         output_results(dof_handler, solution, empty, minimal_output);
@@ -914,7 +1013,7 @@ namespace utils::problems {
     template<int dim>
     void CutFEMProblem<dim>::
     output_results(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
-                   Vector<double> &solution,
+                   PETScWrappers::MPI::Vector &solution,
                    int time_step, bool minimal_output) const {
         std::string k = std::to_string(time_step);
         output_results(dof_handler, solution, k, minimal_output);

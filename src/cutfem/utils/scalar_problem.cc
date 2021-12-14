@@ -83,7 +83,7 @@ namespace utils::problems::scalar {
     template<int dim>
     void ScalarProblem<dim>::
     assemble_system() {
-        std::cout << "Assembling scalar" << std::endl;
+        this->pcout << "Assembling scalar" << std::endl;
 
         this->stiffness_matrix = 0;
         this->rhs = 0;
@@ -138,39 +138,44 @@ namespace utils::problems::scalar {
                 beta_0 * this->element_order * (this->element_order + 1);
 
         for (const auto &cell : this->dof_handlers.front()->active_cell_iterators()) {
-            const unsigned int n_dofs = cell->get_fe().dofs_per_cell;
-            std::vector<types::global_dof_index> loc2glb(n_dofs);
-            cell->get_dof_indices(loc2glb);
+            // Only assemble if the current subprocess owns the cell.
+            if (cell->subdomain_id() == this->this_mpi_process) {
+                const unsigned int n_dofs = cell->get_fe().dofs_per_cell;
+                std::vector<types::global_dof_index> loc2glb(n_dofs);
+                cell->get_dof_indices(loc2glb);
 
-            // This call will compute quadrature rules relevant for this cell
-            // in the background.
-            cut_fe_values.reinit(cell);
+                // This call will compute quadrature rules relevant for this cell
+                // in the background.
+                cut_fe_values.reinit(cell);
 
-            // Retrieve an FEValues object with quadrature points
-            // over the full cell.
-            const boost::optional<const FEValues<dim> &> fe_values_bulk =
-                    cut_fe_values.get_inside_fe_values();
+                // Retrieve an FEValues object with quadrature points
+                // over the full cell.
+                const boost::optional<const FEValues<dim> &> fe_values_bulk =
+                        cut_fe_values.get_inside_fe_values();
 
-            if (fe_values_bulk) {
-                this->assemble_local_over_cell(*fe_values_bulk, loc2glb);
-            }
+                if (fe_values_bulk) {
+                    this->assemble_local_over_cell(*fe_values_bulk, loc2glb);
+                }
 
-            // Retrieve an FEValues object with quadrature points
-            // on the immersed surface.
-            const boost::optional<const FEImmersedSurfaceValues<dim> &>
-                    fe_values_surface = cut_fe_values.get_surface_fe_values();
+                // Retrieve an FEValues object with quadrature points
+                // on the immersed surface.
+                const boost::optional<const FEImmersedSurfaceValues<dim> &>
+                        fe_values_surface = cut_fe_values.get_surface_fe_values();
 
-            if (fe_values_surface)
-                this->assemble_local_over_surface(*fe_values_surface, loc2glb);
+                if (fe_values_surface)
+                    this->assemble_local_over_surface(*fe_values_surface, loc2glb);
 
-            if (this->stabilized) {
-                // Compute and add the velocity stabilization.
-                velocity_stabilization.compute_stabilization(cell);
-                velocity_stabilization.add_stabilization_to_matrix(
-                        gamma_M + gamma_A / (this->h * this->h),
-                        this->stiffness_matrix);
+                if (this->stabilized) {
+                    // Compute and add the velocity stabilization.
+                    velocity_stabilization.compute_stabilization(cell);
+                    velocity_stabilization.add_stabilization_to_matrix(
+                            gamma_M + gamma_A / (this->h * this->h),
+                            this->stiffness_matrix);
+                }
             }
         }
+        this->stiffness_matrix.compress(VectorOperation::add);
+        this->rhs.compress(VectorOperation::add);
     }
 
 
@@ -268,7 +273,7 @@ namespace utils::problems::scalar {
                 // can be stabilized. When the aftive mesh is sufficiently
                 // big in all time steps, we should never enter this clause.
                 // If this happens, the values of 0 vill be used.
-                std::cout << "# NB: need larger cell buffer outside the "
+                this->pcout << "# NB: need larger cell buffer outside the "
                              "physical domain." << std::endl;
             } else {
                 // Get the function values from the previous time steps.
@@ -302,8 +307,8 @@ namespace utils::problems::scalar {
     template<int dim>
     ErrorBase *ScalarProblem<dim>::
     compute_error(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
-                  Vector<double> &solution) {
-        std::cout << "Compute error" << std::endl;
+                  PETScWrappers::MPI::Vector &solution) {
+        this->pcout << "Compute error" << std::endl;
 
         double l2_error_integral;
         double h1_semi_error_integral;
@@ -324,6 +329,8 @@ namespace utils::problems::scalar {
         hp::QCollection<1> q_collection1D;
         q_collection1D.push_back(QGauss<1>(n_quad_points));
 
+        Vector<double> localized_solution(solution);
+
         NonMatching::FEValues<dim> cut_fe_values(this->mapping_collection,
                                                  this->fe_collection,
                                                  q_collection,
@@ -334,6 +341,10 @@ namespace utils::problems::scalar {
                                                  this->levelset);
 
         for (const auto &cell : dof_handler->active_cell_iterators()) {
+            // TODO MPI: hva skjer med error computations? Fiks dette.
+            if (cell->subdomain_id() == this->this_mpi_process) {
+            }
+
             cut_fe_values.reinit(cell);
 
             // Retrieve an FEValues object with quadrature points
@@ -343,8 +354,8 @@ namespace utils::problems::scalar {
             // TODO hva med intersected celler?
 
             if (fe_values_bulk) {
-                integrate_cell(*fe_values_bulk, solution, l2_error_integral,
-                               h1_semi_error_integral);
+                integrate_cell(*fe_values_bulk, localized_solution, 
+                                l2_error_integral, h1_semi_error_integral);
             }
         }
 
@@ -431,80 +442,104 @@ namespace utils::problems::scalar {
     template<int dim>
     void ScalarProblem<dim>::
     write_header_to_file(std::ofstream &file) {
-        file << "h, \\tau, \\|u\\|_{L^2}, \\|u\\|_{H^1}, |u|_{H^1}, "
-                "\\|u\\|_{l^\\infty L^2}, \\|u\\|_{l^\\infty H^1}, \\kappa(A)"
-             << std::endl;
+        if (this->this_mpi_process == 0) {
+            file << "h, \\tau, \\|u\\|_{L^2}, \\|u\\|_{H^1}, |u|_{H^1}, "
+                    "\\|u\\|_{l^\\infty L^2}, \\|u\\|_{l^\\infty H^1}, \\kappa(A)"
+                << std::endl;
+        }
     }
 
 
     template<int dim>
     void ScalarProblem<dim>::
     write_error_to_file(ErrorBase *error, std::ofstream &file) {
-        auto *err = dynamic_cast<ErrorScalar *>(error);
-        file << err->h << ","
-             << err->tau << ","
-             << err->l2_error << ","
-             << err->h1_error << ","
-             << err->h1_semi << ","
-             << err->l_inf_l2_error << ","
-             << err->l_inf_h1_error << ","
-             << err->cond_num << std::endl;
+        if (this->this_mpi_process == 0) {
+            auto *err = dynamic_cast<ErrorScalar *>(error);
+            file << err->h << ","
+                << err->tau << ","
+                << err->l2_error << ","
+                << err->h1_error << ","
+                << err->h1_semi << ","
+                << err->l_inf_l2_error << ","
+                << err->l_inf_h1_error << ","
+                << err->cond_num << std::endl;
+        }
     }
 
 
     template<int dim>
     void ScalarProblem<dim>::
     write_time_header_to_file(std::ofstream &file) {
-        file << "k, \\tau, h, \\|u\\|_{L^2}, \\|u\\|_{H^1}, "
-                "|u|_{H^1}, \\kappa(A)"
-             << std::endl;
+        if (this->this_mpi_process == 0) {
+            file << "k, \\tau, h, \\|u\\|_{L^2}, \\|u\\|_{H^1}, "
+                    "|u|_{H^1}, \\kappa(A)"
+                << std::endl;
+        }
     }
 
 
     template<int dim>
     void ScalarProblem<dim>::
     write_time_error_to_file(ErrorBase *error, std::ofstream &file) {
-        auto *err = dynamic_cast<ErrorScalar *>(error);
-        file << err->time_step << ","
-             << err->tau << ","
-             << err->h << ","
-             << err->l2_error << ","
-             << err->h1_error << ","
-             << err->h1_semi << ","
-             << err->cond_num << std::endl;
+        if (this->this_mpi_process == 0) {
+            auto *err = dynamic_cast<ErrorScalar *>(error);
+            file << err->time_step << ","
+                << err->tau << ","
+                << err->h << ","
+                << err->l2_error << ","
+                << err->h1_error << ","
+                << err->h1_semi << ","
+                << err->cond_num << std::endl;
+        }
     }
 
 
     template<int dim>
     void ScalarProblem<dim>::
     output_results(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
-                   Vector<double> &solution,
+                   PETScWrappers::MPI::Vector &solution,
                    std::string &suffix,
                    bool minimal_output) const {
-        std::cout << "Output results" << std::endl;
-        // Output results, see step-22
-        DataOut<dim> data_out;
-        data_out.attach_dof_handler(*dof_handler);
-        data_out.add_data_vector(solution, "solution");
-        data_out.build_patches();
-        std::ofstream out("solution-d" + std::to_string(dim)
-                          + "o" + std::to_string(this->element_order)
-                          + "r" + std::to_string(this->n_refines)
-                          + "-" + suffix + ".vtk");
-        data_out.write_vtk(out);
+        this->pcout << "Output results" << std::endl;
 
-        // Output levelset function.
-        if (!minimal_output) {
-            // TODO sett inn i egen funksjon
-            DataOut<dim, DoFHandler<dim>> data_out_levelset;
-            data_out_levelset.attach_dof_handler(this->levelset_dof_handler);
-            data_out_levelset.add_data_vector(this->levelset, "levelset");
-            data_out_levelset.build_patches();
-            std::ofstream output_ls("levelset-d" + std::to_string(dim)
-                                    + "o" + std::to_string(this->element_order)
-                                    + "r" + std::to_string(this->n_refines)
-                                    + "-" + suffix + ".vtk");
-            data_out_levelset.write_vtk(output_ls);
+        // MPI: see step-17.
+        const Vector<double> localized_solution(solution);
+
+        if (this->this_mpi_process == 0) {
+            // Output results, see step-22
+            DataOut<dim> data_out;
+            data_out.attach_dof_handler(*dof_handler);
+            data_out.add_data_vector(localized_solution, "solution");
+
+            // Write the subdomain partition to the same file (see step-17).
+            std::vector<unsigned int> partition_int(
+                this->triangulation.n_active_cells());
+            GridTools::get_subdomain_association(
+                this->triangulation, partition_int);
+            const Vector<double> partitioning(partition_int.begin(),
+                                            partition_int.end());
+            data_out.add_data_vector(partitioning, "partitioning");
+
+            data_out.build_patches();
+            std::ofstream out("solution-d" + std::to_string(dim)
+                            + "o" + std::to_string(this->element_order)
+                            + "r" + std::to_string(this->n_refines)
+                            + "-" + suffix + ".vtk");
+            data_out.write_vtk(out);
+
+            // Output levelset function.
+            if (!minimal_output) {
+                // TODO sett inn i egen funksjon
+                DataOut<dim, DoFHandler<dim>> data_out_levelset;
+                data_out_levelset.attach_dof_handler(this->levelset_dof_handler);
+                data_out_levelset.add_data_vector(this->levelset, "levelset");
+                data_out_levelset.build_patches();
+                std::ofstream output_ls("levelset-d" + std::to_string(dim)
+                                        + "o" + std::to_string(this->element_order)
+                                        + "r" + std::to_string(this->n_refines)
+                                        + "-" + suffix + ".vtk");
+                data_out_levelset.write_vtk(output_ls);
+            }
         }
     }
 

@@ -1,12 +1,15 @@
 #ifndef MICROBUBBLE_CUTFEM_PROBLEM_H
 #define MICROBUBBLE_CUTFEM_PROBLEM_H
 
+#include <deal.II/base/conditional_ostream.h>
 #include <deal.II/base/function.h>
+#include <deal.II/base/mpi.h>
 #include <deal.II/base/point.h>
 #include <deal.II/base/quadrature.h>
 #include <deal.II/base/tensor.h>
 
 #include <deal.II/dofs/dof_tools.h>
+#include <deal.II/dofs/dof_renumbering.h>
 
 #include <deal.II/fe/fe_base.h>
 #include <deal.II/fe/fe_q.h>
@@ -15,6 +18,7 @@
 #include <deal.II/fe/mapping_q1.h>
 
 #include <deal.II/grid/tria.h>
+#include <deal.II/grid/grid_tools.h>
 
 #include <deal.II/hp/dof_handler.h>
 #include <deal.II/hp/fe_collection.h>
@@ -23,9 +27,9 @@
 #include <deal.II/hp/q_collection.h>
 
 #include <deal.II/lac/affine_constraints.h>
-#include <deal.II/lac/sparse_matrix.h>
-#include <deal.II/lac/sparsity_pattern.h>
-#include <deal.II/lac/vector.h>
+#include <deal.II/lac/petsc_vector.h>
+#include <deal.II/lac/petsc_sparse_matrix.h>
+#include <deal.II/lac/petsc_solver.h>
 
 #include <deque>
 #include <memory>
@@ -93,7 +97,7 @@ namespace utils::problems {
         ErrorBase *
         run_step_non_linear(double tol);
 
-        Vector<double>
+        PETScWrappers::MPI::Vector
         get_solution();
 
         std::shared_ptr<hp::DoFHandler<dim>>
@@ -128,10 +132,10 @@ namespace utils::problems {
         run_moving_domain(unsigned int bdf_type, unsigned int steps,
                           const double mesh_bound_multiplier = 1);
 
-        static void
+        void
         write_header_to_file(std::ofstream &file);
 
-        static void
+        void
         write_error_to_file(ErrorBase *error, std::ofstream &file);
 
     protected:
@@ -261,7 +265,7 @@ namespace utils::problems {
 
         virtual ErrorBase *
         compute_error(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
-                      Vector<double> &solution) = 0;
+                      PETScWrappers::MPI::Vector &solution) = 0;
 
         virtual ErrorBase *
         compute_time_error(std::vector<ErrorBase *> &errors) = 0;
@@ -279,19 +283,19 @@ namespace utils::problems {
 
         virtual void
         output_results(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
-                       Vector<double> &solution,
+                       PETScWrappers::MPI::Vector &solution,
                        std::string &suffix,
                        bool minimal_output = false) const = 0;
 
         virtual void
         output_results(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
-                       Vector<double> &solution,
+                       PETScWrappers::MPI::Vector &solution,
                        int time_step,
                        bool minimal_output = false) const;
 
         virtual void
         output_results(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
-                       Vector<double> &solution,
+                       PETScWrappers::MPI::Vector &solution,
                        bool minimal_output = false) const;
 
         virtual void
@@ -326,9 +330,9 @@ namespace utils::problems {
 
         SparsityPattern sparsity_pattern;
 
-        SparseMatrix<double> stiffness_matrix;
-        SparseMatrix<double> timedep_stiffness_matrix;
-        Vector<double> rhs;
+        PETScWrappers::MPI::SparseMatrix stiffness_matrix;
+        PETScWrappers::MPI::SparseMatrix timedep_stiffness_matrix;
+        PETScWrappers::MPI::Vector rhs;
 
         AffineConstraints<double> constraints;
 
@@ -336,7 +340,7 @@ namespace utils::problems {
         // discretization method. When a new time step is solved, a new empty
         // solution vector is pushed to the front.
         //  - In the first iteration of BDF-2 it containts (u, u1, u0).
-        std::deque<Vector<double>> solutions;
+        std::deque<PETScWrappers::MPI::Vector> solutions;
 
         // Constants used for the time discretization, defined as:
         //   u_t = (au^(n+1) + bu^n + cu^(n-1))/τ, where u = u^(n+1)
@@ -368,6 +372,13 @@ namespace utils::problems {
         // Navier-Stokes equations are solved with a semi-implicit convection
         // term.
         bool stationary_stiffness_matrix = true;
+
+        // MPI
+        MPI_Comm mpi_communicator;
+        const unsigned int n_mpi_processes;
+        const unsigned int this_mpi_process;
+        
+        ConditionalOStream pcout;
 
     };
 }
