@@ -1,10 +1,31 @@
 #ifndef MICROBUBBLE_CUTFEM_PROBLEM_H
 #define MICROBUBBLE_CUTFEM_PROBLEM_H
 
+#include <deal.II/base/quadrature_lib.h>
 #include <deal.II/base/function.h>
+#include <deal.II/base/timer.h>
+
+#include <deal.II/lac/generic_linear_algebra.h>
+
+namespace LA 
+{
+#if defined(DEAL_II_WITH_PETSC) && !defined(DEAL_II_PETSC_WITH_COMPLEX) && \
+!(defined(DEAL_II_WITH_TRILINOS) && defined(FORCE_USE_OF_TRILINOS))
+using namespace dealii::LinearAlgebraPETSc;
+# define USE_PETSC_LA
+#elif defined(DEAL_II_WITH_TRILINOS)
+using namespace dealii::LinearAlgebraTrilinos;
+#else
+# error DEAL_II_WITH_PETSC or DEAL_II_WITH_TRILINOS required
+#endif
+} // namespace LA
+
+#include <deal.II/base/conditional_ostream.h>
+#include <deal.II/base/index_set.h>
 #include <deal.II/base/point.h>
 #include <deal.II/base/quadrature.h>
 #include <deal.II/base/tensor.h>
+#include <deal.II/base/utilities.h>
 
 #include <deal.II/dofs/dof_tools.h>
 
@@ -14,8 +35,6 @@
 #include <deal.II/fe/fe_values.h>
 #include <deal.II/fe/mapping_q1.h>
 
-#include <deal.II/grid/tria.h>
-
 #include <deal.II/hp/dof_handler.h>
 #include <deal.II/hp/fe_collection.h>
 #include <deal.II/hp/fe_values.h>
@@ -23,11 +42,17 @@
 #include <deal.II/hp/q_collection.h>
 
 #include <deal.II/lac/affine_constraints.h>
-#include <deal.II/lac/sparse_matrix.h>
+#include <deal.II/lac/dynamic_sparsity_pattern.h>
 #include <deal.II/lac/sparsity_pattern.h>
+#include <deal.II/lac/sparsity_tools.h>
 #include <deal.II/lac/vector.h>
 
+#include <deal.II/distributed/tria.h>
+#include <deal.II/distributed/grid_refinement.h>
+
 #include <deque>
+#include <fstream>
+#include <iostream>
 #include <memory>
 #include <vector>
 
@@ -93,7 +118,7 @@ namespace utils::problems {
         ErrorBase *
         run_step_non_linear(double tol);
 
-        Vector<double>
+        LA::MPI::Vector
         get_solution();
 
         std::shared_ptr<hp::DoFHandler<dim>>
@@ -113,14 +138,14 @@ namespace utils::problems {
          */
         ErrorBase *
         run_time(unsigned int bdf_type, unsigned int steps,
-                 std::vector<Vector<double>> &supplied_solutions);
+                 std::vector<LA::MPI::Vector> &supplied_solutions);
 
         ErrorBase *
         run_time(unsigned int bdf_type, unsigned int steps);
 
         ErrorBase *
         run_moving_domain(unsigned int bdf_type, unsigned int steps,
-                          std::vector<Vector<double>> &supplied_solutions,
+                          std::vector<LA::MPI::Vector> &supplied_solutions,
                           std::vector<std::shared_ptr<hp::DoFHandler<dim>>> &supplied_dof_handlers,
                           const double mesh_bound_multiplier = 1);
 
@@ -128,10 +153,10 @@ namespace utils::problems {
         run_moving_domain(unsigned int bdf_type, unsigned int steps,
                           const double mesh_bound_multiplier = 1);
 
-        static void
+        void
         write_header_to_file(std::ofstream &file);
 
-        static void
+        void
         write_error_to_file(ErrorBase *error, std::ofstream &file);
 
     protected:
@@ -148,7 +173,7 @@ namespace utils::problems {
 
         void
         set_supplied_solutions(unsigned int bdf_type,
-                               std::vector<Vector<double>> &supplied_solutions,
+                               std::vector<LA::MPI::Vector> &supplied_solutions,
                                std::vector<std::shared_ptr<hp::DoFHandler<dim>>> &supplied_dof_handlers,
                                std::vector<ErrorBase *> &errors);
 
@@ -178,6 +203,11 @@ namespace utils::problems {
 
         virtual void
         initialize_matrices();
+
+        void
+        make_sparsity_pattern_for_stabilized(
+            DynamicSparsityPattern &dsp,
+            const hp::DoFHandler<dim> &dof_handler);
 
         virtual void
         pre_matrix_assembly();
@@ -261,7 +291,7 @@ namespace utils::problems {
 
         virtual ErrorBase *
         compute_error(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
-                      Vector<double> &solution) = 0;
+                      LA::MPI::Vector &solution) = 0;
 
         virtual ErrorBase *
         compute_time_error(std::vector<ErrorBase *> &errors) = 0;
@@ -279,23 +309,28 @@ namespace utils::problems {
 
         virtual void
         output_results(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
-                       Vector<double> &solution,
+                       LA::MPI::Vector &solution,
                        std::string &suffix,
-                       bool minimal_output = false) const = 0;
+                       bool minimal_output = false) const;
 
         virtual void
         output_results(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
-                       Vector<double> &solution,
+                       LA::MPI::Vector &solution,
                        int time_step,
                        bool minimal_output = false) const;
 
         virtual void
         output_results(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
-                       Vector<double> &solution,
+                       LA::MPI::Vector &solution,
                        bool minimal_output = false) const;
 
         virtual void
         post_processing(unsigned int time_step);
+        
+
+        MPI_Comm mpi_communicator;
+
+        parallel::distributed::Triangulation<dim> triangulation;
 
         const unsigned int n_refines;
         const unsigned int element_order;
@@ -303,8 +338,6 @@ namespace utils::problems {
 
         double h;  // cell side length
         double tau;
-
-        Triangulation<dim> triangulation;
 
         hp::FECollection<dim> fe_collection;
         hp::MappingCollection<dim> mapping_collection;
@@ -322,13 +355,18 @@ namespace utils::problems {
         // Object managing degrees of freedom for the cutfem method.
         std::deque<std::shared_ptr<hp::DoFHandler<dim>>> dof_handlers;
 
+        // TODO do we need a deque for each of these too??
+        //  - I dont think this can be done. Any processor can only know about
+        //    it's own dofs, so if these changed for each time step, we would 
+        //    not be able to perform computations using the previous time step.
+        IndexSet locally_owned_dofs;
+        IndexSet locally_relevant_dofs;
+
         NonMatching::CutMeshClassifier<dim> cut_mesh_classifier;
 
-        SparsityPattern sparsity_pattern;
-
-        SparseMatrix<double> stiffness_matrix;
-        SparseMatrix<double> timedep_stiffness_matrix;
-        Vector<double> rhs;
+        LA::MPI::SparseMatrix stiffness_matrix;
+        LA::MPI::SparseMatrix timedep_stiffness_matrix;
+        LA::MPI::Vector rhs;
 
         AffineConstraints<double> constraints;
 
@@ -336,7 +374,9 @@ namespace utils::problems {
         // discretization method. When a new time step is solved, a new empty
         // solution vector is pushed to the front.
         //  - In the first iteration of BDF-2 it containts (u, u1, u0).
-        std::deque<Vector<double>> solutions;
+        //  - This is only the locally relevant solution, when the program is 
+        //    run in parallell.
+        std::deque<LA::MPI::Vector> solutions;
 
         // Constants used for the time discretization, defined as:
         //   u_t = (au^(n+1) + bu^n + cu^(n-1))/τ, where u = u^(n+1)
@@ -369,6 +409,11 @@ namespace utils::problems {
         // term.
         bool stationary_stiffness_matrix = true;
 
+        ConditionalOStream pcout;
+        TimerOutput computing_timer;
+
+        const unsigned int n_mpi_processes;
+        const unsigned int this_mpi_process;
     };
 }
 

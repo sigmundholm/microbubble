@@ -56,13 +56,16 @@ public:
             LevelSet<dim> &domain_func,
             const bool stabilized = true);
 
-    static void
+    void
     write_header_to_file(std::ofstream &file);
 
-    static void
+    void
     write_error_to_file(ErrorBase *error, std::ofstream &file);
 
 protected:
+    void
+    set_function_times(double time);
+    
     void
     make_grid(Triangulation<dim> &tria) override;
 

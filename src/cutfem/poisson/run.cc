@@ -7,7 +7,8 @@ using namespace cutfem;
 
 using namespace utils::problems::scalar;
 
-int main() {
+int main(int argc, char *argv[]) {
+    Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 1);
     const int dim = 2;
     double radius = 1;
     double half_length = 1;

@@ -59,8 +59,23 @@ Poisson<dim>::Poisson(const double radius,
 
 template<int dim>
 void Poisson<dim>::
+set_function_times(double time) {
+    this->rhs_function->set_time(time);
+    this->boundary_values->set_time(time);
+    this->analytical_solution->set_time(time);
+
+    if (this->moving_domain) {
+        this->levelset_function->set_time(time);
+    } else {
+        this->levelset_function->set_time(0);
+    }
+}
+
+
+template<int dim>
+void Poisson<dim>::
 make_grid(Triangulation<dim> &tria) {
-    std::cout << "Creating triangulation" << std::endl;
+    this->pcout << "Creating triangulation" << std::endl;
 
     GridGenerator::cylinder(tria, radius, half_length);
     GridTools::remove_anisotropy(tria, 1.618, 5);
@@ -174,23 +189,27 @@ Poisson<dim>::assemble_local_over_surface(
 template<int dim>
 void Poisson<dim>::
 write_header_to_file(std::ofstream &file) {
-    file
-            << "h, \\|u\\|_{L^2}, \\|u\\|_{H^1}, |u|_{H^1}, \\|u\\|_{l^\\infty L^2}, \\|u\\|_{l^\\infty H^1}, \\kappa(A)"
-            << std::endl;
+    if (this->this_mpi_process == 0) {
+        file << "h, \\|u\\|_{L^2}, \\|u\\|_{H^1}, |u|_{H^1}," 
+                "\\|u\\|_{l^\\infty L^2}, \\|u\\|_{l^\\infty H^1}, \\kappa(A)"
+                << std::endl;
+    }
 }
 
 
 template<int dim>
 void Poisson<dim>::
 write_error_to_file(ErrorBase* error, std::ofstream &file) {
-    auto *err = dynamic_cast<ErrorScalar *>(error);
-    file << err->h << ","
-         << err->l2_error << ","
-         << err->h1_error << ","
-         << err->h1_semi << ","
-         << err->l_inf_l2_error << ","
-         << err->l_inf_h1_error << ","
-         << err->cond_num << std::endl;
+    if (this->this_mpi_process == 0) {
+        auto *err = dynamic_cast<ErrorScalar *>(error);
+        file << err->h << ","
+             << err->l2_error << ","
+             << err->h1_error << ","
+             << err->h1_semi << ","
+             << err->l_inf_l2_error << ","
+             << err->l_inf_h1_error << ","
+             << err->cond_num << std::endl;
+    }
 }
 
 

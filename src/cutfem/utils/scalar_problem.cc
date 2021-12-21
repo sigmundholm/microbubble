@@ -84,6 +84,7 @@ namespace utils::problems::scalar {
     void ScalarProblem<dim>::
     assemble_system() {
         std::cout << "Assembling scalar" << std::endl;
+        TimerOutput::Scope t(this->computing_timer, "assembly");
 
         this->stiffness_matrix = 0;
         this->rhs = 0;
@@ -138,39 +139,43 @@ namespace utils::problems::scalar {
                 beta_0 * this->element_order * (this->element_order + 1);
 
         for (const auto &cell : this->dof_handlers.front()->active_cell_iterators()) {
-            const unsigned int n_dofs = cell->get_fe().dofs_per_cell;
-            std::vector<types::global_dof_index> loc2glb(n_dofs);
-            cell->get_dof_indices(loc2glb);
+            if (cell->is_locally_owned()) {
+                const unsigned int n_dofs = cell->get_fe().dofs_per_cell;
+                std::vector<types::global_dof_index> loc2glb(n_dofs);
+                cell->get_dof_indices(loc2glb);
 
-            // This call will compute quadrature rules relevant for this cell
-            // in the background.
-            cut_fe_values.reinit(cell);
+                // This call will compute quadrature rules relevant for this cell
+                // in the background.
+                cut_fe_values.reinit(cell);
 
-            // Retrieve an FEValues object with quadrature points
-            // over the full cell.
-            const boost::optional<const FEValues<dim> &> fe_values_bulk =
-                    cut_fe_values.get_inside_fe_values();
+                // Retrieve an FEValues object with quadrature points
+                // over the full cell.
+                const boost::optional<const FEValues<dim> &> fe_values_bulk =
+                        cut_fe_values.get_inside_fe_values();
 
-            if (fe_values_bulk) {
-                this->assemble_local_over_cell(*fe_values_bulk, loc2glb);
-            }
+                if (fe_values_bulk) {
+                    this->assemble_local_over_cell(*fe_values_bulk, loc2glb);
+                }
 
-            // Retrieve an FEValues object with quadrature points
-            // on the immersed surface.
-            const boost::optional<const FEImmersedSurfaceValues<dim> &>
-                    fe_values_surface = cut_fe_values.get_surface_fe_values();
+                // Retrieve an FEValues object with quadrature points
+                // on the immersed surface.
+                const boost::optional<const FEImmersedSurfaceValues<dim> &>
+                        fe_values_surface = cut_fe_values.get_surface_fe_values();
 
-            if (fe_values_surface)
-                this->assemble_local_over_surface(*fe_values_surface, loc2glb);
+                if (fe_values_surface)
+                    this->assemble_local_over_surface(*fe_values_surface, loc2glb);
 
-            if (this->stabilized) {
-                // Compute and add the velocity stabilization.
-                velocity_stabilization.compute_stabilization(cell);
-                velocity_stabilization.add_stabilization_to_matrix(
-                        gamma_M + gamma_A / (this->h * this->h),
-                        this->stiffness_matrix);
+                if (this->stabilized) {
+                    // Compute and add the velocity stabilization.
+                    velocity_stabilization.compute_stabilization(cell);
+                    velocity_stabilization.add_stabilization_to_matrix(
+                            gamma_M + gamma_A / (this->h * this->h),
+                            this->stiffness_matrix);
+                }
             }
         }
+        this->stiffness_matrix.compress(VectorOperation::add);
+        this->rhs.compress(VectorOperation::add);
     }
 
 
@@ -302,7 +307,7 @@ namespace utils::problems::scalar {
     template<int dim>
     ErrorBase *ScalarProblem<dim>::
     compute_error(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
-                  Vector<double> &solution) {
+                  LA::MPI::Vector &solution) {
         std::cout << "Compute error" << std::endl;
 
         double l2_error_integral;
@@ -395,7 +400,7 @@ namespace utils::problems::scalar {
     template<int dim>
     void ScalarProblem<dim>::
     integrate_cell(const FEValues<dim> &fe_v,
-                   Vector<double> &solution,
+                   LA::MPI::Vector &solution,
                    double &l2_error_integral,
                    double &h1_error_integral) const {
 
@@ -478,20 +483,27 @@ namespace utils::problems::scalar {
     template<int dim>
     void ScalarProblem<dim>::
     output_results(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
-                   Vector<double> &solution,
-                   std::string &suffix,
+                   LA::MPI::Vector &solution,
+                   int time_step,
                    bool minimal_output) const {
         std::cout << "Output results" << std::endl;
         // Output results, see step-22
         DataOut<dim> data_out;
         data_out.attach_dof_handler(*dof_handler);
         data_out.add_data_vector(solution, "solution");
+
+        Vector<float> subdomain(this->triangulation.n_active_cells());
+        for (unsigned int i = 0; i< subdomain.size(); ++i) {
+            subdomain(i) = this->triangulation.locally_owned_subdomain();
+        }
+        data_out.add_data_vector(subdomain, "subdomain");
         data_out.build_patches();
-        std::ofstream out("solution-d" + std::to_string(dim)
-                          + "o" + std::to_string(this->element_order)
-                          + "r" + std::to_string(this->n_refines)
-                          + "-" + suffix + ".vtk");
-        data_out.write_vtk(out);
+        data_out.write_vtu_with_pvtu_record(
+            "", "solution-d" + std::to_string(dim)
+                 + "o" + std::to_string(this->element_order)
+                 + "r" + std::to_string(this->n_refines),
+            time_step, this->mpi_communicator, 2, 8);
+            // TODO adjust file name.
 
         // Output levelset function.
         if (!minimal_output) {
@@ -500,11 +512,11 @@ namespace utils::problems::scalar {
             data_out_levelset.attach_dof_handler(this->levelset_dof_handler);
             data_out_levelset.add_data_vector(this->levelset, "levelset");
             data_out_levelset.build_patches();
-            std::ofstream output_ls("levelset-d" + std::to_string(dim)
-                                    + "o" + std::to_string(this->element_order)
-                                    + "r" + std::to_string(this->n_refines)
-                                    + "-" + suffix + ".vtk");
-            data_out_levelset.write_vtk(output_ls);
+            data_out_levelset.write_vtu_with_pvtu_record(
+                "", "levelset-d" + std::to_string(dim)
+                    + "o" + std::to_string(this->element_order)
+                    + "r" + std::to_string(this->n_refines),
+                time_step, this->mpi_communicator, 2, 8);
         }
     }
 
