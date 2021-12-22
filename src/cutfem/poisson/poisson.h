@@ -67,6 +67,9 @@ protected:
     make_grid(Triangulation<dim> &tria) override;
 
     void
+    set_function_times(double time);
+
+    void
     assemble_local_over_cell(const FEValues<dim> &fe_values,
                              const std::vector<types::global_dof_index> &loc2glb) override;
 

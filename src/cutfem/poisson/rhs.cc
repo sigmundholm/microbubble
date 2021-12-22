@@ -79,6 +79,35 @@ value(const Point<dim> &p, const unsigned int component) const {
 }
 
 
+template<int dim>
+Sphere<dim>::Sphere(const double sphere_radius,
+                    const double center_x,
+                    const double center_y)
+        : sphere_radius(sphere_radius), center_x(center_x),
+            center_y(center_y) {}
+
+template<int dim>
+double Sphere<dim>::
+value(const Point<dim> &p, const unsigned int component) const {
+    (void) component;
+    double x = p[0];
+    double y = p[1];
+    return sqrt(pow(x - center_x, 2) + pow(y - center_y, 2)) -
+            sphere_radius;
+}
+
+template<int dim>
+double Sphere<dim>::
+get_radius() { return sphere_radius; }
+
+template<int dim>
+Point<dim> Sphere<dim>::
+get_center() {
+    Point<dim> c(center_x, center_y);
+    return c;
+}
+
+
 template
 class RightHandSide<2>;
 
@@ -102,3 +131,9 @@ class FlowerDomain<2>;
 
 template
 class FlowerDomain<3>;
+
+template
+class Sphere<2>;
+
+template
+class Sphere<3>;

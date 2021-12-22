@@ -179,6 +179,11 @@ namespace utils::problems {
         virtual void
         initialize_matrices();
 
+        void
+        make_sparsity_pattern_for_stabilized(
+            const hp::DoFHandler<dim> &dof_handler,
+            SparsityPattern &sparsity_pattern);
+
         virtual void
         pre_matrix_assembly();
 

@@ -55,7 +55,6 @@ namespace utils::problems {
               stabilized(stabilized), stationary(stationary),
               do_compute_error(compute_error) {
         // Use no constraints when projecting.
-        this->constraints.close();
 
         levelset_function = &levelset_func;
     }
@@ -744,14 +743,57 @@ namespace utils::problems {
         std::cout << "Initialize marices" << std::endl;
         int n_dofs = dof_handlers.front()->n_dofs();
         rhs.reinit(n_dofs);
+        
+        constraints.clear();
+        DoFTools::make_hanging_node_constraints(*dof_handlers.front(), constraints);
+        constraints.close();
 
-        // TODO unopack the pointer in some way?
-        cutfem::nla::make_sparsity_pattern_for_stabilized(*dof_handlers.front(),
-                                                          sparsity_pattern);
+        make_sparsity_pattern_for_stabilized(*dof_handlers.front(),
+                                             sparsity_pattern);
         stiffness_matrix.reinit(sparsity_pattern);
         if (!stationary_stiffness_matrix) {
             timedep_stiffness_matrix.reinit(sparsity_pattern);
         }
+    }
+
+    
+    /**
+     * Creates a sparsity-pattern that can be used when working with immersed
+     * jump-stabilization.
+     *  - Copied from Simons code in dealiicutelements.
+     */
+    template <int dim>
+    void CutFEMProblem<dim>::
+    make_sparsity_pattern_for_stabilized(const hp::DoFHandler<dim> &dof_handler,
+                                         SparsityPattern &sparsity_pattern)
+    {
+      DynamicSparsityPattern dsp(dof_handler.n_dofs(), dof_handler.n_dofs());
+      DoFTools::make_sparsity_pattern(dof_handler, dsp, constraints,
+                                      /*keep_constrained_dofs = */ false);
+
+      const hp::FECollection<dim> &fe_collection =
+        dof_handler.get_fe_collection();
+      // Copied from step-46.
+      Table<2, DoFTools::Coupling> cell_coupling(fe_collection.n_components(),
+                                                 fe_collection.n_components());
+      Table<2, DoFTools::Coupling> face_coupling(fe_collection.n_components(),
+                                                 fe_collection.n_components());
+      for (unsigned int c = 0; c < fe_collection.n_components(); ++c)
+        {
+          for (unsigned int d = 0; d < fe_collection.n_components(); ++d)
+            {
+              cell_coupling[c][d] = DoFTools::always;
+              face_coupling[c][d] = DoFTools::always;
+            }
+        }
+      DoFTools::make_flux_sparsity_pattern(dof_handler,
+                                           dsp,
+                                           // constraints,
+                                           cell_coupling,
+                                           face_coupling);
+
+      // constraints.condense(dsp);
+      sparsity_pattern.copy_from(dsp);
     }
 
 
@@ -876,6 +918,7 @@ namespace utils::problems {
             inverse.initialize(timedep);
             inverse.vmult(solutions.front(), rhs);
         }
+        constraints.distribute(solutions.front());
     }
 
 

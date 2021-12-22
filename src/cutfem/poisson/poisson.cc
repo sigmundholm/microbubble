@@ -62,18 +62,68 @@ void Poisson<dim>::
 make_grid(Triangulation<dim> &tria) {
     std::cout << "Creating triangulation" << std::endl;
 
-    GridGenerator::cylinder(tria, radius, half_length);
+    GridGenerator::cylinder(tria, this->radius, this->half_length);
     GridTools::remove_anisotropy(tria, 1.618, 5);
     tria.refine_global(this->n_refines);
 
+    auto *sphere = dynamic_cast<Sphere<dim>*>(this->levelset_function);
+    double radius = sphere->get_radius();
+    Point<dim> center = sphere->get_center();
+    double x0 = center[0];
+    double y0 = center[1];
+    double x;
+    double y;
+
+    double dist;
+    Point<dim> vertex;
+
+    double cell_h;
+    unsigned int max_step = 2;
+    for (unsigned int step = 0; step < max_step; ++step) {
+        for (auto &cell : tria.active_cell_iterators()) {
+            cell_h = std::pow(cell->measure(), 1.0 / dim);
+            for (const auto v : cell->vertex_indices()) {
+                // Mark for refinement if the cell is close to the levelset.
+                vertex = cell->vertex(v);
+                x = vertex[0];
+                y = vertex[1];
+                // const double distance_from_center =
+                        // center.distance(cell->vertex(v));
+                dist = -sqrt(pow(x - x0, 2) + pow(y - y0, 2)) + radius;
+
+                if (std::abs(dist) <= 2 * cell_h) {
+                    cell->set_refine_flag();
+                    break;
+                }
+            }
+        }
+        tria.execute_coarsening_and_refinement();
+    }
     this->mapping_collection.push_back(MappingCartesian<dim>());
 
     // Save the cell-size, we need it in the Nitsche term.
     typename Triangulation<dim>::active_cell_iterator cell =
             tria.begin_active();
     this->h = std::pow(cell->measure(), 1.0 / dim);
+
+    std::ofstream out("grid.svg");
+    GridOut grid_out;
+    grid_out.write_svg(tria, out);
 }
 
+template<int dim>
+void Poisson<dim>::
+set_function_times(double time) {
+    this->rhs_function->set_time(time);
+    this->boundary_values->set_time(time);
+    this->analytical_solution->set_time(time);
+
+    if (this->moving_domain) {
+        this->levelset_function->set_time(time);
+    } else {
+        this->levelset_function->set_time(0);
+    }
+}
 
 template<int dim>
 void Poisson<dim>::
@@ -113,8 +163,11 @@ assemble_local_over_cell(
                             * fe_values.JxW(q);      // dx
         }
     }
-    this->stiffness_matrix.add(loc2glb, local_matrix);
-    this->rhs.add(loc2glb, local_rhs);
+    this->constraints.distribute_local_to_global(local_matrix,
+                                                 local_rhs, 
+                                                 loc2glb,
+                                                 this->stiffness_matrix,
+                                                 this->rhs);
 }
 
 
@@ -166,8 +219,11 @@ Poisson<dim>::assemble_local_over_surface(
                     ) * fe_values.JxW(q);        // ds
         }
     }
-    this->stiffness_matrix.add(loc2glb, local_matrix);
-    this->rhs.add(loc2glb, local_rhs);
+    this->constraints.distribute_local_to_global(local_matrix,
+                                            local_rhs, 
+                                            loc2glb,
+                                            this->stiffness_matrix,
+                                            this->rhs);
 }
 
 

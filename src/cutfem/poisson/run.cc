@@ -11,7 +11,7 @@ int main() {
     const int dim = 2;
     double radius = 1;
     double half_length = 1;
-    int n_refines = 5;
+    int n_refines = 4;
     int degree = 1;
     bool write_output = true;
 
@@ -19,7 +19,7 @@ int main() {
     BoundaryValues<dim> bdd;
     AnalyticalSolution<dim> soln;
 
-    double sphere_radius = radius * 0.9;
+    double sphere_radius = radius * 0.7;
     double sphere_x_coord = 0;
     Point<dim> sphere_center;
     if (dim == 2) {
@@ -29,10 +29,10 @@ int main() {
     }
     // cutfem::geometry::SignedDistanceSphere<dim> domain(sphere_radius, sphere_center, 1);
 
-    FlowerDomain<dim> domain;
+    Sphere<dim> domain(sphere_radius, 0, 0);
 
     Poisson<dim> poisson(radius, half_length, n_refines, degree, write_output,
-                         rhs, bdd, soln, domain);
+                         rhs, bdd, soln, domain, false);
 
     ErrorBase *err = poisson.run_step();
     auto *error = dynamic_cast<ErrorScalar*>(err);
