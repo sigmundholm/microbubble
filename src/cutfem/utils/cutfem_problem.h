@@ -347,7 +347,9 @@ namespace utils::problems {
         // Object managing degrees of freedom for the level set function.
         FE_Q<dim> fe_levelset;
         DoFHandler<dim> levelset_dof_handler;
-        Vector<double> levelset;
+        LA::MPI::Vector levelset;
+        IndexSet ls_locally_owned_dofs;
+        IndexSet ls_locally_relevant_dofs;
 
         LevelSet<dim> *levelset_function;
         bool moving_domain = false;

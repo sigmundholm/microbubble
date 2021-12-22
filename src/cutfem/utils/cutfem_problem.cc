@@ -763,15 +763,21 @@ namespace utils::problems {
     template<int dim>
     void CutFEMProblem<dim>::
     setup_level_set() {
-        pcout << "Setting up level set" << std::endl;
+        std::cout << " " << this_mpi_process << " " << "Setting up level set" << std::endl;
+
+        levelset_dof_handler.initialize(triangulation, fe_levelset);
+        levelset_dof_handler.distribute_dofs(fe_levelset);
+
+        ls_locally_owned_dofs = levelset_dof_handler.locally_owned_dofs();
+        DoFTools::extract_locally_relevant_dofs(levelset_dof_handler, 
+                                                ls_locally_relevant_dofs);
 
         // The level set function lives on the whole background mesh.
-        levelset_dof_handler.distribute_dofs(fe_levelset);
-        printf("  leveset dofs: %d\n", levelset_dof_handler.n_dofs());
-        // TODO fix the levelset for mpi.
-        levelset.reinit(levelset_dof_handler.n_dofs());
+        //levelset.reinit(ls_locally_owned_dofs, ls_locally_relevant_dofs, mpi_communicator);
+        levelset.reinit(ls_locally_owned_dofs, mpi_communicator);
 
         // Project the geometry onto the mesh.
+        // TODO do this in parallell. Implmement my own project function?
         VectorTools::project(levelset_dof_handler,
                              constraints,
                              QGauss<dim>(2 * element_order + 1),
