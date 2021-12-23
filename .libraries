@@ -1,0 +1,18 @@
+# This lists the main libraries I'm using. The syntax is resembles git 
+# submodules .gitmodules file, but for now I want to aviod cloning the 
+external repos into this repo.
+
+
+# This is the version of Simons deal.II fork I have been using since the start
+# of this project.
+[library "deal.II"]
+    url = git@bitbucket.org:simonsticko/dealii.git
+    commit = f23b2ea
+
+
+# This is the version of Simons library for the stabilization that I've been
+# using since the start of this project. This is a version I forked, and used 
+# for some testing.
+[library "dealiicutelements"]
+    url = git@bitbucket.org:sigmundholm/dealiicutelements.git
+    commit = 9e27fd2
