@@ -18,7 +18,7 @@
 #include <deal.II/numerics/data_out_dof_data.h>
 #include <deal.II/numerics/vector_tools.h>
 
-
+#include "utils.h"
 #include "cutfem_problem.h"
 
 
@@ -78,9 +78,9 @@ namespace utils::problems {
     template<int dim>
     ErrorBase *CutFEMProblem<dim>::
     run_step() {
-        pcout << "Solve equation: stationary." << std::endl;
-        pcout << "---------------------------\n" << std::endl;
-        pcout << "Running with "
+        std::cout << this_mpi_process << ": "<< "Solve equation: stationary." << std::endl;
+        std::cout << this_mpi_process << ": "<< "---------------------------\n" << std::endl;
+        std::cout << this_mpi_process << ": "<< "Running with "
 #ifdef USE_PETSC_LA
               << "PETSc"
 #else
@@ -136,8 +136,8 @@ namespace utils::problems {
     template<int dim>
     ErrorBase *CutFEMProblem<dim>::
     run_step_non_linear(double tol) {
-        pcout << "Solve equation: non-linear." << std::endl;
-        pcout << "---------------------------\n" << std::endl;
+        std::cout << this_mpi_process << ": "<< "Solve equation: non-linear." << std::endl;
+        std::cout << this_mpi_process << ": "<< "---------------------------\n" << std::endl;
 
         make_grid(triangulation);
         setup_quadrature();
@@ -170,8 +170,8 @@ namespace utils::problems {
 
         while (error_diff > tol) {
             k++;
-            pcout << "\nFixed point iteration: step " << k << std::endl;
-            pcout << "-----------------------------------" << std::endl;
+            std::cout << this_mpi_process << ": "<< "\nFixed point iteration: step " << k << std::endl;
+            std::cout << this_mpi_process << ": "<< "-----------------------------------" << std::endl;
 
             solutions.emplace_front(locally_owned_dofs, locally_relevant_dofs, 
                                     mpi_communicator);
@@ -198,7 +198,7 @@ namespace utils::problems {
             this_error = error->repr_error();
             error->output();
             error_diff = abs(this_error - prev_error);
-            pcout << "  Error diff = " << error_diff << std::endl;
+            std::cout << this_mpi_process << ": "<< "  Error diff = " << error_diff << std::endl;
 
             if (write_output) {
                 output_results(dof_handlers.front(), solutions.front(),
@@ -234,10 +234,10 @@ namespace utils::problems {
     ErrorBase *CutFEMProblem<dim>::
     run_time(unsigned int bdf_type, unsigned int steps,
              std::vector<LA::MPI::Vector> &supplied_solutions) {
-        pcout << "Solve equation: time-depenedent." << std::endl;
-        pcout << "--------------------------------" << std::endl;
-        pcout << "BDF-" << bdf_type << ", steps=" << steps << std::endl;
-        pcout << "-------------------------" << std::endl;
+        std::cout << this_mpi_process << ": "<< "Solve equation: time-depenedent." << std::endl;
+        std::cout << this_mpi_process << ": "<< "--------------------------------" << std::endl;
+        std::cout << this_mpi_process << ": "<< "BDF-" << bdf_type << ", steps=" << steps << std::endl;
+        std::cout << this_mpi_process << ": "<< "-------------------------" << std::endl;
 
         assert(supplied_solutions.size() < bdf_type);
         // Clear the solutions and dof_handlers from possibly previous BDF
@@ -293,7 +293,7 @@ namespace utils::problems {
         double time;
         for (unsigned int k = bdf_type; k <= steps; ++k) {
             time = k * tau;
-            pcout << "\nTime Step = " << k
+            std::cout << this_mpi_process << ": "<< "\nTime Step = " << k
                       << ", tau = " << tau
                       << ", time = " << time << std::endl;
 
@@ -346,7 +346,7 @@ namespace utils::problems {
             solutions.pop_back();
         }
 
-        pcout << std::endl;
+        std::cout << this_mpi_process << ": "<< std::endl;
         for (ErrorBase *error : errors) {
             error->output();
         }
@@ -375,8 +375,8 @@ namespace utils::problems {
                       std::vector<std::shared_ptr<hp::DoFHandler<dim>>> &supplied_dof_handlers,
                       const double mesh_bound_multiplier) {
 
-        pcout << "\nBDF-" << bdf_type << ", steps=" << steps << std::endl;
-        pcout << "-------------------------" << std::endl;
+        std::cout << this_mpi_process << ": "<< "\nBDF-" << bdf_type << ", steps=" << steps << std::endl;
+        std::cout << this_mpi_process << ": "<< "-------------------------" << std::endl;
         moving_domain = true;
 
         // One dof_handler must be supplied for each supplied solution vector.
@@ -408,7 +408,7 @@ namespace utils::problems {
         double size_of_bound = mesh_bound_multiplier * buffer_constant
                                * (levelset_function->get_speed() * tau
                                   * bdf_type + h);
-        pcout << " # size_of_bound = " << size_of_bound << std::endl;
+        std::cout << this_mpi_process << ": "<< " # size_of_bound = " << size_of_bound << std::endl;
 
         dof_handlers.emplace_front(new hp::DoFHandler<dim>());
         distribute_dofs(dof_handlers.front(), size_of_bound);
@@ -436,7 +436,7 @@ namespace utils::problems {
                            + "r" + std::to_string(n_refines) + ".csv");
         write_time_header_to_file(file);
 
-        pcout << "Interpolated / supplied solutions." << std::endl;
+        std::cout << this_mpi_process << ": "<< "Interpolated / supplied solutions." << std::endl;
         // Write the errors for the first steps to file.
         for (unsigned int k = 0; k < bdf_type; ++k) {
             write_time_error_to_file(errors[k], file);
@@ -449,7 +449,7 @@ namespace utils::problems {
         double time;
         for (unsigned int k = bdf_type; k <= steps; ++k) {
             time = k * tau;
-            pcout << "\nTime Step = " << k
+            std::cout << this_mpi_process << ": "<< "\nTime Step = " << k
                       << ", tau = " << tau
                       << ", time = " << time << std::endl;
 
@@ -467,7 +467,7 @@ namespace utils::problems {
             size_of_bound = mesh_bound_multiplier * buffer_constant
                             * (levelset_function->get_speed() * tau
                                * bdf_type + h);
-            pcout << " # size_of_bound = " << size_of_bound << std::endl;
+            std::cout << this_mpi_process << ": "<< " # size_of_bound = " << size_of_bound << std::endl;
             dof_handlers.emplace_front(new hp::DoFHandler<dim>());
             distribute_dofs(dof_handlers.front(), size_of_bound);
 
@@ -501,7 +501,7 @@ namespace utils::problems {
             dof_handlers.pop_back();
         }
 
-        pcout << std::endl;
+        std::cout << this_mpi_process << ": "<< std::endl;
         for (ErrorBase *error : errors) {
             error->output();
         }
@@ -529,7 +529,7 @@ namespace utils::problems {
     template<int dim>
     void CutFEMProblem<dim>::
     set_bdf_coefficients(unsigned int bdf_type) {
-        pcout << "Set BDF coefficients" << std::endl;
+        std::cout << this_mpi_process << ": "<< "Set BDF coefficients" << std::endl;
         this->bdf_coeffs = std::vector<double>(bdf_type + 1);
 
         if (bdf_type == 1) {
@@ -605,7 +605,7 @@ namespace utils::problems {
     interpolate_first_steps(unsigned int bdf_type,
                             std::vector<ErrorBase *> &errors,
                             double mesh_bound_multiplier) {
-        pcout << "Interpolate first step(s)." << std::endl;
+        std::cout << this_mpi_process << ": "<< "Interpolate first step(s)." << std::endl;
         // Assume the deque of solutions is empty at this point.
         assert(solutions.empty());
         // At this point, one dof_handler should have been created.
@@ -613,7 +613,7 @@ namespace utils::problems {
 
         for (unsigned int k = 0; k < bdf_type; ++k) {
             // Create a new solution vector.
-            pcout << " - Interpolate step k = " << k << std::endl;
+            std::cout << this_mpi_process << ": "<< " - Interpolate step k = " << k << std::endl;
 
             // Interpolate it a the correct time.
             set_function_times(k * tau);
@@ -635,9 +635,7 @@ namespace utils::problems {
                 dof_handlers.emplace_front(new hp::DoFHandler<dim>());
                 distribute_dofs(dof_handlers.front(), size_of_bound);
             }
-            int n_dofs = dof_handlers.front()->n_dofs();
-
-
+            
             solutions.emplace_front(locally_owned_dofs, locally_relevant_dofs,
                                     mpi_communicator);
 
@@ -660,7 +658,7 @@ namespace utils::problems {
                            std::vector<LA::MPI::Vector> &supplied_solutions,
                            std::vector<std::shared_ptr<hp::DoFHandler<dim>>> &supplied_dof_handlers,
                            std::vector<ErrorBase *> &errors) {
-        pcout << "Set supplied solutions" << std::endl;
+        std::cout << this_mpi_process << ": "<< "Set supplied solutions" << std::endl;
 
         // At this point we assume the solution vector that are used for solving
         // the next time step is not yet created.
@@ -704,7 +702,7 @@ namespace utils::problems {
 
         for (unsigned int k = 0; k < bdf_type; ++k) {
             if (full_vector[k].size() != 1) {
-                pcout << " - Set supplied for k = " << k << std::endl;
+                std::cout << this_mpi_process << ": "<< " - Set supplied for k = " << k << std::endl;
                 // Flip the index, since the solutions deque and the
                 // supplied solutions vector holds the solution vectors
                 // in opposite order.
@@ -737,6 +735,7 @@ namespace utils::problems {
     template<int dim>
     void CutFEMProblem<dim>::
     set_function_times(double time) {
+        (void) time;
         throw std::logic_error(
                 "Override this method to run a time dependent problem.");
     }
@@ -746,6 +745,8 @@ namespace utils::problems {
     void CutFEMProblem<dim>::
     interpolate_solution(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
                          int time_step) {
+        (void) dof_handler;
+        (void) time_step;
         throw std::logic_error(
                 "Override this method to run a time dependent problem.");
     }
@@ -774,15 +775,23 @@ namespace utils::problems {
 
         // The level set function lives on the whole background mesh.
         //levelset.reinit(ls_locally_owned_dofs, ls_locally_relevant_dofs, mpi_communicator);
-        levelset.reinit(ls_locally_owned_dofs, mpi_communicator);
+        levelset.reinit(ls_locally_owned_dofs, ls_locally_relevant_dofs, mpi_communicator);
 
+        std::cout << " " << this_mpi_process << " " << "ls hei1" << std::endl;
         // Project the geometry onto the mesh.
-        // TODO do this in parallell. Implmement my own project function?
-        VectorTools::project(levelset_dof_handler,
-                             constraints,
-                             QGauss<dim>(2 * element_order + 1),
-                             *levelset_function,
-                             levelset);
+        utils::Tools<dim>::project_mine(levelset_dof_handler, 
+                       constraints, 
+                       fe_levelset,
+                       QGauss<dim>(2 * element_order + 1), 
+                       *levelset_function, 
+                       levelset);
+
+        //VectorTools::project(levelset_dof_handler,
+                             //constraints,
+                             //QGauss<dim>(2 * element_order + 1),
+                             //*levelset_function,
+                             //levelset);
+        std::cout << " " << this_mpi_process << " " << "ls hei2" << std::endl;
     }
 
 
@@ -817,7 +826,7 @@ namespace utils::problems {
     template<int dim>
     void CutFEMProblem<dim>::
     initialize_matrices() {
-        pcout << "Initialize marices" << std::endl;
+        std::cout << this_mpi_process << ": "<< "Initialize marices" << std::endl;
         
         rhs.reinit(locally_owned_dofs, mpi_communicator);
 
@@ -879,7 +888,7 @@ namespace utils::problems {
     template<int dim>
     void CutFEMProblem<dim>::
     assemble_system() {
-        pcout << "Assemble system: matrix and rhs" << std::endl;
+        std::cout << this_mpi_process << ": "<< "Assemble system: matrix and rhs" << std::endl;
         assemble_matrix();
         assemble_rhs(0);
         if (!stationary_stiffness_matrix) {
@@ -891,6 +900,8 @@ namespace utils::problems {
     void CutFEMProblem<dim>::
     assemble_local_over_cell(const FEValues<dim> &fe_values,
                              const std::vector<types::global_dof_index> &loc2glb) {
+        (void) fe_values;
+        (void) loc2glb;
         throw std::logic_error("Not implemented: assemble_local_over_cell");
     }
 
@@ -899,6 +910,8 @@ namespace utils::problems {
     assemble_local_over_surface(
             const FEValuesBase<dim> &fe_values,
             const std::vector<types::global_dof_index> &loc2glb) {
+        (void) fe_values;
+        (void) loc2glb;
         throw std::logic_error("Not implemented: asssemble_local_over_surface");
     }
 
@@ -920,6 +933,8 @@ namespace utils::problems {
     void CutFEMProblem<dim>::
     assemble_matrix_local_over_cell(const FEValues<dim> &fe_values,
                                     const std::vector<types::global_dof_index> &loc2glb) {
+        (void) fe_values;
+        (void) loc2glb;
         throw std::logic_error(
                 "Not implemented: assemble_matrix_local_over_cell");
     }
@@ -929,6 +944,8 @@ namespace utils::problems {
     assemble_matrix_local_over_surface(
             const FEValuesBase<dim> &fe_values,
             const std::vector<types::global_dof_index> &loc2glb) {
+        (void) fe_values;
+        (void) loc2glb;
         throw std::logic_error(
                 "Not implemented: assemble_matrix_local_over_surface");
     }
@@ -936,6 +953,7 @@ namespace utils::problems {
     template<int dim>
     void CutFEMProblem<dim>::
     assemble_rhs(int time_step) {
+        (void) time_step;
         throw std::logic_error("Not implemented: assemble_rhs");
     }
 
@@ -943,6 +961,8 @@ namespace utils::problems {
     void CutFEMProblem<dim>::
     assemble_rhs_local_over_cell(const FEValues<dim> &fe_values,
                                  const std::vector<types::global_dof_index> &loc2glb) {
+        (void) fe_values;
+        (void) loc2glb;
         throw std::logic_error("Not implemented: assemble_rhs_local_over_cell");
     }
 
@@ -951,6 +971,9 @@ namespace utils::problems {
     assemble_rhs_local_over_cell_cn(const FEValues<dim> &fe_values,
                                     const std::vector<types::global_dof_index> &loc2glb,
                                     const int time_step) {
+        (void) fe_values;
+        (void) loc2glb;
+        (void) time_step;
         throw std::logic_error(
                 "Not implemented: assemble_rhs_local_over_cell_cn");
     }
@@ -960,6 +983,8 @@ namespace utils::problems {
     assemble_rhs_local_over_surface(
             const FEValuesBase<dim> &fe_values,
             const std::vector<types::global_dof_index> &loc2glob) {
+        (void) fe_values;
+        (void) loc2glob;
         throw std::logic_error(
                 "Not implemented: assemble_rhs_local_over_surface");
     }
@@ -970,6 +995,9 @@ namespace utils::problems {
             const FEValuesBase<dim> &fe_values,
             const std::vector<types::global_dof_index> &loc2glob,
             const int time_step) {
+        (void) fe_values;
+        (void) loc2glob;
+        (void) time_step;
         throw std::logic_error(
                 "Not implemented: assemble_rhs_local_over_surface_cn");
     }
@@ -978,7 +1006,7 @@ namespace utils::problems {
     template<int dim>
     void CutFEMProblem<dim>::
     solve() {
-        pcout << "Solving system" << std::endl;
+        std::cout << this_mpi_process << ": "<< "Solving system" << std::endl;
         TimerOutput::Scope t(computing_timer, "solve");
 
         if (stationary_stiffness_matrix) {
@@ -1002,9 +1030,9 @@ namespace utils::problems {
             */
         }
 
-        pcout << "   Number of active cells:       "
+        std::cout << this_mpi_process << ": "<< "   Number of active cells:       "
               << triangulation.n_active_cells() << std::endl;
-        pcout << "   Number of degrees of freedom: " << dof_handlers.front()->n_dofs()
+        std::cout << this_mpi_process << ": "<< "   Number of degrees of freedom: " << dof_handlers.front()->n_dofs()
               << std::endl;
     }
 
@@ -1012,7 +1040,7 @@ namespace utils::problems {
     template<int dim>
     double CutFEMProblem<dim>::
     compute_condition_number() {
-        pcout << "Compute condition number" << std::endl;
+        std::cout << this_mpi_process << ": "<< "Compute condition number" << std::endl;
 
         // Invert the stiffness_matrix
         FullMatrix<double> stiffness_matrix_full(solutions.front().size());
@@ -1024,7 +1052,7 @@ namespace utils::problems {
         double inverse_norm = inverse.frobenius_norm();
 
         double condition_number = norm * inverse_norm;
-        pcout << "  cond_num = " << condition_number << std::endl;
+        std::cout << this_mpi_process << ": "<< "  cond_num = " << condition_number << std::endl;
 
         // TODO bruk eigenvalues istedet
         return condition_number;
@@ -1036,14 +1064,24 @@ namespace utils::problems {
     output_results(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
                    LA::MPI::Vector &solution,
                    int time_step,
-                   bool minimal_output) const {}
+                   bool minimal_output) const {
+        (void) dof_handler;
+        (void) solution;
+        (void) time_step;
+        (void) minimal_output;
+    }
 
     template<int dim>
     void CutFEMProblem<dim>::
     output_results(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
                    LA::MPI::Vector &solution,
                    std::string &suffix,
-                   bool minimal_output) const {}
+                   bool minimal_output) const {
+        (void) dof_handler;
+        (void) solution;
+        (void) suffix;
+        (void) minimal_output;
+    }
 
     template<int dim>
     void CutFEMProblem<dim>::
@@ -1056,7 +1094,9 @@ namespace utils::problems {
 
     template<int dim>
     void CutFEMProblem<dim>::
-    post_processing(unsigned int time_step) {}
+    post_processing(unsigned int time_step) {
+        (void) time_step;
+    }
 
     template
     class LevelSet<2>;

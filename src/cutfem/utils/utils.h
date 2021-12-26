@@ -1,8 +1,28 @@
 #ifndef MICROBUBBLE_UTILS_UTILS_H
 #define MICROBUBBLE_UTILS_UTILS_H
 
-#include <deal.II/non_matching/cut_mesh_classifier.h>
+#include <deal.II/base/quadrature_lib.h>
+#include <deal.II/base/function.h>
 
+#include <deal.II/lac/generic_linear_algebra.h>
+
+namespace LA 
+{
+#if defined(DEAL_II_WITH_PETSC) && !defined(DEAL_II_PETSC_WITH_COMPLEX) && \
+!(defined(DEAL_II_WITH_TRILINOS) && defined(FORCE_USE_OF_TRILINOS))
+using namespace dealii::LinearAlgebraPETSc;
+# define USE_PETSC_LA
+#elif defined(DEAL_II_WITH_TRILINOS)
+using namespace dealii::LinearAlgebraTrilinos;
+#else
+# error DEAL_II_WITH_PETSC or DEAL_II_WITH_TRILINOS required
+#endif
+} // namespace LA
+
+#include <deal.II/dofs/dof_handler.h>
+#include <deal.II/fe/fe_q.h>
+#include <deal.II/non_matching/cut_mesh_classifier.h>
+#include <deal.II/lac/affine_constraints.h>
 #include "cutfem/stabilization/face_selectors.h"
 
 
@@ -27,6 +47,22 @@ namespace utils {
     private:
         const SmartPointer<const NonMatching::CutMeshClassifier<dim>> mesh_classifier;
     };
+
+
+    template<int dim>
+    class Tools {
+    public: 
+        Tools();
+
+        static void
+        project_mine(DoFHandler<dim> &dof_hander,
+                     AffineConstraints<double> &constraints,
+                     FE_Q<dim> &fe,
+                     QGauss<dim> quadrature,
+                     Function<dim> &function,
+                     LA::MPI::Vector &solution);
+    };
+
 }
 
 #endif //MICROBUBBLE_UTILS_UTILS_H
