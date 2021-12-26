@@ -458,7 +458,6 @@ namespace utils::problems {
             cut_mesh_classifier.reclassify(); // TODO kalles denne i riktig rekkefølge?
 
             // Create a new solution vector to contain the next solution.
-            int n_dofs = dof_handlers.front()->n_dofs();
             solutions.emplace_front(locally_owned_dofs, locally_relevant_dofs, 
                                     mpi_communicator);
 
@@ -774,11 +773,11 @@ namespace utils::problems {
                                                 ls_locally_relevant_dofs);
 
         // The level set function lives on the whole background mesh.
-        //levelset.reinit(ls_locally_owned_dofs, ls_locally_relevant_dofs, mpi_communicator);
-        levelset.reinit(ls_locally_owned_dofs, ls_locally_relevant_dofs, mpi_communicator);
 
         std::cout << " " << this_mpi_process << " " << "ls hei1" << std::endl;
         // Project the geometry onto the mesh.
+        
+        levelset.reinit(ls_locally_owned_dofs, ls_locally_relevant_dofs, mpi_communicator);
         utils::Tools<dim>::project_mine(levelset_dof_handler, 
                        constraints, 
                        fe_levelset,
@@ -786,11 +785,14 @@ namespace utils::problems {
                        *levelset_function, 
                        levelset);
 
-        //VectorTools::project(levelset_dof_handler,
-                             //constraints,
-                             //QGauss<dim>(2 * element_order + 1),
-                             //*levelset_function,
-                             //levelset);
+        /*
+        levelset.reinit(ls_locally_owned_dofs, mpi_communicator);
+        VectorTools::project(levelset_dof_handler,
+                             constraints,
+                             QGauss<dim>(2 * element_order + 1),
+                             *levelset_function,
+                             levelset);
+                       */
         std::cout << " " << this_mpi_process << " " << "ls hei2" << std::endl;
     }
 
@@ -800,23 +802,27 @@ namespace utils::problems {
     distribute_dofs(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
                     double size_of_bound) {
         // Set outside finite elements to fe, and inside to FE_nothing
+        std::cout << this_mpi_process << ": "<< "Distribute dofs" << std::endl;
         dof_handler->initialize(triangulation, fe_collection);
         for (const auto &cell : dof_handler->active_cell_iterators()) {
-            const LocationToLevelSet location =
-                    cut_mesh_classifier.location_to_level_set(cell);
+            // Or not ghost cell instead??
+            if (cell->is_locally_owned()) {
 
-            const double distance_from_zero_contour =
-                    levelset_function->value(
-                            cell->center());
+                const LocationToLevelSet location =
+                        cut_mesh_classifier.location_to_level_set(cell);
 
-            if (LocationToLevelSet::INSIDE == location ||
-                LocationToLevelSet::INTERSECTED == location ||
+                const double distance_from_zero_contour =
+                        levelset_function->value(cell->center());
+
+                if (LocationToLevelSet::INSIDE == location ||
+                    LocationToLevelSet::INTERSECTED == location ||
                 distance_from_zero_contour <= size_of_bound) {
                 // 0 is fe
                 cell->set_active_fe_index(0);
-            } else {
-                // 1 is FE_nothing
-                cell->set_active_fe_index(1);
+                } else {
+                    // 1 is FE_nothing
+                    cell->set_active_fe_index(1);
+                }
             }
         }
         dof_handler->distribute_dofs(this->fe_collection);
