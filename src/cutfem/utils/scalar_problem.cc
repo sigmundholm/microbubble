@@ -339,17 +339,20 @@ namespace utils::problems::scalar {
                                                  this->levelset);
 
         for (const auto &cell : dof_handler->active_cell_iterators()) {
-            cut_fe_values.reinit(cell);
+            if (cell->is_locally_owned()) {
+                // TODO these computation needs to be fixed for mpirun
+                cut_fe_values.reinit(cell);
 
-            // Retrieve an FEValues object with quadrature points
+                // Retrieve an FEValues object with quadrature points
             // over the full cell.
             const boost::optional<const FEValues<dim> &> fe_values_bulk =
                     cut_fe_values.get_inside_fe_values();
             // TODO hva med intersected celler?
 
-            if (fe_values_bulk) {
-                integrate_cell(*fe_values_bulk, solution, l2_error_integral,
-                               h1_semi_error_integral);
+                if (fe_values_bulk) {
+                    integrate_cell(*fe_values_bulk, solution, l2_error_integral,
+                                h1_semi_error_integral);
+                }
             }
         }
 

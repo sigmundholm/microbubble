@@ -805,7 +805,6 @@ namespace utils::problems {
         std::cout << this_mpi_process << ": "<< "Distribute dofs" << std::endl;
         dof_handler->initialize(triangulation, fe_collection);
         for (const auto &cell : dof_handler->active_cell_iterators()) {
-            // Or not ghost cell instead??
             if (cell->is_locally_owned()) {
 
                 const LocationToLevelSet location =
