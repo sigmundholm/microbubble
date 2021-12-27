@@ -26,6 +26,7 @@
 #include <fstream>
 
 #include "scalar_problem.h"
+#include "utils.h"
 
 
 using namespace cutfem;
@@ -93,16 +94,17 @@ namespace utils::problems::scalar {
         // and the pressure component.
         const FEValuesExtractors::Scalar velocities(0);
         stabilization::JumpStabilization<dim, FEValuesExtractors::Scalar>
-                velocity_stabilization(*(this->dof_handlers.front()),
+                velocity_stab(*(this->dof_handlers.front()),
                                        this->mapping_collection,
                                        this->cut_mesh_classifier,
                                        this->constraints);
+        
+        std::shared_ptr<utils::Selector<dim>> face_selector(
+                new Selector<dim>(this->cut_mesh_classifier));
         if (this->stabilized) {
-            velocity_stabilization.set_function_describing_faces_to_stabilize(
-                    stabilization::inside_stabilization);
-            velocity_stabilization.set_weight_function(
-                    stabilization::taylor_weights);
-            velocity_stabilization.set_extractor(velocities);
+            velocity_stab.set_faces_to_stabilize(face_selector);
+            velocity_stab.set_weight_function(stabilization::taylor_weights);
+            velocity_stab.set_extractor(velocities);
         }
 
         NonMatching::RegionUpdateFlags region_update_flags;
@@ -167,8 +169,8 @@ namespace utils::problems::scalar {
 
                 if (this->stabilized) {
                     // Compute and add the velocity stabilization.
-                    velocity_stabilization.compute_stabilization(cell);
-                    velocity_stabilization.add_stabilization_to_matrix(
+                    velocity_stab.compute_stabilization(cell);
+                    velocity_stab.add_stabilization_to_matrix(
                             gamma_M + gamma_A / (this->h * this->h),
                             this->stiffness_matrix);
                 }
