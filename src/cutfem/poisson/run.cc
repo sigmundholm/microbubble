@@ -30,7 +30,8 @@ int main(int argc, char *argv[]) {
     }
     // cutfem::geometry::SignedDistanceSphere<dim> domain(sphere_radius, sphere_center, 1);
 
-    FlowerDomain<dim> domain;
+    // FlowerDomain<dim> domain;
+    Sphere<dim> domain(sphere_radius, 0, 0);
 
     Poisson<dim> poisson(radius, half_length, n_refines, degree, write_output,
                          rhs, bdd, soln, domain);

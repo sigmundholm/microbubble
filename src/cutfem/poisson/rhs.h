@@ -74,4 +74,22 @@ private:
 };
 
 
+template<int dim>
+class Sphere : public LevelSet<dim> {
+public :
+    Sphere(double sphere_radius,
+            double center_x,
+            double center_y);
+
+    double
+    value(const Point<dim> &p, unsigned int component) const override;
+
+    double get_radius();
+
+private:
+    const double sphere_radius;
+    const double center_x;
+    const double center_y;
+};
+
 #endif //MICROBUBBLE_CUTFEM_POISSON_RHS_H
