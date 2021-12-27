@@ -1,4 +1,4 @@
-#include "cutfem/stabilization/face_selectors.h"
+#include "face_selectors.h"
 
 namespace cutfem
 {

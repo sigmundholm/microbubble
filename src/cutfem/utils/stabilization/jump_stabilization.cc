@@ -1,13 +1,13 @@
-#include "cutfem/stabilization/jump_stabilization.h"
+#include "jump_stabilization.h"
 
 #include <deal.II/base/quadrature_lib.h>
 
 #include <deal.II/lac/petsc_sparse_matrix.h>
 #include <deal.II/lac/trilinos_sparse_matrix.h>
 
-#include "cutfem/fe_collection_properties.h"
-#include "cutfem/stabilization/jump_stabilization.templates.h"
-#include "cutfem/stabilization/normal_derivative_computer.h"
+#include "fe_collection_properties.h"
+#include "jump_stabilization.templates.h"
+#include "normal_derivative_computer.h"
 
 namespace cutfem
 {

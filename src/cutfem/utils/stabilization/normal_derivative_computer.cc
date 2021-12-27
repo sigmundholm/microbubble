@@ -1,4 +1,4 @@
-#include "cutfem/stabilization/normal_derivative_computer.h"
+#include "normal_derivative_computer.h"
 
 namespace cutfem
 {

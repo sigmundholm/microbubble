@@ -17,9 +17,9 @@
 #include <memory>
 #include <utility>
 
-#include "cutfem/fe_collection_properties.h"
-#include "cutfem/stabilization/face_selectors.h"
-#include "cutfem/stabilization/normal_derivative_computer.h"
+#include "fe_collection_properties.h"
+#include "face_selectors.h"
+#include "normal_derivative_computer.h"
 
 namespace cutfem
 {
