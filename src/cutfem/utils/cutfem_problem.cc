@@ -815,9 +815,9 @@ namespace utils::problems {
 
                 if (LocationToLevelSet::INSIDE == location ||
                     LocationToLevelSet::INTERSECTED == location ||
-                distance_from_zero_contour <= size_of_bound) {
-                // 0 is fe
-                cell->set_active_fe_index(0);
+                    distance_from_zero_contour <= size_of_bound) {
+                    // 0 is fe
+                    cell->set_active_fe_index(0);
                 } else {
                     // 1 is FE_nothing
                     cell->set_active_fe_index(1);

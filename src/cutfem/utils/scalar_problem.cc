@@ -346,10 +346,10 @@ namespace utils::problems::scalar {
                 cut_fe_values.reinit(cell);
 
                 // Retrieve an FEValues object with quadrature points
-            // over the full cell.
-            const boost::optional<const FEValues<dim> &> fe_values_bulk =
-                    cut_fe_values.get_inside_fe_values();
-            // TODO hva med intersected celler?
+                // over the full cell.
+                const boost::optional<const FEValues<dim> &> fe_values_bulk =
+                        cut_fe_values.get_inside_fe_values();
+                // TODO hva med intersected celler?
 
                 if (fe_values_bulk) {
                     integrate_cell(*fe_values_bulk, solution, l2_error_integral,
