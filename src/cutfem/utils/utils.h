@@ -23,7 +23,8 @@ using namespace dealii::LinearAlgebraTrilinos;
 #include <deal.II/fe/fe_q.h>
 #include <deal.II/non_matching/cut_mesh_classifier.h>
 #include <deal.II/lac/affine_constraints.h>
-#include "cutfem/stabilization/face_selectors.h"
+
+#include "stabilization/face_selectors.h"
 
 
 using namespace dealii;

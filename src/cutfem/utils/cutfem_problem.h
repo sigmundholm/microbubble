@@ -56,9 +56,7 @@ using namespace dealii::LinearAlgebraTrilinos;
 #include <memory>
 #include <vector>
 
-#include "cutfem/geometry/SignedDistanceSphere.h"
-#include "cutfem/nla/sparsity_pattern.h"
-#include "cutfem/stabilization/jump_stabilization.h"
+#include "stabilization/jump_stabilization.h"
 
 
 namespace utils::problems {
