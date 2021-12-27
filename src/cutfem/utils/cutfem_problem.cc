@@ -1020,7 +1020,10 @@ namespace utils::problems {
             solver.set_symmetric_mode(false);
             // inverse.initialize(stiffness_matrix);
             // inverse.vmult(solutions.front(), rhs);
-            solver.solve(stiffness_matrix, solutions.front(), rhs);
+            LA::MPI::Vector completely_distributed_solution(locally_owned_dofs,
+                                                            mpi_communicator);
+            solver.solve(stiffness_matrix, completely_distributed_solution, rhs);
+            solutions.front() = completely_distributed_solution;
         } else {
             // TODO fix for Navier-Stokes
             assert(false);

@@ -137,7 +137,12 @@ namespace utils {
         SolverControl cn;
         PETScWrappers::SparseDirectMUMPS solver(cn, mpi_communicator);
         solver.set_symmetric_mode(false);
-        solver.solve(system_matrix, solution, system_rhs);
+        LA::MPI::Vector completely_distributed_solution(locally_owned_dofs,
+                                                        mpi_communicator);
+        solver.solve(system_matrix, completely_distributed_solution, system_rhs);
+        constraints.distribute(completely_distributed_solution);
+        
+        solution = completely_distributed_solution;
         
         std::cout << "project: solved" << std::endl;
     }
