@@ -2,8 +2,9 @@
 #define MICROBUBBLE_UTILS_UTILS_H
 
 #include <deal.II/non_matching/cut_mesh_classifier.h>
+#include <deal.II/lac/affine_constraints.h>
 
-#include "cutfem/stabilization/face_selectors.h"
+#include "stabilization/face_selectors.h"
 
 
 using namespace dealii;
