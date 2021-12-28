@@ -1,5 +1,6 @@
 #include <deal.II/base/data_out_base.h>
 #include <deal.II/base/quadrature_lib.h>
+#include <deal.II/base/std_cxx17/optional.h>
 
 #include <deal.II/fe/fe_nothing.h>
 #include <deal.II/fe/fe_update_flags.h>
@@ -12,14 +13,12 @@
 #include <deal.II/lac/solver_control.h>
 #include <deal.II/lac/sparse_direct.h>
 
-#include <deal.II/non_matching/cut_mesh_classifier.h>
 #include <deal.II/non_matching/fe_values.h>
+#include <deal.II/non_matching/fe_immersed_values.h>
 
 #include <deal.II/numerics/data_out.h>
 #include <deal.II/numerics/data_out_dof_data.h>
 #include <deal.II/numerics/vector_tools.h>
-
-#include <boost/optional.hpp>
 
 #include <assert.h>
 #include <cmath>
@@ -30,9 +29,12 @@
 
 
 using namespace cutfem;
+using namespace dealii;
 
 
 namespace utils::problems::scalar {
+
+    using NonMatching::FEImmersedSurfaceValues;
 
 
     template<int dim>
@@ -152,7 +154,7 @@ namespace utils::problems::scalar {
 
                 // Retrieve an FEValues object with quadrature points
                 // over the full cell.
-                const boost::optional<const FEValues<dim> &> fe_values_bulk =
+                const std_cxx17::optional<FEValues<dim>>& fe_values_bulk =
                         cut_fe_values.get_inside_fe_values();
 
                 if (fe_values_bulk) {
@@ -161,7 +163,7 @@ namespace utils::problems::scalar {
 
                 // Retrieve an FEValues object with quadrature points
                 // on the immersed surface.
-                const boost::optional<const FEImmersedSurfaceValues<dim> &>
+                const std_cxx17::optional<FEImmersedSurfaceValues<dim>>&
                         fe_values_surface = cut_fe_values.get_surface_fe_values();
 
                 if (fe_values_surface)
@@ -347,7 +349,7 @@ namespace utils::problems::scalar {
 
                 // Retrieve an FEValues object with quadrature points
                 // over the full cell.
-                const boost::optional<const FEValues<dim> &> fe_values_bulk =
+                const std_cxx17::optional<FEValues<dim>>& fe_values_bulk =
                         cut_fe_values.get_inside_fe_values();
                 // TODO hva med intersected celler?
 
@@ -513,7 +515,7 @@ namespace utils::problems::scalar {
         // Output levelset function.
         if (!minimal_output) {
             // TODO sett inn i egen funksjon
-            DataOut<dim, DoFHandler<dim>> data_out_levelset;
+            DataOut<dim> data_out_levelset;
             data_out_levelset.attach_dof_handler(this->levelset_dof_handler);
             data_out_levelset.add_data_vector(this->levelset, "levelset");
             data_out_levelset.build_patches();

@@ -29,8 +29,6 @@
 
 #include <vector>
 
-#include "cutfem/errors/error_calculator.h"
-
 #include "rhs.h"
 #include "../utils/scalar_problem.h"
 

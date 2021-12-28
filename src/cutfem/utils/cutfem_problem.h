@@ -362,7 +362,7 @@ namespace utils::problems {
         IndexSet locally_owned_dofs;
         IndexSet locally_relevant_dofs;
 
-        NonMatching::CutMeshClassifier<dim> cut_mesh_classifier;
+        NonMatching::MeshClassifier<dim> cut_mesh_classifier;
 
         LA::MPI::SparseMatrix stiffness_matrix;
         LA::MPI::SparseMatrix timedep_stiffness_matrix;

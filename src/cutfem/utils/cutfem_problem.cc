@@ -56,8 +56,7 @@ namespace utils::problems {
               write_output(write_output),
               fe_levelset(element_order),
               levelset_dof_handler(triangulation),
-              cut_mesh_classifier(triangulation, levelset_dof_handler,
-                                  levelset),
+              cut_mesh_classifier(levelset_dof_handler, levelset),
               stabilized(stabilized), stationary(stationary),
               do_compute_error(compute_error), 
               pcout(std::cout, 
@@ -813,8 +812,8 @@ namespace utils::problems {
                 const double distance_from_zero_contour =
                         levelset_function->value(cell->center());
 
-                if (LocationToLevelSet::INSIDE == location ||
-                    LocationToLevelSet::INTERSECTED == location ||
+                if (LocationToLevelSet::inside == location ||
+                    LocationToLevelSet::intersected == location ||
                     distance_from_zero_contour <= size_of_bound) {
                     // 0 is fe
                     cell->set_active_fe_index(0);

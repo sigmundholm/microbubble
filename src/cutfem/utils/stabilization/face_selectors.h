@@ -3,7 +3,7 @@
 
 #include <deal.II/grid/tria.h>
 
-#include <deal.II/non_matching/cut_mesh_classifier.h>
+#include <deal.II/non_matching/mesh_classifier.h>
 
 namespace cutfem
 {
@@ -37,7 +37,7 @@ namespace cutfem
      * Class which defined whether stabilization should be added based on the
      * LocationToInterface of two neighboring cells.
      *
-     * The constructor takes a CutMeshClassifier and a function which given the
+     * The constructor takes a MeshClassifier and a function which given the
      * LocationToInterface of two incoming cells, returns whether stabilization
      * should be added or not.
      *
@@ -53,7 +53,7 @@ namespace cutfem
        * whether stabilization should be added or not.
        */
       LocationBasedFaceSelector(
-        const NonMatching::CutMeshClassifier<dim> &mesh_classifier,
+        const NonMatching::MeshClassifier<dim> &mesh_classifier,
         const std::function<bool(const LocationToLevelSet cell1_position,
                                  const LocationToLevelSet cell2_position)>
           &face_between_should_be_stabilized);
@@ -68,7 +68,7 @@ namespace cutfem
         const unsigned int face_index) const override;
 
     private:
-      const SmartPointer<const NonMatching::CutMeshClassifier<dim>>
+      const SmartPointer<const NonMatching::MeshClassifier<dim>>
         mesh_classifier;
 
       /**

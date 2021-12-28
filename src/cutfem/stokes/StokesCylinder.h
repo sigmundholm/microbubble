@@ -123,7 +123,7 @@ protected:
     // Object managing degrees of freedom for the cutfem method.
     hp::DoFHandler<dim> dof_handler;
 
-    NonMatching::CutMeshClassifier<dim> cut_mesh_classifier;
+    NonMatching::MeshClassifier<dim> cut_mesh_classifier;
 
     SparsityPattern sparsity_pattern;
     SparseMatrix<double> stiffness_matrix;

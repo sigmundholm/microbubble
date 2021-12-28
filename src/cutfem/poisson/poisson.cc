@@ -14,7 +14,6 @@
 #include <deal.II/lac/solver_control.h>
 #include <deal.II/lac/sparse_direct.h>
 
-#include <deal.II/non_matching/cut_mesh_classifier.h>
 #include <deal.II/non_matching/fe_values.h>
 
 #include <deal.II/numerics/data_out.h>
@@ -26,8 +25,7 @@
 #include <cmath>
 #include <fstream>
 
-#include "cutfem/nla/sparsity_pattern.h"
-#include "cutfem/stabilization/jump_stabilization.h"
+#include "../utils/stabilization/jump_stabilization.h"
 
 #include "poisson.h"
 

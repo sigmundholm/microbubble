@@ -23,7 +23,7 @@ namespace cutfem
       JumpStabilization(
         const DoFHandler<dim> &                    dof_handler,
         const hp::MappingCollection<dim> &         mapping_collection,
-        const NonMatching::CutMeshClassifier<dim> &cut_mesh_classifier,
+        const NonMatching::MeshClassifier<dim> &cut_mesh_classifier,
         const AffineConstraints<double> &          constraints)
       : dof_handler(&dof_handler)
       , mapping_collection(&mapping_collection)

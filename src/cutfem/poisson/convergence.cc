@@ -4,7 +4,6 @@
 
 #include "poisson.h"
 
-#include "cutfem/geometry/SignedDistanceSphere.h"
 
 using namespace cutfem;
 using namespace utils::problems::scalar;
@@ -32,7 +31,6 @@ void solve_for_element_order(int element_order, int max_refinement,
     } else if (dim == 3) {
         sphere_center = Point<dim>(0, 0, 0);
     }
-    //cutfem::geometry::SignedDistanceSphere<dim> domain(sphere_radius, sphere_center, 1);
     FlowerDomain<dim> domain;
 
     for (int n_refines = 1; n_refines < max_refinement + 1; ++n_refines) {
