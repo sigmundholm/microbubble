@@ -30,20 +30,14 @@ namespace utils {
 
         const LocationToLevelSet cell_location =
                 mesh_classifier->location_to_level_set(cell);
-        
-        // TODO this stabilizes any cell if the neighbor is not locally owned.
-        //  - This was done to fix mpi for the poisson problem. Might not be
-        //    correct.
-        if (cell->neighbor(face_index)->is_locally_owned()) {
-            const LocationToLevelSet neighbor_location =
-                    mesh_classifier->location_to_level_set(
-                            cell->neighbor(face_index));
+        const LocationToLevelSet neighbor_location =
+                mesh_classifier->location_to_level_set(
+                        cell->neighbor(face_index));
 
-            // If both elements are inside we should't add stabilization
-            if (cell_location == LocationToLevelSet::inside &&
-                neighbor_location == LocationToLevelSet::inside)
-                return false;
-        }
+        // If both elements are inside we should't add stabilization
+        if (cell_location == LocationToLevelSet::inside &&
+            neighbor_location == LocationToLevelSet::inside)
+            return false;
 
         return true;
     }
