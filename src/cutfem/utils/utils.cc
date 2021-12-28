@@ -8,7 +8,7 @@ namespace utils {
     using NonMatching::LocationToLevelSet;
 
     template<int dim>
-    Selector<dim>::Selector(const NonMatching::CutMeshClassifier<dim> &mesh_classifier)
+    Selector<dim>::Selector(const NonMatching::MeshClassifier<dim> &mesh_classifier)
             : mesh_classifier(&mesh_classifier) {}
 
     // TODO are we here stabilizing all faces, and not just the
@@ -35,8 +35,8 @@ namespace utils {
                         cell->neighbor(face_index));
 
         // If both elements are inside we should't add stabilization
-        if (cell_location == LocationToLevelSet::INSIDE &&
-            neighbor_location == LocationToLevelSet::INSIDE)
+        if (cell_location == LocationToLevelSet::inside &&
+            neighbor_location == LocationToLevelSet::inside)
             return false;
 
         return true;

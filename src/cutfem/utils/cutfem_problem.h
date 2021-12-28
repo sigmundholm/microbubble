@@ -177,6 +177,11 @@ namespace utils::problems {
         virtual void
         initialize_matrices();
 
+        void
+        make_sparsity_pattern_for_stabilized(
+                DynamicSparsityPattern &dsp,
+                const hp::DoFHandler<dim> &dof_handler);
+
         virtual void
         pre_matrix_assembly();
 
@@ -320,7 +325,7 @@ namespace utils::problems {
         // Object managing degrees of freedom for the cutfem method.
         std::deque<std::shared_ptr<hp::DoFHandler<dim>>> dof_handlers;
 
-        NonMatching::CutMeshClassifier<dim> cut_mesh_classifier;
+        NonMatching::MeshClassifier<dim> cut_mesh_classifier;
 
         SparsityPattern sparsity_pattern;
 

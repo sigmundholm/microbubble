@@ -29,10 +29,6 @@
 
 #include <vector>
 
-#include "cutfem/geometry/SignedDistanceSphere.h"
-#include "cutfem/nla/sparsity_pattern.h"
-#include "cutfem/stabilization/jump_stabilization.h"
-
 #include "cutfem_problem.h"
 
 

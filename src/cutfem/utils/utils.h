@@ -1,7 +1,7 @@
 #ifndef MICROBUBBLE_UTILS_UTILS_H
 #define MICROBUBBLE_UTILS_UTILS_H
 
-#include <deal.II/non_matching/cut_mesh_classifier.h>
+#include <deal.II/non_matching/mesh_classifier.h>
 #include <deal.II/lac/affine_constraints.h>
 
 #include "stabilization/face_selectors.h"
@@ -18,7 +18,7 @@ namespace utils {
     template<int dim>
     class Selector : public stabilization::FaceSelector<dim> {
     public:
-        Selector(const NonMatching::CutMeshClassifier<dim> &mesh_classifier);
+        Selector(const NonMatching::MeshClassifier<dim> &mesh_classifier);
 
         bool
         face_should_be_stabilized(
@@ -26,7 +26,7 @@ namespace utils {
                 const unsigned int face_index) const override;
 
     private:
-        const SmartPointer<const NonMatching::CutMeshClassifier<dim>> mesh_classifier;
+        const SmartPointer<const NonMatching::MeshClassifier<dim>> mesh_classifier;
     };
 }
 

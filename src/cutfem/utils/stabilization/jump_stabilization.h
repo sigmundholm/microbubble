@@ -9,7 +9,7 @@
 #include <deal.II/hp/fe_values.h>
 #include <deal.II/hp/q_collection.h>
 
-#include <deal.II/non_matching/cut_mesh_classifier.h>
+#include <deal.II/non_matching/mesh_classifier.h>
 
 #include <boost/math/special_functions/factorials.hpp>
 
@@ -208,7 +208,7 @@ namespace cutfem
       JumpStabilization(
         const DoFHandler<dim> &                    dof_handler,
         const hp::MappingCollection<dim> &         mapping_collection,
-        const NonMatching::CutMeshClassifier<dim> &cut_mesh_classifier,
+        const NonMatching::MeshClassifier<dim> &cut_mesh_classifier,
         const AffineConstraints<double> &          constraints);
 
       /**
@@ -276,7 +276,7 @@ namespace cutfem
       const SmartPointer<const DoFHandler<dim>>            dof_handler;
       const SmartPointer<const hp::MappingCollection<dim>> mapping_collection;
 
-      const SmartPointer<const NonMatching::CutMeshClassifier<dim>>
+      const SmartPointer<const NonMatching::MeshClassifier<dim>>
         cut_mesh_classifier;
 
       EXTRACTOR extractor = EXTRACTOR(0);

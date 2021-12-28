@@ -6,7 +6,7 @@ namespace cutfem
   {
     template <int dim>
     LocationBasedFaceSelector<dim>::LocationBasedFaceSelector(
-      const NonMatching::CutMeshClassifier<dim> &mesh_classifier,
+      const NonMatching::MeshClassifier<dim> &mesh_classifier,
       const std::function<bool(const LocationToLevelSet cell1_position,
                                const LocationToLevelSet cell2_position)>
         &face_between_should_be_stabilized)
@@ -18,7 +18,7 @@ namespace cutfem
 
     template <int dim>
     bool
-    cutfem::stabilization::LocationBasedFaceSelector<dim>::
+    LocationBasedFaceSelector<dim>::
       face_should_be_stabilized(
         const typename hp::DoFHandler<dim>::active_cell_iterator &cell,
         const unsigned int face_index) const
@@ -42,13 +42,13 @@ namespace cutfem
                          const LocationToLevelSet cell2_position)
     {
       bool one_is_inside_or_intersected =
-        (cell1_position == LocationToLevelSet::INTERSECTED) ||
-        (cell1_position == LocationToLevelSet::INSIDE);
+        (cell1_position == LocationToLevelSet::intersected) ||
+        (cell1_position == LocationToLevelSet::inside);
       bool two_is_inside_or_intersected =
-        (cell2_position == LocationToLevelSet::INTERSECTED) ||
-        (cell2_position == LocationToLevelSet::INSIDE);
-      bool both_are_inside = (cell1_position == LocationToLevelSet::INSIDE) &&
-                             (cell2_position == LocationToLevelSet::INSIDE);
+        (cell2_position == LocationToLevelSet::intersected) ||
+        (cell2_position == LocationToLevelSet::inside);
+      bool both_are_inside = (cell1_position == LocationToLevelSet::inside) &&
+                             (cell2_position == LocationToLevelSet::inside);
       bool should_stabilize =
         (one_is_inside_or_intersected && two_is_inside_or_intersected) &&
         !both_are_inside;
@@ -62,13 +62,13 @@ namespace cutfem
                           const NonMatching::LocationToLevelSet cell2_position)
     {
       bool one_is_inside_or_intersected =
-        (cell1_position == LocationToLevelSet::INTERSECTED) ||
-        (cell1_position == LocationToLevelSet::OUTSIDE);
+        (cell1_position == LocationToLevelSet::intersected) ||
+        (cell1_position == LocationToLevelSet::outside);
       bool two_is_inside_or_intersected =
-        (cell2_position == LocationToLevelSet::INTERSECTED) ||
-        (cell2_position == LocationToLevelSet::OUTSIDE);
-      bool both_are_outside = (cell1_position == LocationToLevelSet::OUTSIDE) &&
-                              (cell2_position == LocationToLevelSet::OUTSIDE);
+        (cell2_position == LocationToLevelSet::intersected) ||
+        (cell2_position == LocationToLevelSet::outside);
+      bool both_are_outside = (cell1_position == LocationToLevelSet::outside) &&
+                              (cell2_position == LocationToLevelSet::outside);
       bool should_stabilize =
         (one_is_inside_or_intersected && two_is_inside_or_intersected) &&
         !both_are_outside;

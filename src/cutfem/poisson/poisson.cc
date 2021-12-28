@@ -14,7 +14,6 @@
 #include <deal.II/lac/solver_control.h>
 #include <deal.II/lac/sparse_direct.h>
 
-#include <deal.II/non_matching/cut_mesh_classifier.h>
 #include <deal.II/non_matching/fe_values.h>
 
 #include <deal.II/numerics/data_out.h>
@@ -26,8 +25,7 @@
 #include <cmath>
 #include <fstream>
 
-#include "cutfem/nla/sparsity_pattern.h"
-#include "cutfem/stabilization/jump_stabilization.h"
+#include "../utils/stabilization/jump_stabilization.h"
 
 #include "poisson.h"
 
@@ -55,6 +53,11 @@ Poisson<dim>::Poisson(const double radius,
     this->rhs_function = &rhs;
     this->boundary_values = &bdd_values;
 }
+
+
+template<int dim>
+void Poisson<dim>::
+set_function_times(double time) {}
 
 
 template<int dim>

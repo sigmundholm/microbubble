@@ -1,5 +1,6 @@
 #include <deal.II/base/data_out_base.h>
 #include <deal.II/base/quadrature_lib.h>
+#include <deal.II/base/std_cxx17/optional.h>
 
 #include <deal.II/fe/fe_nothing.h>
 #include <deal.II/fe/fe_update_flags.h>
@@ -12,14 +13,12 @@
 #include <deal.II/lac/solver_control.h>
 #include <deal.II/lac/sparse_direct.h>
 
-#include <deal.II/non_matching/cut_mesh_classifier.h>
 #include <deal.II/non_matching/fe_values.h>
+#include <deal.II/non_matching/fe_immersed_values.h>
 
 #include <deal.II/numerics/data_out.h>
 #include <deal.II/numerics/data_out_dof_data.h>
 #include <deal.II/numerics/vector_tools.h>
-
-#include <boost/optional.hpp>
 
 #include <assert.h>
 #include <cmath>
@@ -29,9 +28,12 @@
 
 
 using namespace cutfem;
+using namespace dealii;
 
 
 namespace utils::problems::scalar {
+
+    using NonMatching::FEImmersedSurfaceValues;
 
 
     template<int dim>
@@ -138,37 +140,40 @@ namespace utils::problems::scalar {
                 beta_0 * this->element_order * (this->element_order + 1);
 
         for (const auto &cell : this->dof_handlers.front()->active_cell_iterators()) {
-            const unsigned int n_dofs = cell->get_fe().dofs_per_cell;
-            std::vector<types::global_dof_index> loc2glb(n_dofs);
-            cell->get_dof_indices(loc2glb);
+            if (cell->is_locally_owned()) {
+                const unsigned int n_dofs = cell->get_fe().dofs_per_cell;
+                std::vector<types::global_dof_index> loc2glb(n_dofs);
+                cell->get_dof_indices(loc2glb);
 
-            // This call will compute quadrature rules relevant for this cell
-            // in the background.
-            cut_fe_values.reinit(cell);
+                // This call will compute quadrature rules relevant for this cell
+                // in the background.
+                cut_fe_values.reinit(cell);
 
-            // Retrieve an FEValues object with quadrature points
-            // over the full cell.
-            const boost::optional<const FEValues<dim> &> fe_values_bulk =
-                    cut_fe_values.get_inside_fe_values();
+                // Retrieve an FEValues object with quadrature points
+                // over the full cell.
+                const std_cxx17::optional<FEValues<dim>>& fe_values_bulk =
+                        cut_fe_values.get_inside_fe_values();
 
-            if (fe_values_bulk) {
-                this->assemble_local_over_cell(*fe_values_bulk, loc2glb);
-            }
+                if (fe_values_bulk) {
+                    this->assemble_local_over_cell(*fe_values_bulk, loc2glb);
+                }
 
-            // Retrieve an FEValues object with quadrature points
-            // on the immersed surface.
-            const boost::optional<const FEImmersedSurfaceValues<dim> &>
-                    fe_values_surface = cut_fe_values.get_surface_fe_values();
+                // Retrieve an FEValues object with quadrature points
+                // on the immersed surface.
+                const std_cxx17::optional<FEImmersedSurfaceValues<dim>>&
+                        fe_values_surface = cut_fe_values.get_surface_fe_values();
 
-            if (fe_values_surface)
-                this->assemble_local_over_surface(*fe_values_surface, loc2glb);
+                if (fe_values_surface) {
+                    this->assemble_local_over_surface(*fe_values_surface, loc2glb);
+                }
 
-            if (this->stabilized) {
-                // Compute and add the velocity stabilization.
-                velocity_stabilization.compute_stabilization(cell);
-                velocity_stabilization.add_stabilization_to_matrix(
-                        gamma_M + gamma_A / (this->h * this->h),
-                        this->stiffness_matrix);
+                if (this->stabilized) {
+                    // Compute and add the velocity stabilization.
+                    velocity_stabilization.compute_stabilization(cell);
+                    velocity_stabilization.add_stabilization_to_matrix(
+                            gamma_M + gamma_A / (this->h * this->h),
+                            this->stiffness_matrix);
+                }
             }
         }
     }
@@ -334,17 +339,20 @@ namespace utils::problems::scalar {
                                                  this->levelset);
 
         for (const auto &cell : dof_handler->active_cell_iterators()) {
-            cut_fe_values.reinit(cell);
+            if (cell->is_locally_owned()) {
+                // TODO these computation needs to be fixed for mpirun
+                cut_fe_values.reinit(cell);
 
-            // Retrieve an FEValues object with quadrature points
-            // over the full cell.
-            const boost::optional<const FEValues<dim> &> fe_values_bulk =
-                    cut_fe_values.get_inside_fe_values();
-            // TODO hva med intersected celler?
+                // Retrieve an FEValues object with quadrature points
+                // over the full cell.
+                const std_cxx17::optional<FEValues<dim>>& fe_values_bulk =
+                        cut_fe_values.get_inside_fe_values();
+                // TODO hva med intersected celler?
 
-            if (fe_values_bulk) {
-                integrate_cell(*fe_values_bulk, solution, l2_error_integral,
-                               h1_semi_error_integral);
+                if (fe_values_bulk) {
+                    integrate_cell(*fe_values_bulk, solution, l2_error_integral,
+                                h1_semi_error_integral);
+                }
             }
         }
 
@@ -496,7 +504,7 @@ namespace utils::problems::scalar {
         // Output levelset function.
         if (!minimal_output) {
             // TODO sett inn i egen funksjon
-            DataOut<dim, DoFHandler<dim>> data_out_levelset;
+            DataOut<dim> data_out_levelset;
             data_out_levelset.attach_dof_handler(this->levelset_dof_handler);
             data_out_levelset.add_data_vector(this->levelset, "levelset");
             data_out_levelset.build_patches();

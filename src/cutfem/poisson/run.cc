@@ -1,7 +1,6 @@
 #include "poisson.h"
 #include "rhs.h"
 
-#include "cutfem/geometry/SignedDistanceSphere.h"
 
 using namespace cutfem;
 
@@ -27,7 +26,6 @@ int main() {
     } else if (dim == 3) {
         sphere_center = Point<dim>(0, 0, 0);
     }
-    // cutfem::geometry::SignedDistanceSphere<dim> domain(sphere_radius, sphere_center, 1);
 
     FlowerDomain<dim> domain;
 

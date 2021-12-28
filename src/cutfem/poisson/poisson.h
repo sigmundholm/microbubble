@@ -29,8 +29,6 @@
 
 #include <vector>
 
-#include "cutfem/errors/error_calculator.h"
-
 #include "rhs.h"
 #include "../utils/scalar_problem.h"
 
@@ -63,6 +61,9 @@ public:
     write_error_to_file(ErrorBase *error, std::ofstream &file);
 
 protected:
+    void
+    set_function_times(double time);
+
     void
     make_grid(Triangulation<dim> &tria) override;
 

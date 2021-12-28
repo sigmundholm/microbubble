@@ -7,7 +7,4 @@ deal_ii_initialize_cached_variables()
 
 project(microbubble)
 
-find_package(cutfem REQUIRED
-        HINTS ${CUTFEM_DIR} $ENV{CUTFEM_DIR})
-
 add_subdirectory(src)

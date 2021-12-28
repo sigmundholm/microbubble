@@ -50,8 +50,7 @@ namespace utils::problems {
               write_output(write_output),
               fe_levelset(element_order),
               levelset_dof_handler(triangulation),
-              cut_mesh_classifier(triangulation, levelset_dof_handler,
-                                  levelset),
+              cut_mesh_classifier(levelset_dof_handler, levelset),
               stabilized(stabilized), stationary(stationary),
               do_compute_error(compute_error) {
         // Use no constraints when projecting.
@@ -724,8 +723,8 @@ namespace utils::problems {
                     levelset_function->value(
                             cell->center());
 
-            if (LocationToLevelSet::INSIDE == location ||
-                LocationToLevelSet::INTERSECTED == location ||
+            if (LocationToLevelSet::inside == location ||
+                LocationToLevelSet::intersected == location ||
                 distance_from_zero_contour <= size_of_bound) {
                 // 0 is fe
                 cell->set_active_fe_index(0);
@@ -745,13 +744,43 @@ namespace utils::problems {
         int n_dofs = dof_handlers.front()->n_dofs();
         rhs.reinit(n_dofs);
 
-        // TODO unopack the pointer in some way?
-        cutfem::nla::make_sparsity_pattern_for_stabilized(*dof_handlers.front(),
-                                                          sparsity_pattern);
+        DynamicSparsityPattern dsp(n_dofs, n_dofs);
+        make_sparsity_pattern_for_stabilized(dsp, *dof_handlers.front());
         stiffness_matrix.reinit(sparsity_pattern);
         if (!stationary_stiffness_matrix) {
             timedep_stiffness_matrix.reinit(sparsity_pattern);
         }
+    }
+
+
+    template<int dim>
+    void CutFEMProblem<dim>::
+    make_sparsity_pattern_for_stabilized(DynamicSparsityPattern &dsp,
+                                         const hp::DoFHandler<dim> &dof_handler) {
+        // This method was taken from Simons code, and edited for mpi.
+        // TODO put this in utilities.
+        // TODO add contraints here
+        DoFTools::make_sparsity_pattern(dof_handler, dsp);
+
+        const hp::FECollection<dim> &fe_collection =
+            dof_handler.get_fe_collection();
+        // Copied from step-46.
+        Table<2, DoFTools::Coupling> cell_coupling(fe_collection.n_components(),
+                                                    fe_collection.n_components());
+        Table<2, DoFTools::Coupling> face_coupling(fe_collection.n_components(),
+                                                    fe_collection.n_components());
+        for (unsigned int c = 0; c < fe_collection.n_components(); ++c) {
+            for (unsigned int d = 0; d < fe_collection.n_components(); ++d) {
+                cell_coupling[c][d] = DoFTools::always;
+                face_coupling[c][d] = DoFTools::always;
+            }
+        }
+        DoFTools::make_flux_sparsity_pattern(dof_handler,
+                                            dsp,
+                                            cell_coupling,
+                                            face_coupling);
+
+        sparsity_pattern.copy_from(dsp);
     }
 
 

@@ -1,6 +1,5 @@
 #include "poisson.h"
 
-#include "cutfem/geometry/SignedDistanceSphere.h"
 
 using namespace cutfem;
 
