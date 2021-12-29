@@ -89,6 +89,7 @@ namespace utils::problems {
               << " MPI rank(s)." << std::endl;
 
         make_grid(triangulation);
+        set_grid_size();
         setup_quadrature();
         set_function_times(0);
         setup_level_set();
@@ -145,6 +146,7 @@ namespace utils::problems {
         pcout << "---------------------------\n" << std::endl;
 
         make_grid(triangulation);
+        set_grid_size();
         setup_quadrature();
         set_function_times(0);
         setup_level_set();
@@ -253,6 +255,7 @@ namespace utils::problems {
         // of a BDF-method.
         if (triangulation.n_quads() == 0) {
             make_grid(triangulation);
+            set_grid_size();
             setup_quadrature();
         }
         set_function_times(0);
@@ -393,6 +396,7 @@ namespace utils::problems {
         // of a BDF-method.
         if (triangulation.n_quads() == 0) {
             make_grid(triangulation);
+            set_grid_size();
             setup_quadrature();
         }
         set_function_times(0);
@@ -751,6 +755,20 @@ namespace utils::problems {
         (void) time_step;
         throw std::logic_error(
                 "Override this method to run a time dependent problem.");
+    }
+
+
+    template<int dim>
+    void CutFEMProblem<dim>::
+    set_grid_size() {
+        // Save the cell-size, we need it in the Nitsche term and 
+        // stabilization parameteres.
+        for (auto &cell : triangulation.active_cell_iterators()) {
+            if (cell->is_locally_owned()) {
+                h = std::pow(cell->measure(), 1.0 / dim);
+                break;
+            }
+        }
     }
 
 

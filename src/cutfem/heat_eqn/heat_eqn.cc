@@ -87,11 +87,6 @@ namespace examples::cut::HeatEquation {
         tria.refine_global(this->n_refines);
 
         this->mapping_collection.push_back(MappingCartesian<dim>());
-
-        // Save the cell-size, we need it in the Nitsche term.
-        typename Triangulation<dim>::active_cell_iterator cell =
-                tria.begin_active();
-        this->h = std::pow(cell->measure(), 1.0 / dim);
     }
 
 

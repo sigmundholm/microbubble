@@ -186,6 +186,9 @@ namespace utils::problems {
         virtual void
         make_grid(Triangulation<dim> &tria) = 0;
 
+        void
+        set_grid_size();
+
         virtual void
         setup_quadrature();
 
