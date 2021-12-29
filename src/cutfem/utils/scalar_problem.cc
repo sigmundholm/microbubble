@@ -136,7 +136,7 @@ namespace utils::problems::scalar {
                                          update_normal_vectors |
                                          update_JxW_values);
 
-        double beta_0 = 0.1;
+        double beta_0 = 1.0;
         double gamma_A =
                 beta_0 * this->element_order * (this->element_order + 1);
         double gamma_M =
