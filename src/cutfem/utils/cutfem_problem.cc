@@ -796,13 +796,16 @@ namespace utils::problems {
 
         // The level set function lives on the whole background mesh.
         // Project the geometry onto the mesh.
-        levelset.reinit(ls_locally_owned_dofs, ls_locally_relevant_dofs, mpi_communicator);
-        utils::Tools<dim>::project(levelset_dof_handler, 
-                       constraints, 
-                       fe_levelset,
-                       QGauss<dim>(2 * element_order + 1), 
-                       *levelset_function, 
-                       levelset);
+        LA::MPI::Vector levelset_projection(ls_locally_owned_dofs, mpi_communicator);
+        levelset_projection.reinit(ls_locally_owned_dofs, ls_locally_relevant_dofs, mpi_communicator);
+
+        VectorTools::project(MappingCartesian<dim>(),
+                             levelset_dof_handler,
+                             constraints,
+                             QGauss<dim>(element_order + 2),
+                             *levelset_function,
+                             levelset_projection);
+        levelset = levelset_projection;
     }
 
 

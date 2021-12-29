@@ -50,22 +50,6 @@ namespace utils {
     private:
         const SmartPointer<const NonMatching::MeshClassifier<dim>> mesh_classifier;
     };
-
-
-    template<int dim>
-    class Tools {
-    public: 
-        Tools();
-
-        static void
-        project(DoFHandler<dim> &dof_hander,
-                AffineConstraints<double> &constraints,
-                FE_Q<dim> &fe,
-                QGauss<dim> quadrature,
-                Function<dim> &function,
-                LA::MPI::Vector &solution);
-    };
-
 }
 
 #endif //MICROBUBBLE_UTILS_UTILS_H
