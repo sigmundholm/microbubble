@@ -23,14 +23,7 @@ void solve_for_element_order(int element_order, int max_refinement,
     BoundaryValues<dim> bdd;
     AnalyticalSolution<dim> soln;
 
-    double sphere_radius = 1.0;
-    double sphere_x_coord = 0;
-    Point<dim> sphere_center;
-    if (dim == 2) {
-        sphere_center = Point<dim>(0, 0);
-    } else if (dim == 3) {
-        sphere_center = Point<dim>(0, 0, 0);
-    }
+    // double sphere_radius = 1.0;
     FlowerDomain<dim> domain;
 
     for (int n_refines = 1; n_refines < max_refinement + 1; ++n_refines) {
@@ -63,5 +56,5 @@ void run_convergence_test(std::vector<int> orders, int max_refinement,
 
 int main(int argc, char *argv[]) {
     Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 1);
-    run_convergence_test<2>({1, 2}, 7, true);
+    run_convergence_test<2>({1, 2}, 8, false);
 }
