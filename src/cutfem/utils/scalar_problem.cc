@@ -343,7 +343,6 @@ namespace utils::problems::scalar {
 
         for (const auto &cell : dof_handler->active_cell_iterators()) {
             if (cell->is_locally_owned()) {
-                // TODO these computation needs to be fixed for mpirun
                 cut_fe_values.reinit(cell);
 
                 // Retrieve an FEValues object with quadrature points
@@ -358,13 +357,18 @@ namespace utils::problems::scalar {
                 }
             }
         }
+        // Compute the total across all mpi processes.
+        double total_l2 = Utilities::MPI::sum(l2_error_integral, 
+                                              this->mpi_communicator);
+        double total_h1 = Utilities::MPI::sum(h1_semi_error_integral,
+                                              this->mpi_communicator);
 
         auto *error = new ErrorScalar();
         error->h = this->h;
         error->tau = this->tau;
-        error->l2_error = pow(l2_error_integral, 0.5);
-        error->h1_semi = pow(h1_semi_error_integral, 0.5);
-        error->h1_error = pow(l2_error_integral + h1_semi_error_integral, 0.5);
+        error->l2_error = pow(total_l2, 0.5);
+        error->h1_semi = pow(total_h1, 0.5);
+        error->h1_error = pow(total_l2 + total_h1, 0.5);
         return error;
     }
 
