@@ -58,12 +58,12 @@ namespace utils {
         Tools();
 
         static void
-        project_mine(DoFHandler<dim> &dof_hander,
-                     AffineConstraints<double> &constraints,
-                     FE_Q<dim> &fe,
-                     QGauss<dim> quadrature,
-                     Function<dim> &function,
-                     LA::MPI::Vector &solution);
+        project(DoFHandler<dim> &dof_hander,
+                AffineConstraints<double> &constraints,
+                FE_Q<dim> &fe,
+                QGauss<dim> quadrature,
+                Function<dim> &function,
+                LA::MPI::Vector &solution);
     };
 
 }

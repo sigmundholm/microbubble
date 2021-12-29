@@ -48,13 +48,12 @@ namespace utils {
 
     template<int dim>
     void Tools<dim>::
-    project_mine(DoFHandler<dim> &dof_handler, 
+    project(DoFHandler<dim> &dof_handler, 
                  AffineConstraints<double> &constraints,
                  FE_Q<dim> &fe,
                  QGauss<dim> quadrature_formula, 
                  Function<dim> &function, 
                  LA::MPI::Vector &solution) {
-        std::cout << "project starting" << std::endl;
 
         MPI_Comm mpi_communicator = solution.get_mpi_communicator();
 
@@ -80,11 +79,8 @@ namespace utils {
                                 dsp,
                                 mpi_communicator); 
 
-
         // Assemble
         // -------------------------------------------------------------------
-        std::cout << "project: assembly" << std::endl;
-
         FEValues<dim> fe_v(fe,
                                 quadrature_formula,
                                 update_values | update_quadrature_points | update_JxW_values);
@@ -131,7 +127,6 @@ namespace utils {
 
         // Solve
         // --------------------------------------------------------------------
-        std::cout << "project: solve" << std::endl;
         SolverControl cn;
         PETScWrappers::SparseDirectMUMPS solver(cn, mpi_communicator);
         solver.set_symmetric_mode(false);
@@ -141,8 +136,6 @@ namespace utils {
         constraints.distribute(completely_distributed_solution);
         
         solution = completely_distributed_solution;
-        
-        std::cout << "project: solved" << std::endl;
     }
 
 

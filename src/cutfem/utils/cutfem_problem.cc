@@ -77,9 +77,9 @@ namespace utils::problems {
     template<int dim>
     ErrorBase *CutFEMProblem<dim>::
     run_step() {
-        std::cout << this_mpi_process << ": "<< "Solve equation: stationary." << std::endl;
-        std::cout << this_mpi_process << ": "<< "---------------------------\n" << std::endl;
-        std::cout << this_mpi_process << ": "<< "Running with "
+        pcout << "Solve equation: stationary." << std::endl;
+        pcout << "---------------------------\n" << std::endl;
+        pcout << "Running with "
 #ifdef USE_PETSC_LA
               << "PETSc"
 #else
@@ -112,31 +112,37 @@ namespace utils::problems {
 
         initialize_matrices();
         pre_matrix_assembly();
-        assemble_system();
+        {
+            TimerOutput::Scope t(computing_timer, "assembly");
+            assemble_system();
+        }
 
         solve();
         post_processing(0);
 
         if (write_output) {
+            TimerOutput::Scope t(computing_timer, "output");
             output_results(this->dof_handlers.front(),
                            this->solutions.front());
         }
-        if (do_compute_error) {
-            return compute_error(dof_handlers.front(), solutions.front());
-        } else {
-            return nullptr;
-        }
 
+        ErrorBase* error;
+        if (do_compute_error) {
+            TimerOutput::Scope t(computing_timer, "compute error");
+            error = compute_error(dof_handlers.front(), solutions.front());
+        }
         computing_timer.print_summary();
         computing_timer.reset();
+        return do_compute_error ? error : nullptr;
+
     }
 
 
     template<int dim>
     ErrorBase *CutFEMProblem<dim>::
     run_step_non_linear(double tol) {
-        std::cout << this_mpi_process << ": "<< "Solve equation: non-linear." << std::endl;
-        std::cout << this_mpi_process << ": "<< "---------------------------\n" << std::endl;
+        pcout << "Solve equation: non-linear." << std::endl;
+        pcout << "---------------------------\n" << std::endl;
 
         make_grid(triangulation);
         setup_quadrature();
@@ -156,7 +162,6 @@ namespace utils::problems {
 
         set_bdf_coefficients(1);
         set_extrapolation_coefficients(1);
-        int n_dofs = dof_handlers.front()->n_dofs();
 
         double prev_error;
         double this_error = 1; // Set to 1 to enforce at least two steps.
@@ -169,8 +174,8 @@ namespace utils::problems {
 
         while (error_diff > tol) {
             k++;
-            std::cout << this_mpi_process << ": "<< "\nFixed point iteration: step " << k << std::endl;
-            std::cout << this_mpi_process << ": "<< "-----------------------------------" << std::endl;
+            pcout << "\nFixed point iteration: step " << k << std::endl;
+            pcout << "-----------------------------------" << std::endl;
 
             solutions.emplace_front(locally_owned_dofs, locally_relevant_dofs, 
                                     mpi_communicator);
@@ -197,7 +202,7 @@ namespace utils::problems {
             this_error = error->repr_error();
             error->output();
             error_diff = abs(this_error - prev_error);
-            std::cout << this_mpi_process << ": "<< "  Error diff = " << error_diff << std::endl;
+            pcout << "  Error diff = " << error_diff << std::endl;
 
             if (write_output) {
                 output_results(dof_handlers.front(), solutions.front(),
@@ -233,10 +238,10 @@ namespace utils::problems {
     ErrorBase *CutFEMProblem<dim>::
     run_time(unsigned int bdf_type, unsigned int steps,
              std::vector<LA::MPI::Vector> &supplied_solutions) {
-        std::cout << this_mpi_process << ": "<< "Solve equation: time-depenedent." << std::endl;
-        std::cout << this_mpi_process << ": "<< "--------------------------------" << std::endl;
-        std::cout << this_mpi_process << ": "<< "BDF-" << bdf_type << ", steps=" << steps << std::endl;
-        std::cout << this_mpi_process << ": "<< "-------------------------" << std::endl;
+        pcout << "Solve equation: time-depenedent." << std::endl;
+        pcout << "--------------------------------" << std::endl;
+        pcout << "BDF-" << bdf_type << ", steps=" << steps << std::endl;
+        pcout << "-------------------------" << std::endl;
 
         assert(supplied_solutions.size() < bdf_type);
         // Clear the solutions and dof_handlers from possibly previous BDF
@@ -292,7 +297,7 @@ namespace utils::problems {
         double time;
         for (unsigned int k = bdf_type; k <= steps; ++k) {
             time = k * tau;
-            std::cout << this_mpi_process << ": "<< "\nTime Step = " << k
+            pcout << "\nTime Step = " << k
                       << ", tau = " << tau
                       << ", time = " << time << std::endl;
 
@@ -300,7 +305,6 @@ namespace utils::problems {
             set_function_times(time);
 
             // Create a new solution vector to contain the next solution.
-            int n_dofs = dof_handlers.front()->n_dofs();
             solutions.emplace_front(locally_owned_dofs, locally_relevant_dofs, 
                                     mpi_communicator);
 
@@ -345,7 +349,7 @@ namespace utils::problems {
             solutions.pop_back();
         }
 
-        std::cout << this_mpi_process << ": "<< std::endl;
+        pcout << std::endl;
         for (ErrorBase *error : errors) {
             error->output();
         }
@@ -374,8 +378,8 @@ namespace utils::problems {
                       std::vector<std::shared_ptr<hp::DoFHandler<dim>>> &supplied_dof_handlers,
                       const double mesh_bound_multiplier) {
 
-        std::cout << this_mpi_process << ": "<< "\nBDF-" << bdf_type << ", steps=" << steps << std::endl;
-        std::cout << this_mpi_process << ": "<< "-------------------------" << std::endl;
+        pcout << "\nBDF-" << bdf_type << ", steps=" << steps << std::endl;
+        pcout << "-------------------------" << std::endl;
         moving_domain = true;
 
         // One dof_handler must be supplied for each supplied solution vector.
@@ -407,7 +411,7 @@ namespace utils::problems {
         double size_of_bound = mesh_bound_multiplier * buffer_constant
                                * (levelset_function->get_speed() * tau
                                   * bdf_type + h);
-        std::cout << this_mpi_process << ": "<< " # size_of_bound = " << size_of_bound << std::endl;
+        pcout << " # size_of_bound = " << size_of_bound << std::endl;
 
         dof_handlers.emplace_front(new hp::DoFHandler<dim>());
         distribute_dofs(dof_handlers.front(), size_of_bound);
@@ -435,7 +439,7 @@ namespace utils::problems {
                            + "r" + std::to_string(n_refines) + ".csv");
         write_time_header_to_file(file);
 
-        std::cout << this_mpi_process << ": "<< "Interpolated / supplied solutions." << std::endl;
+        pcout << "Interpolated / supplied solutions." << std::endl;
         // Write the errors for the first steps to file.
         for (unsigned int k = 0; k < bdf_type; ++k) {
             write_time_error_to_file(errors[k], file);
@@ -448,7 +452,7 @@ namespace utils::problems {
         double time;
         for (unsigned int k = bdf_type; k <= steps; ++k) {
             time = k * tau;
-            std::cout << this_mpi_process << ": "<< "\nTime Step = " << k
+            pcout << "\nTime Step = " << k
                       << ", tau = " << tau
                       << ", time = " << time << std::endl;
 
@@ -465,7 +469,7 @@ namespace utils::problems {
             size_of_bound = mesh_bound_multiplier * buffer_constant
                             * (levelset_function->get_speed() * tau
                                * bdf_type + h);
-            std::cout << this_mpi_process << ": "<< " # size_of_bound = " << size_of_bound << std::endl;
+            pcout << " # size_of_bound = " << size_of_bound << std::endl;
             dof_handlers.emplace_front(new hp::DoFHandler<dim>());
             distribute_dofs(dof_handlers.front(), size_of_bound);
 
@@ -499,7 +503,7 @@ namespace utils::problems {
             dof_handlers.pop_back();
         }
 
-        std::cout << this_mpi_process << ": "<< std::endl;
+        pcout << std::endl;
         for (ErrorBase *error : errors) {
             error->output();
         }
@@ -527,7 +531,7 @@ namespace utils::problems {
     template<int dim>
     void CutFEMProblem<dim>::
     set_bdf_coefficients(unsigned int bdf_type) {
-        std::cout << this_mpi_process << ": "<< "Set BDF coefficients" << std::endl;
+        pcout << "Set BDF coefficients" << std::endl;
         this->bdf_coeffs = std::vector<double>(bdf_type + 1);
 
         if (bdf_type == 1) {
@@ -603,7 +607,7 @@ namespace utils::problems {
     interpolate_first_steps(unsigned int bdf_type,
                             std::vector<ErrorBase *> &errors,
                             double mesh_bound_multiplier) {
-        std::cout << this_mpi_process << ": "<< "Interpolate first step(s)." << std::endl;
+        pcout << "Interpolate first step(s)." << std::endl;
         // Assume the deque of solutions is empty at this point.
         assert(solutions.empty());
         // At this point, one dof_handler should have been created.
@@ -611,7 +615,7 @@ namespace utils::problems {
 
         for (unsigned int k = 0; k < bdf_type; ++k) {
             // Create a new solution vector.
-            std::cout << this_mpi_process << ": "<< " - Interpolate step k = " << k << std::endl;
+            pcout << " - Interpolate step k = " << k << std::endl;
 
             // Interpolate it a the correct time.
             set_function_times(k * tau);
@@ -656,7 +660,7 @@ namespace utils::problems {
                            std::vector<LA::MPI::Vector> &supplied_solutions,
                            std::vector<std::shared_ptr<hp::DoFHandler<dim>>> &supplied_dof_handlers,
                            std::vector<ErrorBase *> &errors) {
-        std::cout << this_mpi_process << ": "<< "Set supplied solutions" << std::endl;
+        pcout << "Set supplied solutions" << std::endl;
 
         // At this point we assume the solution vector that are used for solving
         // the next time step is not yet created.
@@ -700,7 +704,7 @@ namespace utils::problems {
 
         for (unsigned int k = 0; k < bdf_type; ++k) {
             if (full_vector[k].size() != 1) {
-                std::cout << this_mpi_process << ": "<< " - Set supplied for k = " << k << std::endl;
+                pcout << " - Set supplied for k = " << k << std::endl;
                 // Flip the index, since the solutions deque and the
                 // supplied solutions vector holds the solution vectors
                 // in opposite order.
@@ -762,7 +766,8 @@ namespace utils::problems {
     template<int dim>
     void CutFEMProblem<dim>::
     setup_level_set() {
-        std::cout << " " << this_mpi_process << " " << "Setting up level set" << std::endl;
+        pcout << "Setting up level set" << std::endl;
+        TimerOutput::Scope t(this->computing_timer, "level set");
 
         levelset_dof_handler.initialize(triangulation, fe_levelset);
         levelset_dof_handler.distribute_dofs(fe_levelset);
@@ -772,27 +777,14 @@ namespace utils::problems {
                                                 ls_locally_relevant_dofs);
 
         // The level set function lives on the whole background mesh.
-
-        std::cout << " " << this_mpi_process << " " << "ls hei1" << std::endl;
         // Project the geometry onto the mesh.
-        
         levelset.reinit(ls_locally_owned_dofs, ls_locally_relevant_dofs, mpi_communicator);
-        utils::Tools<dim>::project_mine(levelset_dof_handler, 
+        utils::Tools<dim>::project(levelset_dof_handler, 
                        constraints, 
                        fe_levelset,
                        QGauss<dim>(2 * element_order + 1), 
                        *levelset_function, 
                        levelset);
-
-        /*
-        levelset.reinit(ls_locally_owned_dofs, mpi_communicator);
-        VectorTools::project(levelset_dof_handler,
-                             constraints,
-                             QGauss<dim>(2 * element_order + 1),
-                             *levelset_function,
-                             levelset);
-                       */
-        std::cout << " " << this_mpi_process << " " << "ls hei2" << std::endl;
     }
 
 
@@ -801,7 +793,8 @@ namespace utils::problems {
     distribute_dofs(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
                     double size_of_bound) {
         // Set outside finite elements to fe, and inside to FE_nothing
-        std::cout << this_mpi_process << ": "<< "Distribute dofs" << std::endl;
+        pcout << "Distribute dofs" << std::endl;
+        TimerOutput::Scope t(computing_timer, "distribute dofs");
         dof_handler->initialize(triangulation, fe_collection);
         for (const auto &cell : dof_handler->active_cell_iterators()) {
             if (cell->is_locally_owned()) {
@@ -830,7 +823,8 @@ namespace utils::problems {
     template<int dim>
     void CutFEMProblem<dim>::
     initialize_matrices() {
-        std::cout << this_mpi_process << ": "<< "Initialize marices" << std::endl;
+        pcout << "Initialize marices" << std::endl;
+        TimerOutput::Scope t(computing_timer, "initialize matrices");
         
         rhs.reinit(locally_owned_dofs, mpi_communicator);
 
@@ -892,7 +886,7 @@ namespace utils::problems {
     template<int dim>
     void CutFEMProblem<dim>::
     assemble_system() {
-        std::cout << this_mpi_process << ": "<< "Assemble system: matrix and rhs" << std::endl;
+        pcout << "Assemble system: matrix and rhs" << std::endl;
         assemble_matrix();
         assemble_rhs(0);
         if (!stationary_stiffness_matrix) {
@@ -1010,15 +1004,13 @@ namespace utils::problems {
     template<int dim>
     void CutFEMProblem<dim>::
     solve() {
-        std::cout << this_mpi_process << ": "<< "Solving system" << std::endl;
+        pcout << "Solving system" << std::endl;
         TimerOutput::Scope t(computing_timer, "solve");
 
         if (stationary_stiffness_matrix) {
             SolverControl cn;
             PETScWrappers::SparseDirectMUMPS solver(cn, mpi_communicator);
             solver.set_symmetric_mode(false);
-            // inverse.initialize(stiffness_matrix);
-            // inverse.vmult(solutions.front(), rhs);
             LA::MPI::Vector completely_distributed_solution(locally_owned_dofs,
                                                             mpi_communicator);
             solver.solve(stiffness_matrix, completely_distributed_solution, rhs);
@@ -1037,9 +1029,9 @@ namespace utils::problems {
             */
         }
 
-        std::cout << this_mpi_process << ": "<< "   Number of active cells:       "
+        pcout << "   Number of active cells:       "
               << triangulation.n_active_cells() << std::endl;
-        std::cout << this_mpi_process << ": "<< "   Number of degrees of freedom: " << dof_handlers.front()->n_dofs()
+        pcout << "   Number of degrees of freedom: " << dof_handlers.front()->n_dofs()
               << std::endl;
     }
 
@@ -1047,7 +1039,7 @@ namespace utils::problems {
     template<int dim>
     double CutFEMProblem<dim>::
     compute_condition_number() {
-        std::cout << this_mpi_process << ": "<< "Compute condition number" << std::endl;
+        pcout << "Compute condition number" << std::endl;
 
         // Invert the stiffness_matrix
         FullMatrix<double> stiffness_matrix_full(solutions.front().size());
@@ -1059,7 +1051,7 @@ namespace utils::problems {
         double inverse_norm = inverse.frobenius_norm();
 
         double condition_number = norm * inverse_norm;
-        std::cout << this_mpi_process << ": "<< "  cond_num = " << condition_number << std::endl;
+        pcout << "  cond_num = " << condition_number << std::endl;
 
         // TODO bruk eigenvalues istedet
         return condition_number;

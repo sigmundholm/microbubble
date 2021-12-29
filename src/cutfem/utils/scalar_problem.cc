@@ -86,8 +86,7 @@ namespace utils::problems::scalar {
     template<int dim>
     void ScalarProblem<dim>::
     assemble_system() {
-        std::cout << "Assembling scalar" << std::endl;
-        TimerOutput::Scope t(this->computing_timer, "assembly");
+        this->pcout << "Assembling scalar" << std::endl;
 
         this->stiffness_matrix = 0;
         this->rhs = 0;
@@ -277,7 +276,7 @@ namespace utils::problems::scalar {
                 // can be stabilized. When the aftive mesh is sufficiently
                 // big in all time steps, we should never enter this clause.
                 // If this happens, the values of 0 vill be used.
-                std::cout << "# NB: need larger cell buffer outside the "
+                this->pcout << "# NB: need larger cell buffer outside the "
                              "physical domain." << std::endl;
             } else {
                 // Get the function values from the previous time steps.
@@ -312,7 +311,7 @@ namespace utils::problems::scalar {
     ErrorBase *ScalarProblem<dim>::
     compute_error(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
                   LA::MPI::Vector &solution) {
-        std::cout << "Compute error" << std::endl;
+        this->pcout << "Compute error" << std::endl;
 
         double l2_error_integral;
         double h1_semi_error_integral;
@@ -436,7 +435,6 @@ namespace utils::problems::scalar {
             l2_error_integral += diff_values * diff_values * fe_v.JxW(q);
             h1_error_integral += diff_gradients * diff_gradients * fe_v.JxW(q);
         }
-
     }
 
 
@@ -493,7 +491,7 @@ namespace utils::problems::scalar {
                    LA::MPI::Vector &solution,
                    int time_step,
                    bool minimal_output) const {
-        std::cout << "Output results" << std::endl;
+        this->pcout << "Output results" << std::endl;
         // Output results, see step-22
         DataOut<dim> data_out;
         data_out.attach_dof_handler(*dof_handler);

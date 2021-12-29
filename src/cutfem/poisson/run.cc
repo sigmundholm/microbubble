@@ -20,13 +20,6 @@ int main(int argc, char *argv[]) {
     AnalyticalSolution<dim> soln;
 
     double sphere_radius = radius * 0.9;
-    double sphere_x_coord = 0;
-    Point<dim> sphere_center;
-    if (dim == 2) {
-        sphere_center = Point<dim>(0, 0);
-    } else if (dim == 3) {
-        sphere_center = Point<dim>(0, 0, 0);
-    }
 
     // FlowerDomain<dim> domain;
     Sphere<dim> domain(sphere_radius, 0, 0);
