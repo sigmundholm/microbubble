@@ -1,5 +1,6 @@
 #include <deal.II/base/data_out_base.h>
 #include <deal.II/base/quadrature_lib.h>
+#include <deal.II/base/std_cxx17/optional.h>
 
 #include <deal.II/fe/fe_nothing.h>
 #include <deal.II/fe/fe_update_flags.h>
@@ -15,18 +16,16 @@
 #include <deal.II/lac/sparse_direct.h>
 
 #include <deal.II/non_matching/fe_values.h>
+#include <deal.II/non_matching/fe_immersed_values.h>
 
 #include <deal.II/numerics/data_out_dof_data.h>
 #include <deal.II/numerics/vector_tools.h>
-
-#include <boost/optional.hpp>
 
 #include <assert.h>
 #include <cmath>
 #include <fstream>
 
-#include "cutfem/nla/sparsity_pattern.h"
-#include "cutfem/stabilization/jump_stabilization.h"
+#include "../utils/stabilization/jump_stabilization.h"
 
 #include "../utils/utils.h"
 
@@ -38,6 +37,7 @@ using namespace cutfem;
 
 namespace examples::cut::HeatEquation {
 
+    using NonMatching::FEImmersedSurfaceValues;
     using namespace utils;
 
     template<int dim>
@@ -80,7 +80,7 @@ namespace examples::cut::HeatEquation {
     template<int dim>
     void
     HeatEqn<dim>::make_grid(Triangulation<dim> &tria) {
-        std::cout << "Creating triangulation" << std::endl;
+        this->pcout << "Creating triangulation" << std::endl;
 
         GridGenerator::cylinder(tria, radius, half_length);
         GridTools::remove_anisotropy(tria, 1.618, 5);
@@ -109,7 +109,7 @@ namespace examples::cut::HeatEquation {
     template<int dim>
     void HeatEqn<dim>::
     assemble_matrix() {
-        std::cout << "Assembling" << std::endl;
+        this->pcout << "Assembling" << std::endl;
 
         this->stiffness_matrix = 0;
         this->rhs = 0;
@@ -166,48 +166,51 @@ namespace examples::cut::HeatEquation {
                 beta_0 * this->element_order * (this->element_order + 1);
 
         for (const auto &cell : this->dof_handlers.front()->active_cell_iterators()) {
-            const unsigned int n_dofs = cell->get_fe().dofs_per_cell;
+            if (cell->is_locally_owned()) {
+                const unsigned int n_dofs = cell->get_fe().dofs_per_cell;
 
-            const LocationToLevelSet location =
-                    this->cut_mesh_classifier.location_to_level_set(cell);
+                const LocationToLevelSet location =
+                        this->cut_mesh_classifier.location_to_level_set(cell);
 
-            std::vector<types::global_dof_index> loc2glb(n_dofs);
-            cell->get_dof_indices(loc2glb);
+                std::vector<types::global_dof_index> loc2glb(n_dofs);
+                cell->get_dof_indices(loc2glb);
 
-            // This call will compute quadrature rules relevant for this cell
-            // in the background.
-            cut_fe_values.reinit(cell);
+                // This call will compute quadrature rules relevant for this cell
+                // in the background.
+                cut_fe_values.reinit(cell);
 
-            if (location != LocationToLevelSet::OUTSIDE) {
+                if (location != LocationToLevelSet::outside) {
 
-                // Retrieve an FEValues object with quadrature points
-                // over the full cell.
-                const boost::optional<const FEValues<dim> &> fe_values_bulk =
-                        cut_fe_values.get_inside_fe_values();
-                if (fe_values_bulk) {
-                    assemble_matrix_local_over_cell(*fe_values_bulk, loc2glb);
+                    // Retrieve an FEValues object with quadrature points
+                    // over the full cell.
+                    const std_cxx17::optional<FEValues<dim>>& fe_values_bulk =
+                            cut_fe_values.get_inside_fe_values();
+                    if (fe_values_bulk) {
+                        assemble_matrix_local_over_cell(*fe_values_bulk, loc2glb);
+                    }
+
+                    // Retrieve an FEValues object with quadrature points
+                    // on the immersed surface.
+                    const std_cxx17::optional<FEImmersedSurfaceValues<dim>>&
+                            fe_values_surface = cut_fe_values.get_surface_fe_values();
+                    if (fe_values_surface) {
+                        assemble_matrix_local_over_surface(*fe_values_surface,
+                                                        loc2glb);
+                    }
                 }
 
-                // Retrieve an FEValues object with quadrature points
-                // on the immersed surface.
-                const boost::optional<const FEImmersedSurfaceValues<dim> &>
-                        fe_values_surface = cut_fe_values.get_surface_fe_values();
-                if (fe_values_surface) {
-                    assemble_matrix_local_over_surface(*fe_values_surface,
-                                                       loc2glb);
+                if (this->stabilized) {
+                    // Compute and add the velocity stabilization.
+                    stabilization.compute_stabilization(cell);
+                    double scaling = this->tau * gamma_M +
+                                    this->tau * nu * gamma_A / pow(this->h, 2);
+                    stabilization.add_stabilization_to_matrix(
+                            scaling,
+                            this->stiffness_matrix);
                 }
-            }
-
-            if (this->stabilized) {
-                // Compute and add the velocity stabilization.
-                stabilization.compute_stabilization(cell);
-                double scaling = this->tau * gamma_M +
-                                 this->tau * nu * gamma_A / pow(this->h, 2);
-                stabilization.add_stabilization_to_matrix(
-                        scaling,
-                        this->stiffness_matrix);
             }
         }
+        this->stiffness_matrix.compress(VectorOperation::add);
     }
 
     template<int dim>
@@ -298,7 +301,7 @@ namespace examples::cut::HeatEquation {
     template<int dim>
     void
     HeatEqn<dim>::assemble_rhs(int time_step) {
-        std::cout << "Assembling RHS: Heat Equation" << std::endl;
+        this->pcout << "Assembling RHS: Heat Equation" << std::endl;
 
         this->rhs = 0;
 
@@ -330,50 +333,53 @@ namespace examples::cut::HeatEquation {
                                          update_JxW_values);
 
         for (const auto &cell : this->dof_handlers.front()->active_cell_iterators()) {
-            const unsigned int n_dofs = cell->get_fe().dofs_per_cell;
-            std::vector<types::global_dof_index> loc2glb(n_dofs);
-            cell->get_dof_indices(loc2glb);
+            if (cell->is_locally_owned()) {
+                const unsigned int n_dofs = cell->get_fe().dofs_per_cell;
+                std::vector<types::global_dof_index> loc2glb(n_dofs);
+                cell->get_dof_indices(loc2glb);
 
-            // This call will compute quadrature rules relevant for this cell
-            // in the background.
-            cut_fe_values.reinit(cell);
+                // This call will compute quadrature rules relevant for this cell
+                // in the background.
+                cut_fe_values.reinit(cell);
 
-            // Retrieve an FEValues object with quadrature points
-            // over the full cell.
-            const boost::optional<const FEValues<dim> &> fe_values_bulk =
-                    cut_fe_values.get_inside_fe_values();
+                // Retrieve an FEValues object with quadrature points
+                // over the full cell.
+                const std_cxx17::optional<FEValues<dim>>& fe_values_bulk =
+                        cut_fe_values.get_inside_fe_values();
 
-            if (fe_values_bulk) {
-                if (this->crank_nicholson) {
-                    assemble_rhs_local_over_cell_cn(*fe_values_bulk, loc2glb,
-                                                    time_step);
-                } else {
-                    if (this->moving_domain) {
-                        this->assemble_rhs_and_bdf_terms_local_over_cell_moving_domain(
-                                *fe_values_bulk, loc2glb);
+                if (fe_values_bulk) {
+                    if (this->crank_nicholson) {
+                        assemble_rhs_local_over_cell_cn(*fe_values_bulk, loc2glb,
+                                                        time_step);
                     } else {
-                        this->assemble_rhs_and_bdf_terms_local_over_cell(
-                                *fe_values_bulk, loc2glb);
+                        if (this->moving_domain) {
+                            this->assemble_rhs_and_bdf_terms_local_over_cell_moving_domain(
+                                    *fe_values_bulk, loc2glb);
+                        } else {
+                            this->assemble_rhs_and_bdf_terms_local_over_cell(
+                                    *fe_values_bulk, loc2glb);
 
+                        }
+                    }
+                }
+
+                // Retrieve an FEValues object with quadrature points
+                // on the immersed surface.
+                const std_cxx17::optional<FEImmersedSurfaceValues<dim>>&
+                        fe_values_surface = cut_fe_values.get_surface_fe_values();
+
+                if (fe_values_surface) {
+                    if (this->crank_nicholson) {
+                        assemble_rhs_local_over_surface_cn(*fe_values_surface,
+                                                        loc2glb, time_step);
+                    } else {
+                        assemble_rhs_local_over_surface(*fe_values_surface,
+                                                        loc2glb);
                     }
                 }
             }
-
-            // Retrieve an FEValues object with quadrature points
-            // on the immersed surface.
-            const boost::optional<const FEImmersedSurfaceValues<dim> &>
-                    fe_values_surface = cut_fe_values.get_surface_fe_values();
-
-            if (fe_values_surface) {
-                if (this->crank_nicholson) {
-                    assemble_rhs_local_over_surface_cn(*fe_values_surface,
-                                                       loc2glb, time_step);
-                } else {
-                    assemble_rhs_local_over_surface(*fe_values_surface,
-                                                    loc2glb);
-                }
-            }
         }
+        this->rhs.compress(VectorOperation::add);
     }
 
 
@@ -505,7 +511,7 @@ namespace examples::cut::HeatEquation {
         FullMatrix<double> local_matrix(dofs_per_cell, dofs_per_cell);
         Vector<double> local_rhs(dofs_per_cell);
 
-        // std::cout << "  rhs surf k = " << time_step << std::endl;
+        // this->pcout << "  rhs surf k = " << time_step << std::endl;
 
         // Evaluate the boundary function for all quadrature points on this face.
         std::vector<double> bdd_values(fe_values.n_quadrature_points);
@@ -568,24 +574,28 @@ namespace examples::cut::HeatEquation {
     template<int dim>
     void HeatEqn<dim>::
     write_header_to_file(std::ofstream &file) {
-        file << "h, \\tau, \\|u\\|_{L^2}, \\|u\\|_{H^1}, |u|_{H^1}, "
-                "\\|u\\|_{l^\\infty L^2}, \\|u\\|_{l^\\infty H^1}, \\kappa(A)"
-             << std::endl;
+        if (this->this_mpi_process == 0) {
+            file << "h, \\tau, \\|u\\|_{L^2}, \\|u\\|_{H^1}, |u|_{H^1}, "
+                    "\\|u\\|_{l^\\infty L^2}, \\|u\\|_{l^\\infty H^1}, \\kappa(A)"
+                << std::endl;
+        }
     }
 
 
     template<int dim>
     void HeatEqn<dim>::
     write_error_to_file(ErrorBase *error, std::ofstream &file) {
-        auto *err = dynamic_cast<ErrorScalar *>(error);
-        file << err->h << ","
-             << err->tau << ","
-             << err->l2_error << ","
-             << err->h1_error << ","
-             << err->h1_semi << ","
-             << err->l_inf_l2_error << ","
-             << err->l_inf_h1_error << ","
-             << err->cond_num << std::endl;
+        if (this->this_mpi_process == 0) {
+            auto *err = dynamic_cast<ErrorScalar *>(error);
+            file << err->h << ","
+                << err->tau << ","
+                << err->l2_error << ","
+                << err->h1_error << ","
+                << err->h1_semi << ","
+                << err->l_inf_l2_error << ","
+                << err->l_inf_h1_error << ","
+                << err->cond_num << std::endl;
+        }
     }
 
 

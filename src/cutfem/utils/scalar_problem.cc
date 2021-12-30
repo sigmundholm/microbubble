@@ -59,15 +59,23 @@ namespace utils::problems::scalar {
                          int time_step) {
         // For time_step = 0, interpolate the boundary_values function, since
         // for t=0, this function should contain the initial values.
+
+        LA::MPI::Vector interpolated(this->locally_owned_dofs, 
+                                     this->mpi_communicator);
+        interpolated.reinit(this->locally_owned_dofs, 
+                            this->locally_relevant_dofs, 
+                            this->mpi_communicator);
         if (time_step == 0) {
+
             VectorTools::interpolate(*dof_handler,
                                      *(this->boundary_values),
-                                     this->solutions.front());
+                                     interpolated);
         } else {
             VectorTools::interpolate(*dof_handler,
                                      *(this->analytical_solution),
-                                     this->solutions.front());
+                                     interpolated);
         }
+        this->solutions.front() = interpolated;
     }
 
 
@@ -469,23 +477,27 @@ namespace utils::problems::scalar {
     template<int dim>
     void ScalarProblem<dim>::
     write_time_header_to_file(std::ofstream &file) {
-        file << "k, \\tau, h, \\|u\\|_{L^2}, \\|u\\|_{H^1}, "
-                "|u|_{H^1}, \\kappa(A)"
-             << std::endl;
+        if (this->this_mpi_process == 0) {
+            file << "k, \\tau, h, \\|u\\|_{L^2}, \\|u\\|_{H^1}, "
+                    "|u|_{H^1}, \\kappa(A)"
+                << std::endl;
+        }
     }
 
 
     template<int dim>
     void ScalarProblem<dim>::
     write_time_error_to_file(ErrorBase *error, std::ofstream &file) {
-        auto *err = dynamic_cast<ErrorScalar *>(error);
-        file << err->time_step << ","
-             << err->tau << ","
-             << err->h << ","
-             << err->l2_error << ","
-             << err->h1_error << ","
-             << err->h1_semi << ","
-             << err->cond_num << std::endl;
+        if (this->this_mpi_process == 0) {
+            auto *err = dynamic_cast<ErrorScalar *>(error);
+            file << err->time_step << ","
+                << err->tau << ","
+                << err->h << ","
+                << err->l2_error << ","
+                << err->h1_error << ","
+                << err->h1_semi << ","
+                << err->cond_num << std::endl;
+        }
     }
 
 

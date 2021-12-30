@@ -1,14 +1,13 @@
 #include "heat_eqn.h"
 #include "rhs.h"
 
-#include "cutfem/geometry/SignedDistanceSphere.h"
-
-using namespace cutfem;
 
 using namespace examples::cut::HeatEquation;
 
 
-int main() {
+int main(int argc, char *argv[]) {
+    Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 1);
+
     const int dim = 2;
     double radius = 1;
     double half_length = 2 * radius;
@@ -27,21 +26,13 @@ int main() {
     AnalyticalSolution<dim> soln;
 
     double sphere_radius = radius * 0.75;
-    double sphere_x_coord = 0;
-    Point<dim> sphere_center;
-    if (dim == 2) {
-        sphere_center = Point<dim>(0, 0);
-    } else if (dim == 3) {
-        sphere_center = Point<dim>(0, 0, 0);
-    }
-    // cutfem::geometry::SignedDistanceSphere<dim> domain(sphere_radius, sphere_center, 1);
 
     // FlowerDomain<dim> domain;
     MovingDomain<dim> domain(sphere_radius, half_length, radius);
 
     HeatEqn<dim> heat(nu, tau, radius, half_length, n_refines, degree,
                       write_output, rhs, bdd, soln, domain);
-    ErrorBase *err = heat.run_moving_domain(1, time_steps);
+    ErrorBase *err = heat.run_time(1, time_steps);
     auto *error = dynamic_cast<ErrorScalar *>(err);
     std::cout << "|| u - u_h ||_L2 = " << error->l2_error << std::endl;
     std::cout << "|| u - u_h ||_H1 = " << error->h1_error << std::endl;
