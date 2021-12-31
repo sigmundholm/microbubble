@@ -408,7 +408,7 @@ namespace utils::problems {
 
         // Note that when using BDF-2 with BDF-1 for the u1 step, the acitve
         // mesh for the BDF-1 method should be enlarged with a factor 2 with
-        // the use of the mesh_bound_multiplier, else the mesh will be two
+        // the use of the mesh_bound_multiplier, else the mesh will be too
         // small when solving the step k=3 with BDF-2. This is naturally because
         // of the constant bdf_type is used in the size_of_bound constant.
         double buffer_constant = 1.5;

@@ -19,8 +19,8 @@ def convergence_plot_report():
     paths = [os.path.join(base, f"build/src/cutfem/heat_eqn", folder, f"errors-d2o{d}.csv") for d in degrees]
     plot_for = ["\|u\|_{L^2}", "\|u\|_{H^1}", "\|u\|_{l^\infty L^2}", "\|u\|_{l^\infty H^1}"]
     element_orders = degrees
-    conv_plots2(paths, plot_for, element_orders, expected_degrees=[[2, 2, 2], [1, 2, 2], [2, 2, 2], [1, 2, 2]],
-                domain_length=2.2,
+    conv_plots2(paths, plot_for, element_orders, expected_degrees=[[3, 4, 2], [2, 3, 3], [3, 4, 2], [2, 3, 2]],
+                domain_length=domain_length,
                 colors=[color2, color1, color0], save_figs=True, font_size=12, label_size="large", skip=0,
                 guess_degree=False)
 
@@ -35,7 +35,8 @@ def time_error_plot():
 
 
 folder = ""
-degrees = [1, 2]
+degrees = [2, 3]
+domain_length = 1
 
 if __name__ == '__main__':
     base = split(split(split(os.getcwd())[0])[0])[0]
@@ -44,7 +45,6 @@ if __name__ == '__main__':
     convergence_plot_report()
 
     skip = 0
-    domain_length = 1
     xlabel = "M"
     for poly_order in degrees:
         full_path = os.path.join(base, f"build/src/cutfem/heat_eqn", folder, f"errors-d2o{poly_order}.csv")
@@ -60,7 +60,7 @@ if __name__ == '__main__':
         # Create a EOC-plot
         eoc_plot(data, head,
                  title=r"\textrm{Heat Equation (CutFEM) EOC, element order: " + str(poly_order) + "}",
-                 domain_lenght=domain_length, lines_at=np.array([1, 2]), xlabel=xlabel)
+                 domain_lenght=domain_length, lines_at=np.array([0, 1]) + poly_order, xlabel=xlabel)
         plt.savefig(f"eoc-o{poly_order}.pdf")
 
     plt.show()
