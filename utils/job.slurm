@@ -48,7 +48,7 @@ git log -1
 echo
 
 cd $WORKDIR
-rm *.vtk
+rm *vtu
 rm *.csv
 # Remove all txt files except the output file.
 ls | grep txt | grep -v  slurm-run.txt | xargs rm

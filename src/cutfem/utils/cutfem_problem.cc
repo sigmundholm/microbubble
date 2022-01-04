@@ -134,8 +134,7 @@ namespace utils::problems {
         }
         computing_timer.print_summary();
         computing_timer.reset();
-        return do_compute_error ? error : nullptr;
-
+        return error;
     }
 
 
@@ -244,6 +243,14 @@ namespace utils::problems {
         pcout << "--------------------------------" << std::endl;
         pcout << "BDF-" << bdf_type << ", steps=" << steps << std::endl;
         pcout << "-------------------------" << std::endl;
+        pcout << "Running with "
+#ifdef USE_PETSC_LA
+              << "PETSc"
+#else
+              << "Trilinos"
+#endif
+              << " on " << Utilities::MPI::n_mpi_processes(mpi_communicator)
+              << " MPI rank(s)." << std::endl;
 
         assert(supplied_solutions.size() < bdf_type);
         // Clear the solutions and dof_handlers from possibly previous BDF

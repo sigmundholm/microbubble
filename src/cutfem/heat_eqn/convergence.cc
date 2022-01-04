@@ -15,8 +15,8 @@ void solve_for_element_order(int element_order, int max_refinement,
     std::ofstream file("errors-d" + std::to_string(dim)
                        + "o" + std::to_string(element_order) + ".csv");
 
-    double radius = 1;
-    double half_length = 2 * radius;
+    double radius = 1.0;
+    double half_length = radius;
 
     const double nu = 2;
     const double end_time = 1;
@@ -44,7 +44,8 @@ void solve_for_element_order(int element_order, int max_refinement,
         HeatEqn<dim> heat(nu, tau, radius, half_length, n_refines,
                           element_order, write_output,
                           rhs, bdd, soln, domain, true, false);
-        ErrorBase *err = heat.run_moving_domain(1, 1);
+        ErrorBase *err = heat.run_time(1, 1);
+        std::cout << std::endl;
         auto *error = dynamic_cast<ErrorScalar *>(err);
 
         std::cout << "|| u - u_h ||_L2 = " << error->l2_error << std::endl;
@@ -52,14 +53,13 @@ void solve_for_element_order(int element_order, int max_refinement,
         std::cout << "| u - u_h |_H1 = " << error->h1_semi << std::endl;
 
         LA::MPI::Vector u1 = heat.get_solution();
-        std::shared_ptr<hp::DoFHandler<dim>> u1_dof_h = heat.get_dof_handler();
+        // std::shared_ptr<hp::DoFHandler<dim>> u1_dof_h = heat.get_dof_handler();
 
         // BDF-2
         std::vector<LA::MPI::Vector> initial = {u1};
-        std::vector<std::shared_ptr<hp::DoFHandler<dim>>> initial_dof_h = {
-                u1_dof_h};
-        ErrorBase *err2 = heat.run_moving_domain(2, time_steps,
-                                                 initial, initial_dof_h);
+        // std::vector<std::shared_ptr<hp::DoFHandler<dim>>> initial_dof_h = {
+                // u1_dof_h};
+        ErrorBase *err2 = heat.run_time(2, time_steps, initial); //, initial_dof_h);
         auto *error2 = dynamic_cast<ErrorScalar *>(err2);
         // auto *error2 = dynamic_cast<ErrorScalar*>(err);
         // TODO hvorfor er interpolasjonsfeilen mye høyre enn faktisk numerisk feil??
