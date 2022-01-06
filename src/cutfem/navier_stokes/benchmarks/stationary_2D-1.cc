@@ -39,7 +39,7 @@ int main() {
     benchmarks::BenchmarkNS<dim> ns(
             nu, 1, radius, half_length, n_refines, elementOrder, write_vtk,
             zero_tensor, boundary, zero_tensor, zero_scalar,
-            domain, "benchmark-2D-1.csv", semi_implicit, 2, stationary, false);
+            domain, "benchmark-2D-1.csv", semi_implicit, {2}, stationary, false);
 
     // Solve the equation using fixed point iteration, with a
     // semi-implicit convection term.

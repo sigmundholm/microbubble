@@ -52,7 +52,7 @@ namespace examples::cut::NavierStokes {
                     Function<dim> &analytic_pressure,
                     LevelSet<dim> &levelset_func,
                     const bool semi_implicit,
-                    const int do_nothing_id,
+                    const std::vector<int> do_nothing_ids,
                     const bool stabilized,
                     const bool stationary,
                     const bool compute_error)
@@ -62,7 +62,7 @@ namespace examples::cut::NavierStokes {
                                              rhs, bdd_values,
                                              analytic_vel, analytic_pressure,
                                              levelset_func,
-                                             do_nothing_id, stabilized,
+                                             do_nothing_ids, stabilized,
                                              stationary, compute_error),
               semi_implicit(semi_implicit) {
 
@@ -485,11 +485,15 @@ namespace examples::cut::NavierStokes {
             // Loop through all faces that constitutes the outer boundary of the
             // domain.
             for (const auto &face : cell->face_iterators()) {
-                if (face->at_boundary() &&
-                    face->boundary_id() != this->do_nothing_id) {
-                    fe_face_values.reinit(cell, face);
-                    this->assemble_rhs_local_over_surface(fe_face_values,
-                                                          loc2glb);
+                if (face->at_boundary()) { 
+                    if (std::find(this->do_nothing_ids.begin(), this->do_nothing_ids.end(), face->boundary_id())  
+                        != this->do_nothing_ids.end()) {
+                        // do_nothing_ids contains face-id => do nothing
+                    } else {
+                        fe_face_values.reinit(cell, face);
+                        this->assemble_rhs_local_over_surface(fe_face_values,
+                                                              loc2glb);
+                    }
                 }
             }
 

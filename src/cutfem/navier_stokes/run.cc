@@ -40,7 +40,7 @@ int main() {
     NavierStokesEqn<dim> ns(nu, tau, radius, half_length, n_refines,
                             elementOrder, write_vtk, rhs, boundary,
                             analytical_velocity, analytical_pressure,
-                            domain, false, 2);
+                            domain, false, {2});
 
     ErrorBase *err = ns.run_time(1, n_steps);
     auto *error = dynamic_cast<ErrorFlow *>(err);

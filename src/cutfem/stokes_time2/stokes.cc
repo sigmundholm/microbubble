@@ -54,20 +54,16 @@ namespace examples::cut::StokesEquation {
               TensorFunction<1, dim> &analytic_vel,
               Function<dim> &analytic_pressure,
               LevelSet<dim> &levelset_func,
-              const int do_nothing_id,
+              const std::vector<int> do_nothing_ids,
               const bool stabilized,
               const bool stationary,
               const bool compute_error)
             : FlowProblem<dim>(n_refines, element_order, write_output,
                                levelset_func, analytic_vel, analytic_pressure,
                                stabilized, stationary, compute_error),
-              nu(nu), radius(radius), half_length(half_length),
-              do_nothing_id(do_nothing_id) {
+              nu(nu), radius(radius), half_length(half_length) {
         this->tau = tau;
-
-        // Use Dirichlet boundary conditions everywhere, this is done by
-        // default by constructor definition.
-        // this->do_nothing_id = 10;
+        this->do_nothing_ids = do_nothing_ids;
 
         this->rhs_function = &rhs;
         this->boundary_values = &bdd_values;
@@ -209,11 +205,15 @@ namespace examples::cut::StokesEquation {
                 // Loop through all faces that constitutes the outer boundary of the
                 // domain.
                 for (const auto &face : cell->face_iterators()) {
-                    if (face->at_boundary() &&
-                        face->boundary_id() != do_nothing_id) {
-                        fe_face_values.reinit(cell, face);
-                        this->assemble_matrix_local_over_surface(fe_face_values,
-                                                                 loc2glb);
+                    if (face->at_boundary()) { 
+                        if (std::find(do_nothing_ids.begin(), do_nothing_ids.end(), face->boundary_id())  
+                            != do_nothing_ids.end()) {
+                        // do_nothing_ids contains face-id => do nothing
+                        } else {
+                            fe_face_values.reinit(cell, face);
+                            this->assemble_matrix_local_over_surface(fe_face_values,
+                                                                     loc2glb);
+                        }
                     }
                 }
 
@@ -410,10 +410,14 @@ namespace examples::cut::StokesEquation {
             // Loop through all faces that constitutes the outer boundary of the
             // domain.
             for (const auto &face : cell->face_iterators()) {
-                if (face->at_boundary() &&
-                    face->boundary_id() != do_nothing_id) {
-                    fe_face_values.reinit(cell, face);
-                    assemble_rhs_local_over_surface(fe_face_values, loc2glb);
+                if (face->at_boundary()) { 
+                    if (std::find(do_nothing_ids.begin(), do_nothing_ids.end(), face->boundary_id())  
+                        != do_nothing_ids.end()) {
+                    // do_nothing_ids contains face-id => do nothing
+                    } else {
+                        fe_face_values.reinit(cell, face);
+                        assemble_rhs_local_over_surface(fe_face_values, loc2glb);
+                    }
                 }
             }
 

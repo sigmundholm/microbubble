@@ -62,7 +62,7 @@ void solve_for_element_order(int element_order, int max_refinement,
                                  element_order, write_output, rhs,
                                  boundary_values,
                                  analytical_velocity, analytical_pressure,
-                                 domain, semi_implicit, 10, true);
+                                 domain, semi_implicit, {10}, true);
 
         ErrorBase *err = ns.run_time(bdf_type, time_steps);
         auto *error = dynamic_cast<ErrorFlow *>(err);

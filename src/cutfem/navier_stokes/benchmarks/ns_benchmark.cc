@@ -19,12 +19,12 @@ namespace examples::cut::NavierStokes::benchmarks {
                 Function<dim> &analytic_pressure,
                 Sphere<dim> &levelset_func,
                 std::string filename,
-                const bool semi_implicit, const int do_nothing_id,
+                const bool semi_implicit, std::vector<int> do_nothing_ids,
                 const bool stationary, const bool compute_error)
             : NavierStokes::NavierStokesEqn<dim>(
             nu, tau, radius, half_length, n_refines, element_order,
             write_output, rhs, bdd_values, analytic_vel, analytic_pressure,
-            levelset_func, semi_implicit, do_nothing_id, true,
+            levelset_func, semi_implicit, do_nothing_ids, true,
             stationary, compute_error) {
         file = std::ofstream(filename);
         file << "k;t;C_D;C_L;\\Delta p\n" << std::endl;

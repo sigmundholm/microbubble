@@ -59,7 +59,7 @@ namespace examples::cut::StokesEquation {
                   TensorFunction<1, dim> &analytic_vel,
                   Function<dim> &analytic_pressure,
                   LevelSet<dim> &levelset_func,
-                  int do_nothing_id = 10,
+                  std::vector<int> do_nothing_ids,
                   bool stabilized = true,
                   bool stationary = false,
                   bool compute_error = true);
@@ -106,7 +106,7 @@ namespace examples::cut::StokesEquation {
         const double radius;
         const double half_length;
 
-        unsigned int do_nothing_id;
+        std::vector<int> do_nothing_ids;
 
         // Scaling constants for the stabilizations.
         double velocity_stab_scaling = 0;

@@ -60,7 +60,7 @@ namespace examples::cut::NavierStokes {
                         Function<dim> &analytic_pressure,
                         LevelSet<dim> &levelset_func,
                         bool semi_implicit,
-                        int do_nothing_id = 10,
+                        std::vector<int> do_nothing_ids,
                         bool stabilized = true,
                         bool stationary = false,
                         bool compute_error = true);

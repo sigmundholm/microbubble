@@ -42,7 +42,7 @@ int main() {
     benchmarks::BenchmarkNS<dim> ns(
             nu, tau, radius, half_length, n_refines, elementOrder, write_vtk,
             zero_tensor, boundary, zero_tensor, zero_scalar,
-            domain, "benchmark-2D-3.csv", semi_implicit, 2, false, true);
+            domain, "benchmark-2D-3.csv", semi_implicit, {2}, false, true);
 
     // BDF-1
     ns.run_time(1, 1);
