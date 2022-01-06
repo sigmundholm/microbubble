@@ -10,3 +10,9 @@ target_link_libraries(bm-2d-1 bm-ns)
 add_executable(bm-2d-3 timedep_2D-3.cc)
 deal_ii_setup_target(bm-2d-3)
 target_link_libraries(bm-2d-3 bm-ns)
+
+add_executable(oscillating-cylinder 
+               oscillating_cylinder/oscillating_cylinder.cc 
+               oscillating_cylinder/rhs.cc)
+deal_ii_setup_target(oscillating-cylinder)
+target_link_libraries(oscillating-cylinder bm-ns)

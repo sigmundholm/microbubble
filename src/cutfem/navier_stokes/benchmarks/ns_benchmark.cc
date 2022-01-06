@@ -1,5 +1,9 @@
 #include <deal.II/base/point.h>
 
+#include <deal.II/fe/mapping_cartesian.h>
+#include <deal.II/grid/grid_generator.h>
+#include <deal.II/grid/grid_tools.h>
+#include <deal.II/grid/tria_accessor.h>
 #include <deal.II/numerics/vector_tools.h>
 
 #include "ns_benchmark.h"
@@ -28,6 +32,27 @@ namespace examples::cut::NavierStokes::benchmarks {
             stationary, compute_error) {
         file = std::ofstream(filename);
         file << "k;t;C_D;C_L;\\Delta p\n" << std::endl;
+    }
+    
+    
+    template<int dim>
+    void BenchmarkNS<dim>::
+    make_grid(Triangulation<dim> &tria) {
+        std::cout << "Creating triangulation" << std::endl;
+
+        Point<dim> p1(-this->half_length, -this->radius);
+        Point<dim> p2(this->half_length, this->radius);
+        GridGenerator::hyper_rectangle(tria, p1, p2, true);
+
+        GridTools::remove_anisotropy(tria, 1.618, 5);
+        tria.refine_global(this->n_refines);
+
+        this->mapping_collection.push_back(MappingCartesian<dim>());
+
+        // Save the cell-size, we need it in the Nitsche term.
+        typename Triangulation<dim>::active_cell_iterator cell =
+                tria.begin_active();
+        this->h = std::pow(cell->measure(), 1.0 / dim);
     }
 
 

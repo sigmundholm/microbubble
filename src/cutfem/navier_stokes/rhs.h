@@ -133,7 +133,7 @@ namespace examples::cut::NavierStokes {
 
         double get_radius();
 
-    private:
+    protected:
         const double sphere_radius;
         const double center_x;
         const double center_y;

@@ -42,6 +42,8 @@ namespace examples::cut::NavierStokes::benchmarks {
                     bool stationary = false, bool compute_error = true);
 
     protected:
+        void make_grid(Triangulation<dim> &tria);
+
         /**
          * Compute the pressure difference between two points in front of and
          * behind the sphere. Also compute the drag and lift coefficients of
