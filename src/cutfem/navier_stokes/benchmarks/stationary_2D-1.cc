@@ -36,12 +36,17 @@ int main() {
     const double sphere_radius = 0.05;
     Sphere<dim> domain(sphere_radius, -(half_length - 0.2), -0.005);
 
-    benchmarks::BenchmarkNS<dim> ns(
-            nu, 1, radius, half_length, n_refines, elementOrder, write_vtk,
-            zero_tensor, boundary, zero_tensor, zero_scalar,
-            domain, "benchmark-2D-1.csv", semi_implicit, 2, stationary, false);
+    for (unsigned int n_refines = 4; n_refines <= 10; ++n_refines) {
+        std::cout << "\nn_refines = " << n_refines << std::endl;
+        std::cout << "==========================" << std::endl;
 
-    // Solve the equation using fixed point iteration, with a
-    // semi-implicit convection term.
-    ns.run_step_non_linear(1e-10);
+        benchmarks::BenchmarkNS<dim> ns(
+                nu, 1, radius, half_length, n_refines, elementOrder, write_vtk,
+                zero_tensor, boundary, zero_tensor, zero_scalar,
+                domain, "benchmark-2D-1-d2o1r" + std::to_string(n_refines) + ".csv", semi_implicit, {2}, stationary, false);
+
+        // Solve the equation using fixed point iteration, with a
+        // semi-implicit convection term.
+        ns.run_step_non_linear(1e-12);
+    }
 }
