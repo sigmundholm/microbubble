@@ -4,6 +4,7 @@
 #include <deal.II/base/function.h>
 #include <deal.II/base/point.h>
 #include <deal.II/base/quadrature.h>
+#include <deal.II/base/std_cxx17/optional.h>
 #include <deal.II/base/tensor.h>
 
 #include <deal.II/dofs/dof_tools.h>
@@ -27,6 +28,9 @@
 #include <deal.II/lac/sparsity_pattern.h>
 #include <deal.II/lac/vector.h>
 
+#include <deal.II/non_matching/fe_values.h>
+#include <deal.II/non_matching/fe_immersed_values.h>
+
 #include <deque>
 #include <memory>
 #include <vector>
@@ -39,6 +43,7 @@ namespace utils::problems {
     using namespace dealii;
     using namespace cutfem;
 
+    using NonMatching::FEImmersedSurfaceValues;
     using NonMatching::LocationToLevelSet;
 
 

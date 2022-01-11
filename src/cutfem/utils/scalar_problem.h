@@ -38,8 +38,6 @@ using namespace cutfem;
 
 namespace utils::problems::scalar {
 
-    using NonMatching::LocationToLevelSet;
-
     using namespace utils::problems;
 
 

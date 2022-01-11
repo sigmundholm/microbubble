@@ -14,19 +14,12 @@
 #include <deal.II/lac/solver_control.h>
 #include <deal.II/lac/sparse_direct.h>
 
-#include <deal.II/non_matching/fe_values.h>
-
 #include <deal.II/numerics/data_out_dof_data.h>
 #include <deal.II/numerics/vector_tools.h>
-
-#include <boost/optional.hpp>
 
 #include <assert.h>
 #include <cmath>
 #include <fstream>
-
-#include "cutfem/nla/sparsity_pattern.h"
-#include "cutfem/stabilization/jump_stabilization.h"
 
 #include "../utils/utils.h"
 
@@ -183,11 +176,11 @@ namespace examples::cut::HeatEquation {
             // in the background.
             cut_fe_values.reinit(cell);
 
-            if (location != LocationToLevelSet::OUTSIDE) {
+            if (location != LocationToLevelSet::outside) {
 
                 // Retrieve an FEValues object with quadrature points
                 // over the full cell.
-                const boost::optional<const FEValues<dim> &> fe_values_bulk =
+                const std_cxx17::optional<FEValues<dim>>& fe_values_bulk =
                         cut_fe_values.get_inside_fe_values();
                 if (fe_values_bulk) {
                     assemble_matrix_local_over_cell(*fe_values_bulk, loc2glb);
@@ -195,7 +188,7 @@ namespace examples::cut::HeatEquation {
 
                 // Retrieve an FEValues object with quadrature points
                 // on the immersed surface.
-                const boost::optional<const FEImmersedSurfaceValues<dim> &>
+                const std_cxx17::optional<FEImmersedSurfaceValues<dim>>&
                         fe_values_surface = cut_fe_values.get_surface_fe_values();
                 if (fe_values_surface) {
                     assemble_matrix_local_over_surface(*fe_values_surface,
@@ -343,39 +336,42 @@ namespace examples::cut::HeatEquation {
             // in the background.
             cut_fe_values.reinit(cell);
 
-            // Retrieve an FEValues object with quadrature points
-            // over the full cell.
-            const boost::optional<const FEValues<dim> &> fe_values_bulk =
-                    cut_fe_values.get_inside_fe_values();
+            const LocationToLevelSet location =
+                    this->cut_mesh_classifier.location_to_level_set(cell);
+            if (location != LocationToLevelSet::outside) {
+                // Retrieve an FEValues object with quadrature points
+                // over the full cell.
+                const std_cxx17::optional<FEValues<dim>>& fe_values_bulk =
+                        cut_fe_values.get_inside_fe_values();
 
-            if (fe_values_bulk) {
-                if (this->crank_nicholson) {
-                    assemble_rhs_local_over_cell_cn(*fe_values_bulk, loc2glb,
-                                                    time_step);
-                } else {
-                    if (this->moving_domain) {
-                        this->assemble_rhs_and_bdf_terms_local_over_cell_moving_domain(
-                                *fe_values_bulk, loc2glb);
+                if (fe_values_bulk) {
+                    if (this->crank_nicholson) {
+                        assemble_rhs_local_over_cell_cn(*fe_values_bulk, loc2glb,
+                                                        time_step);
                     } else {
-                        this->assemble_rhs_and_bdf_terms_local_over_cell(
-                                *fe_values_bulk, loc2glb);
-
+                        if (this->moving_domain) {
+                            this->assemble_rhs_and_bdf_terms_local_over_cell_moving_domain(
+                                    *fe_values_bulk, loc2glb);
+                        } else {
+                            this->assemble_rhs_and_bdf_terms_local_over_cell(
+                                    *fe_values_bulk, loc2glb);
+                        }
                     }
                 }
-            }
 
-            // Retrieve an FEValues object with quadrature points
-            // on the immersed surface.
-            const boost::optional<const FEImmersedSurfaceValues<dim> &>
-                    fe_values_surface = cut_fe_values.get_surface_fe_values();
+                // Retrieve an FEValues object with quadrature points
+                // on the immersed surface.
+                const std_cxx17::optional<FEImmersedSurfaceValues<dim>>&
+                        fe_values_surface = cut_fe_values.get_surface_fe_values();
 
-            if (fe_values_surface) {
-                if (this->crank_nicholson) {
-                    assemble_rhs_local_over_surface_cn(*fe_values_surface,
-                                                       loc2glb, time_step);
-                } else {
-                    assemble_rhs_local_over_surface(*fe_values_surface,
-                                                    loc2glb);
+                if (fe_values_surface) {
+                    if (this->crank_nicholson) {
+                        assemble_rhs_local_over_surface_cn(*fe_values_surface,
+                                                        loc2glb, time_step);
+                    } else {
+                        assemble_rhs_local_over_surface(*fe_values_surface,
+                                                        loc2glb);
+                    }
                 }
             }
         }

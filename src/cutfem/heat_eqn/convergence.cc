@@ -4,7 +4,6 @@
 
 #include "heat_eqn.h"
 
-#include "cutfem/geometry/SignedDistanceSphere.h"
 
 using namespace cutfem;
 
@@ -30,13 +29,6 @@ void solve_for_element_order(int element_order, int max_refinement,
 
     double sphere_radius = 0.75 * radius;
     double sphere_x_coord = 0;
-    Point<dim> sphere_center;
-    if (dim == 2) {
-        sphere_center = Point<dim>(0, 0);
-    } else if (dim == 3) {
-        sphere_center = Point<dim>(0, 0, 0);
-    }
-    // cutfem::geometry::SignedDistanceSphere<dim> domain(sphere_radius, sphere_center, 1);
 
     MovingDomain<dim> domain(sphere_radius, half_length, radius);
     // FlowerDomain<dim> domain;

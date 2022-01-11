@@ -1,9 +1,6 @@
 #include "heat_eqn.h"
 #include "rhs.h"
 
-#include "cutfem/geometry/SignedDistanceSphere.h"
-
-using namespace cutfem;
 
 using namespace examples::cut::HeatEquation;
 
@@ -28,13 +25,6 @@ int main() {
 
     double sphere_radius = radius * 0.75;
     double sphere_x_coord = 0;
-    Point<dim> sphere_center;
-    if (dim == 2) {
-        sphere_center = Point<dim>(0, 0);
-    } else if (dim == 3) {
-        sphere_center = Point<dim>(0, 0, 0);
-    }
-    // cutfem::geometry::SignedDistanceSphere<dim> domain(sphere_radius, sphere_center, 1);
 
     // FlowerDomain<dim> domain;
     MovingDomain<dim> domain(sphere_radius, half_length, radius);

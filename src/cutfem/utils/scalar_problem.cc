@@ -1,6 +1,5 @@
 #include <deal.II/base/data_out_base.h>
 #include <deal.II/base/quadrature_lib.h>
-#include <deal.II/base/std_cxx17/optional.h>
 
 #include <deal.II/fe/fe_nothing.h>
 #include <deal.II/fe/fe_update_flags.h>
