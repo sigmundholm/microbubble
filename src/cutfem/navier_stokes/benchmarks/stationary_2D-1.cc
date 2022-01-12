@@ -7,11 +7,12 @@
  *
  * @return
  */
-int main() {
+int main(int argc, char *argv[]) {
+    Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 1);
     using namespace examples::cut::NavierStokes;
     using namespace utils::problems::flow;
 
-    const unsigned int n_refines = 6;
+    const unsigned int n_refines = 1;
     const unsigned int elementOrder = 1;
 
     printf("numRefines=%d\n", n_refines);

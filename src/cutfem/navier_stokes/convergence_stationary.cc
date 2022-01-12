@@ -1,8 +1,6 @@
 #include <iostream>
 #include <vector>
 
-#include "cutfem/geometry/SignedDistanceSphere.h"
-
 #include "../navier_stokes/navier_stokes.h"
 #include "../navier_stokes/rhs_stat.h"
 
@@ -42,8 +40,6 @@ void solve_for_element_order(int element_order, int max_refinement,
          << "bdf_type = " << bdf_type << std::endl
          << "semi_implicit = " << semi_implicit << std::endl << std::endl;
 
-    NavierStokesEqn<dim>::write_header_to_file(file);
-
     stationary::RightHandSide<dim> rhs(nu);
     stationary::AnalyticalVelocity<dim> analytical_velocity(nu);
     stationary::AnalyticalVelocity<dim> boundary_values(nu);
@@ -75,7 +71,10 @@ void solve_for_element_order(int element_order, int max_refinement,
         std::cout << "|| u - u_h ||_H1 = " << error->h1_error_u << std::endl;
         std::cout << "|| p - p_h ||_L2 = " << error->l2_error_p << std::endl;
         std::cout << "|| p - p_h ||_H1 = " << error->h1_error_p << std::endl;
-        NavierStokesEqn<dim>::write_error_to_file(error, file);
+
+        if (n_refines == 3)
+            ns.write_header_to_file(file);
+        ns.write_error_to_file(error, file);
     }
 }
 
@@ -90,6 +89,7 @@ void run_convergence_test(std::vector<int> orders, int max_refinement,
 }
 
 
-int main() {
+int main(int argc, char *argv[]) {
+    Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 1);
     run_convergence_test<2>({1, 2}, 7, true);
 }

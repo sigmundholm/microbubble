@@ -111,7 +111,7 @@ namespace examples::cut::NavierStokes {
 
         void
         integrate_surface_forces(const FEValuesBase<dim> &fe_v,
-                                 Vector<double> solution,
+                                 LA::MPI::Vector solution,
                                  Tensor<1, dim> &viscous_forces,
                                  Tensor<1, dim> &pressure_forces);
 

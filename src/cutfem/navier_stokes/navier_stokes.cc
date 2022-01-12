@@ -22,9 +22,6 @@
 #include <cmath>
 #include <fstream>
 
-#include "cutfem/geometry/SignedDistanceSphere.h"
-#include "cutfem/nla/sparsity_pattern.h"
-
 #include "../utils/utils.h"
 
 #include "navier_stokes.h"
@@ -91,7 +88,7 @@ namespace examples::cut::NavierStokes {
     template<int dim>
     void NavierStokesEqn<dim>::
     make_grid(Triangulation<dim> &tria) {
-        std::cout << "Creating triangulation" << std::endl;
+        this->pcout << "Creating triangulation" << std::endl;
 
         GridGenerator::cylinder(tria, this->radius, this->half_length);
         GridTools::remove_anisotropy(tria, 1.618, 5);
@@ -116,7 +113,7 @@ namespace examples::cut::NavierStokes {
         }
 
         if (semi_implicit) {
-            std::cout << "Stabilization constants set for Navier-Stokes "
+            this->pcout << "Stabilization constants set for Navier-Stokes "
                          "(semi-implicit convection term)." << std::endl;
             this->velocity_stab_scaling =
                     gamma_u * (1 + this->tau / this->h +
@@ -125,7 +122,7 @@ namespace examples::cut::NavierStokes {
                     -gamma_p * this->tau /
                     (this->nu + this->h + pow(this->h, 2) / this->tau);
         } else {
-            std::cout << "Stabilization constants set for Navier-Stokes "
+            this->pcout << "Stabilization constants set for Navier-Stokes "
                          "(explicit convection term)." << std::endl;
             this->velocity_stab_scaling =
                     gamma_u * (1 + this->tau * this->nu / pow(this->h, 2));
@@ -139,7 +136,7 @@ namespace examples::cut::NavierStokes {
     template<int dim>
     void NavierStokesEqn<dim>::
     assemble_timedep_matrix() {
-        std::cout << "Assembling: Navier-Stokes convection term" << std::endl;
+        this->pcout << "Assembling: Navier-Stokes convection term" << std::endl;
 
         // When the domain is moving, the whole stiffness matrix needs to be
         // assembled in each time step.
@@ -167,30 +164,33 @@ namespace examples::cut::NavierStokes {
                                                  this->levelset);
 
         for (const auto &cell : this->dof_handlers.front()->active_cell_iterators()) {
-            const unsigned int n_dofs = cell->get_fe().dofs_per_cell;
-            const LocationToLevelSet location =
-                    this->cut_mesh_classifier.location_to_level_set(cell);
-            std::vector<types::global_dof_index> loc2glb(n_dofs);
-            cell->get_dof_indices(loc2glb);
+            if (cell->is_locally_owned()) {
+                const unsigned int n_dofs = cell->get_fe().dofs_per_cell;
+                const LocationToLevelSet location =
+                        this->cut_mesh_classifier.location_to_level_set(cell);
+                std::vector<types::global_dof_index> loc2glb(n_dofs);
+                cell->get_dof_indices(loc2glb);
 
-            // This call will compute quadrature rules relevant for this cell
-            // in the background.
-            cut_fe_values.reinit(cell);
+                // This call will compute quadrature rules relevant for this cell
+                // in the background.
+                cut_fe_values.reinit(cell);
 
-            if (location != LocationToLevelSet::OUTSIDE) {
-                // Retrieve an FEValues object with quadrature points
-                // over the full cell.
-                const boost::optional<const FEValues<dim> &> fe_values_bulk =
-                        cut_fe_values.get_inside_fe_values();
+                if (location != LocationToLevelSet::outside) {
+                    // Retrieve an FEValues object with quadrature points
+                    // over the full cell.
+                    const std_cxx17::optional<FEValues<dim>>& fe_values_bulk =
+                            cut_fe_values.get_inside_fe_values();
 
-                if (fe_values_bulk) {
-                    assemble_convection_over_cell(*fe_values_bulk, loc2glb);
+                    if (fe_values_bulk) {
+                        assemble_convection_over_cell(*fe_values_bulk, loc2glb);
+                    }
                 }
+                // TODO might need to add stabilizations that are dependent on the
+                //  solution in the previous time step.
+                //  - ex when we have moving domains?
             }
-            // TODO might need to add stabilizations that are dependent on the
-            //  solution in the previous time step.
-            //  - ex when we have moving domains?
         }
+        this->timedep_stiffness_matrix.compress(VectorOperation::add);
     }
 
 
@@ -376,7 +376,7 @@ namespace examples::cut::NavierStokes {
                 // can be stabilized. When the aftive mesh is sufficiently
                 // big in all time steps, we should never enter this clause.
                 // If this happens, the values of 0 vill be used.
-                std::cout << "# NB: need larger cell buffer outside the "
+                this->pcout << "# NB: need larger cell buffer outside the "
                              "physical domain, to compute the convection term."
                           << std::endl;
             } else {
@@ -421,7 +421,8 @@ namespace examples::cut::NavierStokes {
     template<int dim>
     void NavierStokesEqn<dim>::
     assemble_rhs(int time_step) {
-        std::cout << "Assembling rhs: Navier-Stokes" << std::endl;
+        (void) time_step;
+        this->pcout << "Assembling rhs: Navier-Stokes" << std::endl;
 
         NonMatching::RegionUpdateFlags region_update_flags;
         region_update_flags.inside = update_values | update_quadrature_points
@@ -454,50 +455,53 @@ namespace examples::cut::NavierStokes {
         // rhs = 0;
 
         for (const auto &cell : this->dof_handlers.front()->active_cell_iterators()) {
-            const unsigned int n_dofs = cell->get_fe().dofs_per_cell;
-            std::vector<types::global_dof_index> loc2glb(n_dofs);
-            cell->get_dof_indices(loc2glb);
+            if (cell->is_locally_owned()) {
+                const unsigned int n_dofs = cell->get_fe().dofs_per_cell;
+                std::vector<types::global_dof_index> loc2glb(n_dofs);
+                cell->get_dof_indices(loc2glb);
 
-            // This call will compute quadrature rules relevant for this cell
-            // in the background.
-            cut_fe_values.reinit(cell);
+                // This call will compute quadrature rules relevant for this cell
+                // in the background.
+                cut_fe_values.reinit(cell);
 
-            // Retrieve an FEValues object with quadrature points
-            // over the full cell.
-            const boost::optional<const FEValues<dim> &> fe_values_bulk =
-                    cut_fe_values.get_inside_fe_values();
+                // Retrieve an FEValues object with quadrature points
+                // over the full cell.
+                const std_cxx17::optional<FEValues<dim>>& fe_values_bulk =
+                        cut_fe_values.get_inside_fe_values();
 
-            if (fe_values_bulk) {
-                if (this->moving_domain) {
-                    this->assemble_rhs_and_bdf_terms_local_over_cell_moving_domain(
-                            *fe_values_bulk, loc2glb);
-                } else {
-                    this->assemble_rhs_and_bdf_terms_local_over_cell(
-                            *fe_values_bulk, loc2glb);
+                if (fe_values_bulk) {
+                    if (this->moving_domain) {
+                        this->assemble_rhs_and_bdf_terms_local_over_cell_moving_domain(
+                                *fe_values_bulk, loc2glb);
+                    } else {
+                        this->assemble_rhs_and_bdf_terms_local_over_cell(
+                                *fe_values_bulk, loc2glb);
+                    }
                 }
-            }
 
-            // Loop through all faces that constitutes the outer boundary of the
-            // domain.
-            for (const auto &face : cell->face_iterators()) {
-                if (face->at_boundary() &&
-                    face->boundary_id() != this->do_nothing_id) {
-                    fe_face_values.reinit(cell, face);
-                    this->assemble_rhs_local_over_surface(fe_face_values,
-                                                          loc2glb);
+                // Loop through all faces that constitutes the outer boundary of the
+                // domain.
+                for (const auto &face : cell->face_iterators()) {
+                    if (face->at_boundary() &&
+                        face->boundary_id() != this->do_nothing_id) {
+                        fe_face_values.reinit(cell, face);
+                        this->assemble_rhs_local_over_surface(fe_face_values,
+                                                            loc2glb);
+                    }
                 }
-            }
 
-            // Retrieve an FEValues object with quadrature points
-            // on the immersed surface.
-            const boost::optional<const FEImmersedSurfaceValues<dim> &>
-                    fe_values_surface = cut_fe_values.get_surface_fe_values();
+                // Retrieve an FEValues object with quadrature points
+                // on the immersed surface.
+                const std_cxx17::optional<FEImmersedSurfaceValues<dim>>&
+                        fe_values_surface = cut_fe_values.get_surface_fe_values();
 
-            if (fe_values_surface) {
-                this->assemble_rhs_local_over_surface(*fe_values_surface,
-                                                      loc2glb);
+                if (fe_values_surface) {
+                    this->assemble_rhs_local_over_surface(*fe_values_surface,
+                                                        loc2glb);
+                }
             }
         }
+        this->rhs.compress(VectorOperation::add);
     }
 
 
@@ -641,7 +645,7 @@ namespace examples::cut::NavierStokes {
                 // can be stabilized. When the aftive mesh is sufficiently
                 // big in all time steps, we should never enter this clause.
                 // If this happens, the values of 0 vill be used.
-                std::cout << "# NB: need larger cell buffer outside the "
+                this->pcout << "# NB: need larger cell buffer outside the "
                              "physical domain." << std::endl;
             } else {
                 // Get the function values from the previous time steps.
@@ -719,22 +723,24 @@ namespace examples::cut::NavierStokes {
         Tensor<1, dim> viscous_forces;
         Tensor<1, dim> pressure_forces;
         for (const auto &cell : this->dof_handlers.front()->active_cell_iterators()) {
-            const unsigned int n_dofs = cell->get_fe().dofs_per_cell;
-            // This call will compute quadrature rules relevant for this cell
-            // in the background.
-            cut_fe_values.reinit(cell);
+            if (cell->is_locally_owned()) {
+                // This call will compute quadrature rules relevant for this cell
+                // in the background.
+                cut_fe_values.reinit(cell);
 
-            // Retrieve an FEValues object with quadrature points
-            // on the immersed surface.
-            const boost::optional<const FEImmersedSurfaceValues<dim> &>
-                    fe_values_surface = cut_fe_values.get_surface_fe_values();
-            if (fe_values_surface) {
-                integrate_surface_forces(*fe_values_surface,
-                                         this->solutions.front(),
-                                         viscous_forces,
-                                         pressure_forces);
+                // Retrieve an FEValues object with quadrature points
+                // on the immersed surface.
+                const std_cxx17::optional<FEImmersedSurfaceValues<dim>>&
+                        fe_values_surface = cut_fe_values.get_surface_fe_values();
+                if (fe_values_surface) {
+                    integrate_surface_forces(*fe_values_surface,
+                                            this->solutions.front(),
+                                            viscous_forces,
+                                            pressure_forces);
+                }
             }
         }
+        // TODO sum coorectly for MPI
         Tensor<1, dim> surface_forces = viscous_forces + pressure_forces;
         return surface_forces;
     }
@@ -743,7 +749,7 @@ namespace examples::cut::NavierStokes {
     template<int dim>
     void NavierStokesEqn<dim>::
     integrate_surface_forces(const FEValuesBase<dim> &fe_v,
-                             Vector<double> solution,
+                             LA::MPI::Vector solution,
                              Tensor<1, dim> &viscous_forces,
                              Tensor<1, dim> &pressure_forces) {
 

@@ -7,11 +7,12 @@
  *
  * @return
  */
-int main() {
+int main(int argc, char *argv[]) {
+    Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 1);
     using namespace examples::cut::NavierStokes;
     using namespace utils::problems::flow;
 
-    const unsigned int n_refines = 5;
+    const unsigned int n_refines = 1;
     const unsigned int elementOrder = 1;
 
     printf("numRefines=%d\n", n_refines);
@@ -46,8 +47,8 @@ int main() {
 
     // BDF-1
     ns.run_time(1, 1);
-    Vector<double> u1 = ns.get_solution();
-    std::vector<Vector<double>> initial = {u1};
+    LA::MPI::Vector u1 = ns.get_solution();
+    std::vector<LA::MPI::Vector> initial = {u1};
 
     // BDF-2
     ns.run_time(2, time_steps, initial);

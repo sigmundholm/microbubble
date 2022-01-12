@@ -3,7 +3,8 @@
 #include "../utils/flow_problem.h" // TODO må denne inkluderes?
 
 
-int main() {
+int main(int argc, char *argv[]) {
+    Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 1);
     using namespace examples::cut::NavierStokes;
     using namespace utils::problems::flow;
 
