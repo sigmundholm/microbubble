@@ -64,10 +64,10 @@ namespace examples::cut::StokesEquation {
                   bool stationary = false,
                   bool compute_error = true);
 
-        static void
+        void
         write_header_to_file(std::ofstream &file);
 
-        static void
+        void
         write_error_to_file(ErrorBase *error, std::ofstream &file);
 
     protected:

@@ -59,6 +59,7 @@ namespace Utils {
     /**
      * Write the numerical solution to the supplied file object.
      */
+    /*
     template<int dim>
     void writeNumericalSolution(const DoFHandler<dim> &dof,
                                 const Vector<double> &solution,
@@ -78,12 +79,14 @@ namespace Utils {
         data_out.build_patches();
         data_out.write_vtk(file);
     }
+    */
 
 
     /**
      * Write the analytical solution, and the difference between the analytical
      * and numerical solution to vtk file.
      */
+    /*
     template<int dim>
     void writeAnalyticalSolutionAndDiff(
             const DoFHandler<dim> &dof,
@@ -134,6 +137,7 @@ namespace Utils {
         out.build_patches();
         out.write_vtk(file_diff);
     }
+    */
 
 } // namespace Utils
 

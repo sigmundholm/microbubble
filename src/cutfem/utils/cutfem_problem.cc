@@ -89,6 +89,7 @@ namespace utils::problems {
               << " MPI rank(s)." << std::endl;
 
         make_grid(triangulation);
+        std::cout << "  n_cells = " << triangulation.n_cells() << std::endl;
         set_grid_size();
         setup_quadrature();
         set_function_times(0);
@@ -145,6 +146,7 @@ namespace utils::problems {
         pcout << "---------------------------\n" << std::endl;
 
         make_grid(triangulation);
+        std::cout << "  n_cells = " << triangulation.n_cells() << std::endl;
         set_grid_size();
         setup_quadrature();
         set_function_times(0);
@@ -262,6 +264,7 @@ namespace utils::problems {
         // of a BDF-method.
         if (triangulation.n_quads() == 0) {
             make_grid(triangulation);
+            std::cout << "  n_cells = " << triangulation.n_cells() << std::endl;
             set_grid_size();
             setup_quadrature();
         }
@@ -403,6 +406,7 @@ namespace utils::problems {
         // of a BDF-method.
         if (triangulation.n_quads() == 0) {
             make_grid(triangulation);
+            std::cout << "  n_cells = " << triangulation.n_cells() << std::endl;
             set_grid_size();
             setup_quadrature();
         }
@@ -1116,6 +1120,29 @@ namespace utils::problems {
                    LA::MPI::Vector &solution,
                    bool minimal_output) const {
         output_results(dof_handler, solution, 0, minimal_output);
+    }
+
+    template<int dim>
+    void CutFEMProblem<dim>::
+    output_levelset(int time_step) const {
+        DataOut<dim> data_out_levelset;
+        data_out_levelset.attach_dof_handler(levelset_dof_handler);
+        data_out_levelset.add_data_vector(levelset, "levelset");
+        data_out_levelset.build_patches();
+
+        // Write the subdomains.
+        Vector<float> subdomain(triangulation.n_active_cells());
+        for (unsigned int i = 0; i < subdomain.size(); ++i) {
+            subdomain(i) = triangulation.locally_owned_subdomain();
+        }
+        data_out_levelset.add_data_vector(subdomain, "subdomain");
+        data_out_levelset.build_patches();
+
+        data_out_levelset.write_vtu_with_pvtu_record(
+            "", "levelset-d" + std::to_string(dim)
+                + "o" + std::to_string(element_order)
+                + "r" + std::to_string(n_refines),
+            time_step, mpi_communicator, 2, 8);
     }
 
 

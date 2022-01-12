@@ -50,6 +50,11 @@ using namespace dealii::LinearAlgebraTrilinos;
 #include <deal.II/distributed/tria.h>
 #include <deal.II/distributed/grid_refinement.h>
 
+#include <deal.II/non_matching/fe_values.h>
+#include <deal.II/non_matching/fe_immersed_values.h>
+
+#include <deal.II/numerics/data_out.h>
+
 #include <deque>
 #include <fstream>
 #include <iostream>
@@ -64,6 +69,7 @@ namespace utils::problems {
     using namespace dealii;
     using namespace cutfem;
 
+    using NonMatching::FEImmersedSurfaceValues;
     using NonMatching::LocationToLevelSet;
 
 
@@ -324,6 +330,9 @@ namespace utils::problems {
         output_results(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
                        LA::MPI::Vector &solution,
                        bool minimal_output = false) const;
+
+        void
+        output_levelset(int time_step) const;
 
         virtual void
         post_processing(unsigned int time_step);

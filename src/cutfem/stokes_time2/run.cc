@@ -1,10 +1,11 @@
 #include "stokes.h"
 
 
-int main() {
+int main(int argc, char *argv[]) {
+    Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 1);
     using namespace examples::cut::StokesEquation;
 
-    const unsigned int n_refines = 4;
+    const unsigned int n_refines = 6;
     const unsigned int elementOrder = 1;
 
     printf("numRefines=%d\n", n_refines);
@@ -12,7 +13,7 @@ int main() {
     const bool write_vtk = true;
 
     double radius = 0.05;
-    double half_length = 2 * radius;
+    double half_length = radius;
 
     double nu = 1;
     double end_time = 0.05;
@@ -29,15 +30,12 @@ int main() {
     AnalyticalPressure<dim> analytical_pressure(nu);
     MovingDomain<dim> domain(sphere_radius, half_length, radius);
 
-    Point<dim> center = Point<dim>(0, 0);
-    // cutfem::geometry::SignedDistanceSphere<dim> domain(sphere_radius, center, -1);
-
     StokesEqn<dim> stokes(nu, tau, radius, half_length, n_refines,
                                elementOrder, write_vtk, rhs, boundary,
                                analytical_velocity, analytical_pressure,
                                domain);
 
-    ErrorBase *err = stokes.run_moving_domain(1, n_steps, 1.333);
+    ErrorBase *err = stokes.run_time(1, n_steps);
     auto *error = dynamic_cast<ErrorFlow*>(err);
 
     std::cout << "Mesh size h = " << error->h << std::endl;

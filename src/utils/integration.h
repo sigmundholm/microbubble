@@ -2,10 +2,13 @@
 #define MICROBUBBLE_INTEGRATION_H
 
 #include <deal.II/base/function.h>
+#include <deal.II/base/std_cxx17/optional.h>
 #include <deal.II/lac/vector.h>
 #include <deal.II/dofs/dof_handler.h>
 #include <deal.II/fe/fe_values.h>
 #include <deal.II/non_matching/fe_values.h>
+
+#include "../cutfem/utils/cutfem_problem.h"
 
 
 using namespace dealii;
@@ -17,9 +20,9 @@ namespace Utils {
      * Compute the mean of the numerical and the exact pressure over the domain.
      */
     template<int dim>
-    void compute_mean_pressure(DoFHandler<dim> &dof,
+    void compute_mean_pressure(hp::DoFHandler<dim> &dof,
                                NonMatching::FEValues<dim> &cut_fe_v,
-                               Vector<double> &solution,
+                               LA::MPI::Vector &solution,
                                Function<dim> &pressure,
                                double &mean_numerical_pressure,
                                double &mean_analytical_pressure) {
@@ -31,7 +34,7 @@ namespace Utils {
         for (const auto &cell : dof.active_cell_iterators()) {
             cut_fe_v.reinit(cell);
 
-            const boost::optional<const FEValues<dim> &> fe_v =
+            const std_cxx17::optional<FEValues<dim>>& fe_v =
                     cut_fe_v.get_inside_fe_values();
             if (fe_v) {
 

@@ -79,12 +79,6 @@ namespace utils::problems::flow {
                     const bool stationary = false,
                     const bool compute_error = true);
 
-        static void
-        write_header_to_file(std::ofstream &file);
-
-        static void
-        write_error_to_file(ErrorBase *error, std::ofstream &file);
-
     protected:
         void
         interpolate_solution(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
@@ -109,14 +103,14 @@ namespace utils::problems::flow {
 
         ErrorBase *
         compute_error(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
-                      Vector<double> &solution) override;
+                      LA::MPI::Vector &solution) override;
 
         ErrorBase *
         compute_time_error(std::vector<ErrorBase *> &errors) override;
 
         void
         integrate_cell(const FEValues<dim> &fe_v,
-                       Vector<double> &solution,
+                       LA::MPI::Vector &solution,
                        double &l2_error_integral_u,
                        double &h1_error_integral_u,
                        double &l2_error_integral_p,
@@ -135,8 +129,8 @@ namespace utils::problems::flow {
 
         void
         output_results(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
-                       Vector<double> &solution,
-                       std::string &suffix,
+                       LA::MPI::Vector &solution,
+                       int time_step,
                        bool minimal_output = false) const override;
 
         FESystem<dim> mixed_fe;

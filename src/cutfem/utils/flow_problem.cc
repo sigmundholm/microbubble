@@ -12,23 +12,17 @@
 #include <deal.II/lac/solver_control.h>
 #include <deal.II/lac/sparse_direct.h>
 
-#include <deal.II/non_matching/cut_mesh_classifier.h>
+#include <deal.II/non_matching/mesh_classifier.h>
 #include <deal.II/non_matching/fe_values.h>
 
-#include <deal.II/numerics/data_out.h>
 #include <deal.II/numerics/data_out_dof_data.h>
 #include <deal.II/numerics/vector_tools.h>
-
-#include <boost/optional.hpp>
 
 #include <cmath>
 #include <fstream>
 
-#include "cutfem/geometry/SignedDistanceSphere.h"
-#include "cutfem/nla/sparsity_pattern.h"
-
-#include "../../utils/integration.h"
 #include "../../utils/output.h"
+#include "../../utils/integration.h"
 #include "flow_problem.h"
 
 
@@ -204,7 +198,7 @@ namespace utils::problems::flow {
                 // can be stabilized. When the aftive mesh is sufficiently
                 // big in all time steps, we should never enter this clause.
                 // If this happens, the values of 0 vill be used.
-                std::cout << "# NB: need larger cell buffer outside the "
+                this->pcout << "# NB: need larger cell buffer outside the "
                              "physical domain." << std::endl;
             } else {
                 // Get the function values from the previous time steps.
@@ -239,8 +233,8 @@ namespace utils::problems::flow {
     template<int dim>
     ErrorBase *FlowProblem<dim>::
     compute_error(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
-                  Vector<double> &solution) {
-        std::cout << "Compute error" << std::endl;
+                  LA::MPI::Vector &solution) {
+        this->pcout << "Compute error" << std::endl;
         NonMatching::RegionUpdateFlags region_update_flags;
         region_update_flags.inside = update_values | update_JxW_values |
                                      update_gradients |
@@ -286,7 +280,7 @@ namespace utils::problems::flow {
         for (const auto &cell : dof_handler->active_cell_iterators()) {
             cut_fe_values.reinit(cell);
 
-            const boost::optional<const FEValues<dim> &> fe_values_inside =
+            const std_cxx17::optional<FEValues<dim>>& fe_values_inside =
                     cut_fe_values.get_inside_fe_values();
 
             if (fe_values_inside) {
@@ -297,6 +291,7 @@ namespace utils::problems::flow {
                                mean_ext_pressure);
             }
         }
+        // TODO fix for MPI.
 
         ErrorFlow *error = new ErrorFlow();
         error->h = this->h;
@@ -366,7 +361,7 @@ namespace utils::problems::flow {
     template<int dim>
     void FlowProblem<dim>::
     integrate_cell(const FEValues<dim> &fe_v,
-                   Vector<double> &solution,
+                   LA::MPI::Vector &solution,
                    double &l2_error_integral_u,
                    double &h1_error_integral_u,
                    double &l2_error_integral_p,
@@ -441,53 +436,83 @@ namespace utils::problems::flow {
     template<int dim>
     void FlowProblem<dim>::
     write_time_header_to_file(std::ofstream &file) {
-        file << "k, \\tau, h, \\|u\\|_{L^2}, \\|u\\|_{H^1}, |u|_{H^1}, "
-                "\\|p\\|_{L^2}, \\|p\\|_{H^1}, |p|_{H^1}, \\kappa(A)"
-             << std::endl;
+        if (this->this_mpi_process == 0) {
+            file << "k, \\tau, h, \\|u\\|_{L^2}, \\|u\\|_{H^1}, |u|_{H^1}, "
+                    "\\|p\\|_{L^2}, \\|p\\|_{H^1}, |p|_{H^1}, \\kappa(A)"
+                << std::endl;
+        }
     }
 
 
     template<int dim>
     void FlowProblem<dim>::
     write_time_error_to_file(ErrorBase *error, std::ofstream &file) {
-        auto *err = dynamic_cast<ErrorFlow *>(error);
-        file << err->time_step << ","
-             << err->tau << ","
-             << err->h << ","
-             << err->l2_error_u << ","
-             << err->h1_error_u << ","
-             << err->h1_semi_u << ","
-             << err->l2_error_p << ","
-             << err->h1_error_p << ","
-             << err->h1_semi_p << ","
-             << err->cond_num << std::endl;
+        if (this->this_mpi_process == 0) {
+            auto *err = dynamic_cast<ErrorFlow *>(error);
+            file << err->time_step << ","
+                << err->tau << ","
+                << err->h << ","
+                << err->l2_error_u << ","
+                << err->h1_error_u << ","
+                << err->h1_semi_u << ","
+                << err->l2_error_p << ","
+                << err->h1_error_p << ","
+                << err->h1_semi_p << ","
+                << err->cond_num << std::endl;
+        }
     }
 
 
     template<int dim>
     void FlowProblem<dim>::
     output_results(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
-                   Vector<double> &solution,
-                   std::string &suffix,
+                   LA::MPI::Vector &solution,
+                   int time_step,
                    bool minimal_output) const {
-        std::cout << "Output results flow" << std::endl;
+        this->pcout << "Output results flow" << std::endl;
         // Output results, see step-22
 
-        std::ofstream output("solution-d" + std::to_string(dim)
-                             + "o" + std::to_string(this->element_order)
-                             + "r" + std::to_string(this->n_refines)
-                             + "-" + suffix + ".vtk");
-        Utils::writeNumericalSolution(*dof_handler, solution, output);
+        std::vector<std::string> solution_names(dim, "velocity");
+        solution_names.emplace_back("pressure");
+        std::vector<DataComponentInterpretation::DataComponentInterpretation> dci(
+                dim, DataComponentInterpretation::component_is_part_of_vector);
+        dci.push_back(DataComponentInterpretation::component_is_scalar);
+
+        DataOut<dim> data_out;
+        data_out.attach_dof_handler(*dof_handler);
+        data_out.add_data_vector(solution,
+                                 solution_names,
+                                 DataOut<dim>::type_dof_data,
+                                 dci);
+        // TODO should this be called before sudbdomain is added?
+        data_out.build_patches();
+        
+        Vector<float> subdomain(this->triangulation.n_active_cells());
+        for (unsigned int i = 0; i < subdomain.size(); ++i) {
+            subdomain(i) = this->triangulation.locally_owned_subdomain();
+        }
+        data_out.add_data_vector(subdomain, "subdomain");
+        data_out.build_patches();
+
+        data_out.write_vtu_with_pvtu_record(
+            "", "solution-d" + std::to_string(dim)
+                 + "o" + std::to_string(this->element_order)
+                 + "r" + std::to_string(this->n_refines),
+            time_step, this->mpi_communicator, 2, 8);
+
 
         if (!minimal_output) {
             std::ofstream output_ex("analytical-d" + std::to_string(dim)
                                     + "o" + std::to_string(this->element_order)
                                     + "r" + std::to_string(this->n_refines)
-                                    + "-" + suffix + ".vtk");
+                                    + "-" +  ".vtk");
             std::ofstream file_diff("diff-d" + std::to_string(dim)
                                     + "o" + std::to_string(this->element_order)
                                     + "r" + std::to_string(this->n_refines)
-                                    + "-" + suffix + ".vtk");
+                                    + "-" + ".vtk");
+            
+            // TODO fiks
+            /*
             Utils::writeAnalyticalSolutionAndDiff(*dof_handler,
                                                   this->fe_collection,
                                                   solution,
@@ -495,19 +520,9 @@ namespace utils::problems::flow {
                                                   *analytical_pressure,
                                                   output_ex,
                                                   file_diff);
-
+            */
             // Output levelset function.
-            DataOut<dim, DoFHandler<dim>> data_out_levelset;
-            data_out_levelset.attach_dof_handler(
-                    this->levelset_dof_handler);
-            data_out_levelset.add_data_vector(this->levelset, "levelset");
-            data_out_levelset.build_patches();
-            std::ofstream output_ls("levelset-d" + std::to_string(dim)
-                                    + "o" +
-                                    std::to_string(this->element_order)
-                                    + "r" + std::to_string(this->n_refines)
-                                    + "-" + suffix + ".vtk");
-            data_out_levelset.write_vtk(output_ls);
+            this->output_levelset(time_step);
         }
     }
 
