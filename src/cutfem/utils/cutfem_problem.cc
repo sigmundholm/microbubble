@@ -809,7 +809,7 @@ namespace utils::problems {
         LA::MPI::Vector levelset_projection(ls_locally_owned_dofs, mpi_communicator);
         levelset_projection.reinit(ls_locally_owned_dofs, ls_locally_relevant_dofs, mpi_communicator);
 
-        VectorTools::project(MappingCartesian<dim>(),
+        VectorTools::project(mapping_collection[0],
                              levelset_dof_handler,
                              constraints,
                              QGauss<dim>(element_order + 2),
