@@ -659,9 +659,8 @@ namespace utils::problems {
                                       solutions.front());
             errors[k]->time_step = k;
             errors[k]->output();
-            std::string suffix = std::to_string(k) + "-inter";
             this->output_results(dof_handlers.front(),
-                                 solutions.front(), suffix);
+                                 solutions.front(), k, false);
         }
     }
 
@@ -1108,6 +1107,7 @@ namespace utils::problems {
         (void) solution;
         (void) suffix;
         (void) minimal_output;
+        // TODO remove this unused old method.
     }
 
     template<int dim>
