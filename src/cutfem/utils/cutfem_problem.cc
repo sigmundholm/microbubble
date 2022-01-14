@@ -189,6 +189,7 @@ namespace utils::problems {
     run_time(unsigned int bdf_type, unsigned int steps,
              std::vector<Vector<double>> &supplied_solutions) {
 
+        std::cout << "Stationary domain" << std::endl;
         std::cout << "\nBDF-" << bdf_type << ", steps=" << steps << std::endl;
         std::cout << "-------------------------" << std::endl;
 
@@ -317,6 +318,7 @@ namespace utils::problems {
                       std::vector<std::shared_ptr<hp::DoFHandler<dim>>> &supplied_dof_handlers,
                       const double mesh_bound_multiplier) {
 
+        std::cout << "Moving domain" << std::endl;
         std::cout << "\nBDF-" << bdf_type << ", steps=" << steps << std::endl;
         std::cout << "-------------------------" << std::endl;
         moving_domain = true;
