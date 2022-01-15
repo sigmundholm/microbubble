@@ -110,11 +110,28 @@ namespace examples::cut::HeatEquation {
             const std::vector<types::global_dof_index> &loc2glb) {
         throw std::logic_error("One step run not available for Heat Equation");
     }
+    
+
+    template<int dim>
+    void HeatEqn<dim>::
+    pre_matrix_assembly() {
+        std::cout << "Stabilisation constants set for HeatEqn." << std::endl;
+        // Set the CutFEM stabilsation scalings.
+        double beta_0 = 0.5;
+        double beta_M = beta_0;
+        double beta_A = beta_0;
+        this->stab_scaling = beta_M + beta_A * this->tau * nu / pow(this->h, 2);
+        std::cout << "  beta_0 = " << beta_0 
+                  << ", beta_M = " << beta_M
+                  << ", beta_A = " << beta_A << std::endl
+                  << "  stab_scaling = " << stab_scaling << std::endl;
+    }
+
 
     template<int dim>
     void HeatEqn<dim>::
     assemble_matrix() {
-        std::cout << "Assembling" << std::endl;
+        std::cout << "Assembling heat" << std::endl;
 
         this->stiffness_matrix = 0;
         this->rhs = 0;
@@ -164,12 +181,6 @@ namespace examples::cut::HeatEquation {
                                          update_normal_vectors |
                                          update_JxW_values);
 
-        double beta_0 = 0.1;
-        double gamma_A =
-                beta_0 * this->element_order * (this->element_order + 1);
-        double gamma_M =
-                beta_0 * this->element_order * (this->element_order + 1);
-
         for (const auto &cell : this->dof_handlers.front()->active_cell_iterators()) {
             const unsigned int n_dofs = cell->get_fe().dofs_per_cell;
 
@@ -206,10 +217,8 @@ namespace examples::cut::HeatEquation {
             if (this->stabilized) {
                 // Compute and add the velocity stabilization.
                 stabilization.compute_stabilization(cell);
-                double scaling = this->tau * gamma_M +
-                                 this->tau * nu * gamma_A / pow(this->h, 2);
                 stabilization.add_stabilization_to_matrix(
-                        scaling,
+                        this->stab_scaling,
                         this->stiffness_matrix);
             }
         }

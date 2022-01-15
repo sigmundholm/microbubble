@@ -71,6 +71,12 @@ namespace examples::cut::HeatEquation {
 
         void
         make_grid(Triangulation<dim> &tria) override;
+        
+        void
+        pre_matrix_assembly() override;
+
+        void
+        assemble_matrix() override;
 
         virtual void
         assemble_local_over_cell(const FEValues<dim> &fe_values,
@@ -80,9 +86,6 @@ namespace examples::cut::HeatEquation {
         assemble_local_over_surface(
                 const FEValuesBase<dim> &fe_values,
                 const std::vector<types::global_dof_index> &loc2glb) override;
-
-        void
-        assemble_matrix() override;
 
         void
         assemble_matrix_local_over_cell(const FEValues<dim> &fe_values,
@@ -118,6 +121,8 @@ namespace examples::cut::HeatEquation {
         const double radius;
         const double half_length;
 
+        // Scaling constant for the CutFEM stabilisation.
+        double stab_scaling = 0;
     };
 
 } // namespace examples::cut::HeatEquation
