@@ -27,6 +27,16 @@ void solve_for_element_order(int element_order, int max_refinement,
     std::ofstream file("errors-d" + std::to_string(dim)
                        + "o" + std::to_string(element_order) + ".csv");
     StokesEqn<dim>::write_header_to_file(file);
+    
+    std::ofstream meta("e-meta-d" + std::to_string(dim)
+                       + "o" + std::to_string(element_order) + ".txt");
+    meta << "Stokes convergence test" << std::endl
+         << "=======================" << std::endl
+         << "radius = " << radius << std::endl
+         << "half_length = " << half_length << std::endl
+         << "end_time = " << end_time << std::endl
+         << "sphere_radius = " << sphere_radius << std::endl
+         << "nu = " << nu << std::endl;
 
     RightHandSide<dim> rhs(nu);
     BoundaryValues<dim> boundary_values(nu);
@@ -52,46 +62,23 @@ void solve_for_element_order(int element_order, int max_refinement,
         std::cout << "T = " << end_time << ", tau = " << tau
                   << ", steps = " << time_steps << std::endl << std::endl;
 
-        // L^2 projection of the step u0.
-        analytical_velocity.set_time(0);
-        analytical_pressure.set_time(0);
-        /*
-        projections::ProjectionFlow<dim> u0_proj(
-                radius, half_length, n_refines, element_order, write_output,
-                domain, analytical_velocity,
-                analytical_pressure,
-                sphere_radius, sphere_x_coord);
-        ErrorBase err_proj = u0_proj.run_step();
-        auto *error_proj = dynamic_cast<ErrorFlow*>(err_proj);
-        std::cout << "  || u - u_h ||_L2 = " << error_proj.l2_error_u << std::endl;
-        std::cout << "  || u - u_h ||_H1 = " << error_proj.h1_error_u << std::endl;
-        std::cout << "  || p - p_h ||_L2 = " << error_proj.l2_error_p << std::endl;
-        std::cout << "  || p - p_h ||_H1 = " << error_proj.h1_error_p << std::endl;
-        Vector<double> u0 = u0_proj.get_solution();
-         */
-
-        StokesEqn<dim> stokes_bdf1(
+        StokesEqn<dim> stokes(
                 nu, tau, radius, half_length, n_refines, element_order,
                 write_output, rhs, boundary_values, analytical_velocity,
                 analytical_pressure, domain);
 
-        ErrorBase *bdf1_err = stokes_bdf1.run_time(2, time_steps);
+        // BDF-1
+        ErrorBase *bdf1_err = stokes.run_moving_domain(1, 1, 2);
 
-        /*
-        // std::cout << std::endl << "BDF-2" << std::endl << std::endl;
-        StokesCylinder<dim> stokes_bdf2(
-                radius, half_length, n_refines,
-                nu, tau, element_order, write_output,
-                rhs,
-                boundary_values, analytical_velocity,
-                analytical_pressure,
-                sphere_radius, sphere_x_coord);
+        Vector<double> u1 = stokes.get_solution();
+        std::shared_ptr<hp::DoFHandler<dim>> u1_dof_h = stokes.get_dof_handler();
 
-        Vector<double> u1 = stokes_bdf1.get_solution();
-        std::vector<Vector<double>> initial2 = {u0, u1};
-        TimeDependentStokesBDF2::Error error2 = stokes_bdf2.run(2, time_steps,
-                                                                initial2);
-         */
+        // BDF-2
+        std::vector<Vector<double>> initial = {u1};
+        std::vector<std::shared_ptr<hp::DoFHandler<dim>>> initial_dof_h = {
+                u1_dof_h};
+
+        ErrorBase *error2 = stokes.run_moving_domain(2, time_steps, initial, initial_dof_h);
         auto *error = dynamic_cast<ErrorFlow *>(bdf1_err);
 
         std::cout << std::endl;

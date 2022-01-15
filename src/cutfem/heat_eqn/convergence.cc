@@ -20,7 +20,7 @@ void solve_for_element_order(int element_order, int max_refinement,
     HeatEqn<dim>::write_header_to_file(file);
 
     double radius = 1;
-    double half_length = 2 * radius;
+    double half_length = radius;
 
     const double nu = 2;
     const double end_time = 1;
@@ -40,6 +40,16 @@ void solve_for_element_order(int element_order, int max_refinement,
 
     MovingDomain<dim> domain(sphere_radius, half_length, radius);
     // FlowerDomain<dim> domain;
+    
+    std::ofstream meta("e-meta-d" + std::to_string(dim)
+                       + "o" + std::to_string(element_order) + ".txt");
+    meta << "Heat equation convergence test" << std::endl
+         << "==============================" << std::endl
+         << "radius = " << radius << std::endl
+         << "half_length = " << half_length << std::endl
+         << "end_time = " << end_time << std::endl
+         << "sphere_radius = " << sphere_radius << std::endl
+         << "nu = " << nu << std::endl;
 
     for (int n_refines = 3; n_refines < max_refinement + 1; ++n_refines) {
         std::cout << "\nn_refines=" << n_refines << std::endl;
@@ -56,7 +66,7 @@ void solve_for_element_order(int element_order, int max_refinement,
         HeatEqn<dim> heat(nu, tau, radius, half_length, n_refines,
                           element_order, write_output,
                           rhs, bdd, soln, domain, true, false);
-        ErrorBase *err = heat.run_moving_domain(1, 1);
+        ErrorBase *err = heat.run_moving_domain(1, 1, 2);
         auto *error = dynamic_cast<ErrorScalar *>(err);
 
         std::cout << "|| u - u_h ||_L2 = " << error->l2_error << std::endl;
@@ -71,7 +81,7 @@ void solve_for_element_order(int element_order, int max_refinement,
         std::vector<std::shared_ptr<hp::DoFHandler<dim>>> initial_dof_h = {
                 u1_dof_h};
         ErrorBase *err2 = heat.run_moving_domain(2, time_steps,
-                                                  initial, initial_dof_h);
+                                                 initial, initial_dof_h);
         auto *error2 = dynamic_cast<ErrorScalar *>(err2);
         // auto *error2 = dynamic_cast<ErrorScalar*>(err);
         // TODO hvorfor er interpolasjonsfeilen mye høyre enn faktisk numerisk feil??
