@@ -54,11 +54,12 @@ namespace examples::cut::HeatEquation {
                           LevelSet<dim> &levelset_func,
                           const bool stabilized,
                           const bool crank_nicholson,
-                          const bool compute_error)
+                          const bool compute_error, 
+                          const double beta0)
             : ScalarProblem<dim>(n_refines, element_order, write_output,
                                  levelset_func, analytical_soln, stabilized,
                                  false, compute_error),
-              nu(nu), radius(radius), half_length(half_length) {
+              nu(nu), radius(radius), half_length(half_length), beta0(beta0) {
         this->tau = tau;
         this->crank_nicholson = crank_nicholson;
 
@@ -117,11 +118,11 @@ namespace examples::cut::HeatEquation {
     pre_matrix_assembly() {
         std::cout << "Stabilisation constants set for HeatEqn." << std::endl;
         // Set the CutFEM stabilsation scalings.
-        double beta_0 = 0.5;
-        double beta_M = beta_0;
-        double beta_A = beta_0;
+        // double beta_0 = pow(10, this->element_order - 1); [Sticko et.al 2021]
+        double beta_M = this->beta0;
+        double beta_A = this->beta0;
         this->stab_scaling = beta_M + beta_A * this->tau * nu / pow(this->h, 2);
-        std::cout << "  beta_0 = " << beta_0 
+        std::cout << "  beta_0 = " << beta0
                   << ", beta_M = " << beta_M
                   << ", beta_A = " << beta_A << std::endl
                   << "  stab_scaling = " << stab_scaling << std::endl;

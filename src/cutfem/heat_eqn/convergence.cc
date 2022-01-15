@@ -4,7 +4,6 @@
 
 #include "heat_eqn.h"
 
-#include "cutfem/geometry/SignedDistanceSphere.h"
 
 using namespace cutfem;
 
@@ -30,13 +29,7 @@ void solve_for_element_order(int element_order, int max_refinement,
 
     double sphere_radius = 0.75 * radius;
     double sphere_x_coord = 0;
-    Point<dim> sphere_center;
-    if (dim == 2) {
-        sphere_center = Point<dim>(0, 0);
-    } else if (dim == 3) {
-        sphere_center = Point<dim>(0, 0, 0);
-    }
-    // cutfem::geometry::SignedDistanceSphere<dim> domain(sphere_radius, sphere_center, 1);
+    double beta0 = pow(10, element_order - 1);
 
     MovingDomain<dim> domain(sphere_radius, half_length, radius);
     // FlowerDomain<dim> domain;
@@ -49,6 +42,7 @@ void solve_for_element_order(int element_order, int max_refinement,
          << "half_length = " << half_length << std::endl
          << "end_time = " << end_time << std::endl
          << "sphere_radius = " << sphere_radius << std::endl
+         << "beta0 = " << beta0 << std::endl
          << "nu = " << nu << std::endl;
 
     for (int n_refines = 3; n_refines < max_refinement + 1; ++n_refines) {
@@ -65,7 +59,7 @@ void solve_for_element_order(int element_order, int max_refinement,
         double bdf1_tau = tau / bdf1_steps;
         HeatEqn<dim> heat(nu, tau, radius, half_length, n_refines,
                           element_order, write_output,
-                          rhs, bdd, soln, domain, true, false);
+                          rhs, bdd, soln, domain, true, false, true, beta0);
         ErrorBase *err = heat.run_moving_domain(1, 1, 2);
         auto *error = dynamic_cast<ErrorScalar *>(err);
 

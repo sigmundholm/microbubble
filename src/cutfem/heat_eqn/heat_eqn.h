@@ -57,7 +57,8 @@ namespace examples::cut::HeatEquation {
                 LevelSet<dim> &levelset_func,
                 const bool stabilized = true,
                 const bool crank_nicholson = false,
-                const bool compute_error = true);
+                const bool compute_error = true,
+                const double beta0 = 0.5);
 
         static void
         write_header_to_file(std::ofstream &file);
@@ -123,6 +124,8 @@ namespace examples::cut::HeatEquation {
 
         // Scaling constant for the CutFEM stabilisation.
         double stab_scaling = 0;
+        // Scaling constant factor
+        double beta0 = 0.5;
     };
 
 } // namespace examples::cut::HeatEquation
