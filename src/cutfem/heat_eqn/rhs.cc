@@ -70,24 +70,31 @@ namespace examples::cut::HeatEquation {
 
 
     template<int dim>
-    FlowerDomain<dim>::FlowerDomain(const double center_x,
-                                    const double center_y)
-            : center_x(center_x), center_y(center_y) {}
-
+    FlowerDomain<dim>::FlowerDomain(const double r, const double r0)
+            : r(r), r0(r0) {}
 
     template<int dim>
     double FlowerDomain<dim>::
     value(const Point<dim> &p, const unsigned int component) const {
         // Uses the domain from eq (2.122) in Gürkan–Massing (2019), for z = 0.
         (void) component;
-        double r = 0.5;
-        double r0 = 3.5;
+        double t = this->get_time();
+        double x0 = -cos(pi * t / 2);
+        double y0 = 0;
 
-        double x = p[0] - center_x;
-        double y = p[1] - center_y;
-        return sqrt(pow(x, 2) + pow(y, 2)) - r +
-               (r / r0) * cos(5 * atan2(y, x));
+        double x = p[0];
+        double y = p[1];
+        return sqrt(pow(x - x0, 2) + pow(y - y0, 2)) - r +
+               (r / r0) * cos(5 * atan2(y - y0, x - x0));
     }
+    
+    template<int dim>
+    double FlowerDomain<dim>::
+    get_speed() {
+        double t = this->get_time();
+        return abs(2 * pi * sin(pi * t / 2));
+    }
+
 
     template<int dim>
     MovingDomain<dim>::MovingDomain(const double sphere_radius,

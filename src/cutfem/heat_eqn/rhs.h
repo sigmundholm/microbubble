@@ -71,15 +71,17 @@ namespace examples::cut::HeatEquation {
     template<int dim>
     class FlowerDomain : public LevelSet<dim> {
     public :
-        FlowerDomain(const double center_x = 0,
-                     const double center_y = 0);
+        FlowerDomain(const double r, const double r0);
 
         double
         value(const Point<dim> &p, const unsigned int component) const override;
+        
+        double
+        get_speed() override;
 
     private:
-        const double center_x;
-        const double center_y;
+        const double r = 0.6; // Adjust the radius.
+        const double r0 = 3.5; // Adjusts the curvature.
     };
 
 
