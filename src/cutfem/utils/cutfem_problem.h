@@ -208,8 +208,11 @@ namespace utils::problems {
         distribute_dofs(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
                         double size_of_bound = 0);
 
-        virtual void
-        initialize_matrices();
+        void
+        initialize_stiffness_matrix();
+
+        void
+        initialize_timedep_matrix();
 
         void
         make_sparsity_pattern_for_stabilized(

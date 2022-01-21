@@ -112,7 +112,7 @@ namespace utils::problems {
         solutions.emplace_front(locally_owned_dofs, locally_relevant_dofs,
                                 mpi_communicator);
 
-        initialize_matrices();
+        initialize_stiffness_matrix();
         pre_matrix_assembly();
         {
             TimerOutput::Scope t(computing_timer, "assembly");
@@ -183,14 +183,12 @@ namespace utils::problems {
             solutions.emplace_front(locally_owned_dofs, locally_relevant_dofs, 
                                     mpi_communicator);
             if (k == 1) {
-                initialize_matrices();
+                initialize_stiffness_matrix();
                 pre_matrix_assembly();
                 assemble_matrix();
             }
             if (!stationary_stiffness_matrix) {
-                // timedep_stiffness_matrix.reinit(sparsity_pattern);
-                // TODO fix
-                assert(false);
+                initialize_timedep_matrix();
                 assemble_timedep_matrix();
             }
 
@@ -327,14 +325,12 @@ namespace utils::problems {
                 // matrix that is dependent on previous solutions.
 
                 // Assemble the stiffness matrix
-                initialize_matrices();
+                initialize_stiffness_matrix();
                 pre_matrix_assembly();
                 assemble_matrix();
             }
             if (!stationary_stiffness_matrix) {
-                // TODO fix
-                //  timedep_stiffness_matrix.reinit(sparsity_pattern);
-                assert(false);
+                initialize_timedep_matrix();
                 assemble_timedep_matrix();
             }
 
@@ -438,7 +434,7 @@ namespace utils::problems {
         DoFTools::extract_locally_relevant_dofs(*dof_handlers.front(), 
                                                 locally_relevant_dofs);
 
-        initialize_matrices();
+        initialize_stiffness_matrix();
 
         // Vector for the computed error for each time step.
         std::vector<ErrorBase *> errors(steps + 1);
@@ -490,10 +486,15 @@ namespace utils::problems {
 
             // Reinitialize the matrices and vectors after the number of dofs
             // was updated.
-            initialize_matrices();
+            initialize_stiffness_matrix();
 
             pre_matrix_assembly();
             assemble_matrix();
+
+            // Note since the domain is moving, the whole stiffness matrix has
+            // to be assembled each time step.
+            if (!stationary_stiffness_matrix) 
+                assemble_timedep_matrix();
             assemble_rhs(k);
 
             solve();
@@ -853,7 +854,7 @@ namespace utils::problems {
 
     template<int dim>
     void CutFEMProblem<dim>::
-    initialize_matrices() {
+    initialize_stiffness_matrix() {
         pcout << "Initialize marices" << std::endl;
         TimerOutput::Scope t(computing_timer, "initialize matrices");
         
@@ -866,12 +867,24 @@ namespace utils::problems {
                                 locally_owned_dofs, 
                                 dsp, 
                                 mpi_communicator);
-        if (!stationary_stiffness_matrix) {
-            timedep_stiffness_matrix.reinit(locally_owned_dofs,
-                                            locally_owned_dofs, 
-                                            dsp,
-                                            mpi_communicator);
-        }
+    }
+
+
+    template<int dim>
+    void CutFEMProblem<dim>::
+    initialize_timedep_matrix() {
+        pcout << "Initialize timedep marix" << std::endl;
+        TimerOutput::Scope t(computing_timer, "initialize timedep matrix");
+        
+        DynamicSparsityPattern dsp(locally_relevant_dofs);
+        make_sparsity_pattern_for_stabilized(dsp, 
+                                             *dof_handlers.front());
+        // TODO we dont need the same sparsity pattern for 
+        // timedep_stiffness_matrix, since it is not stabilized.
+        timedep_stiffness_matrix.reinit(locally_owned_dofs,
+                                        locally_owned_dofs, 
+                                        dsp,
+                                        mpi_communicator);
     }
 
 
@@ -1047,17 +1060,26 @@ namespace utils::problems {
             solver.solve(stiffness_matrix, completely_distributed_solution, rhs);
             solutions.front() = completely_distributed_solution;
         } else {
-            // TODO fix for Navier-Stokes
-            assert(false);
-            /*
-            SparseDirectUMFPACK inverse;
-            SparseMatrix<double> timedep;
-            timedep.reinit(sparsity_pattern);
+            DynamicSparsityPattern dsp(locally_relevant_dofs);
+            make_sparsity_pattern_for_stabilized(dsp, 
+                                                 *dof_handlers.front());
+            LA::MPI::SparseMatrix timedep;
+            timedep.reinit(locally_owned_dofs, 
+                           locally_owned_dofs, 
+                           dsp, 
+                           mpi_communicator);
+
             timedep.copy_from(stiffness_matrix);
             timedep.add(1, timedep_stiffness_matrix);
-            inverse.initialize(timedep);
-            inverse.vmult(solutions.front(), rhs);
-            */
+            
+            SolverControl cn;
+            PETScWrappers::SparseDirectMUMPS solver(cn, mpi_communicator);
+            solver.set_symmetric_mode(false);
+            LA::MPI::Vector completely_distributed_solution(locally_owned_dofs,
+                                                            mpi_communicator);
+            solver.solve(timedep, completely_distributed_solution, rhs);
+            solutions.front() = completely_distributed_solution;
+
         }
 
         pcout << "   Number of active cells:       "
