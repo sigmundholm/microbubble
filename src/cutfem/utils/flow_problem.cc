@@ -55,6 +55,8 @@ namespace utils::problems::flow {
     void FlowProblem<dim>::
     interpolate_solution(std::shared_ptr<hp::DoFHandler<dim>> &dof_handler,
                          int time_step) {
+        LA::MPI::Vector distributed_interpolation(this->locally_owned_dofs,
+                                                  this->mpi_communicator);
         if (time_step == 0) {
             // Use the boundary_values as initial values. Interpolate the
             // boundary_values function into the finite element space.
@@ -62,13 +64,14 @@ namespace utils::problems::flow {
             Utils::AnalyticalSolutionWrapper<dim> wrapper(*boundary_values,
                                                           *analytical_pressure);
             VectorTools::interpolate(*dof_handler, wrapper,
-                                     this->solutions.front());
+                                     distributed_interpolation);
         } else {
             Utils::AnalyticalSolutionWrapper<dim> wrapper(*analytical_velocity,
                                                           *analytical_pressure);
             VectorTools::interpolate(*dof_handler, wrapper,
-                                     this->solutions.front());
+                                     distributed_interpolation);
         }
+        this->solutions.front() = distributed_interpolation;
     }
 
 
@@ -508,6 +511,8 @@ namespace utils::problems::flow {
 
 
         if (!minimal_output) {
+            // TODO fiks
+            /*
             std::ofstream output_ex("analytical-d" + std::to_string(dim)
                                     + "o" + std::to_string(this->element_order)
                                     + "r" + std::to_string(this->n_refines)
@@ -517,8 +522,6 @@ namespace utils::problems::flow {
                                     + "r" + std::to_string(this->n_refines)
                                     + "-" + ".vtk");
             
-            // TODO fiks
-            /*
             Utils::writeAnalyticalSolutionAndDiff(*dof_handler,
                                                   this->fe_collection,
                                                   solution,
