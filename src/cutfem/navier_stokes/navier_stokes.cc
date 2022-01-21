@@ -740,9 +740,15 @@ namespace examples::cut::NavierStokes {
                 }
             }
         }
-        // TODO sum coorectly for MPI
-        Tensor<1, dim> surface_forces = viscous_forces + pressure_forces;
-        return surface_forces;
+        // Sum the computated values over all mpi processes.
+        Tensor<1, dim> total_viscous_forces 
+                = Utilities::MPI::sum(viscous_forces, this->mpi_communicator);
+        Tensor<1, dim> total_pressure_forces 
+                = Utilities::MPI::sum(pressure_forces, this->mpi_communicator);
+
+        Tensor<1, dim> total_surface_forces = total_viscous_forces 
+                                               + total_pressure_forces;
+        return total_surface_forces;
     }
 
 

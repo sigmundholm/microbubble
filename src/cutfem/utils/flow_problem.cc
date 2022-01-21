@@ -291,19 +291,25 @@ namespace utils::problems::flow {
                                mean_ext_pressure);
             }
         }
-        // TODO fix for MPI.
+        // Syncronise the erro integral sums accross all processes.
+        double total_u_l2 = Utilities::MPI::sum(l2_error_integral_u, 
+                                                this->mpi_communicator);
+        double total_u_h1 = Utilities::MPI::sum(h1_error_integral_u, 
+                                                this->mpi_communicator);
+        double total_p_l2 = Utilities::MPI::sum(l2_error_integral_p, 
+                                                this->mpi_communicator);
+        double total_p_h1 = Utilities::MPI::sum(h1_error_integral_p, 
+                                                this->mpi_communicator);
 
         ErrorFlow *error = new ErrorFlow();
         error->h = this->h;
         error->tau = this->tau;
-        error->l2_error_u = pow(l2_error_integral_u, 0.5);
-        error->h1_error_u = pow(l2_error_integral_u + h1_error_integral_u,
-                                0.5);
-        error->h1_semi_u = pow(h1_error_integral_u, 0.5);
-        error->l2_error_p = pow(l2_error_integral_p, 0.5);
-        error->h1_error_p = pow(l2_error_integral_p + h1_error_integral_p,
-                                0.5);
-        error->h1_semi_p = pow(h1_error_integral_p, 0.5);
+        error->l2_error_u = pow(total_u_l2, 0.5);
+        error->h1_error_u = pow(total_u_l2 + total_u_h1, 0.5);
+        error->h1_semi_u = pow(total_u_h1, 0.5);
+        error->l2_error_p = pow(total_p_l2, 0.5);
+        error->h1_error_p = pow(total_p_l2 + total_p_h1, 0.5);
+        error->h1_semi_p = pow(total_p_h1, 0.5);
         return error;
     }
 
